@@ -13,9 +13,8 @@ import {
     SubChecklistSupplier,
     AuditForm,
     //new asf - ev
-    Auditor,
+    Package,
     //new VMS
-    ChecklistAudit,
     ChecklistSupplier,
     Staff,
     Department,
@@ -42,6 +41,7 @@ import {
     PdfSubAuditChecklistImages,
     AuditReportPdf,
     AuditorReport,
+    Vehicle,
 } from './Route_Menu';
 import path from 'path';
 
@@ -242,8 +242,8 @@ const routes = [
     },
     //new asf ev
     {
-        path: '/master/auditor',
-        element: <Auditor />,
+        path: '/master/package',
+        element: <Package />,
     },
     {
         path: '/audit/external-provider/form',
@@ -254,8 +254,8 @@ const routes = [
         element: <SubChecklistAudit />,
     },
     {
-        path: '/master/checklist-audit',
-        element: <ChecklistAudit />,
+        path: '/master/vehicle',
+        element: <Vehicle />,
     },
     {
         path: '/master/sub-checklist-supplier',
