@@ -7,7 +7,6 @@ import Table from '../../../util/Table';
 import Tippy from '@tippyjs/react';
 import { findArrObj, showMessage } from '../../../util/AllFunction';
 import { getEmployee, createEmployee, updateEmployee, deleteEmployee, resetEmployeeStatus } from '../../../redux/employeeSlice';
-import { getDesignationApi } from '../../../api/DesignationApi';
 import { getRolesApi } from '../../../api/RoleApi';
 import _ from 'lodash';
 import Select from 'react-select';
@@ -33,11 +32,13 @@ const Employees = () => {
         addressI: '',
         pincode: '',
         roleId: '',
-        designationId: '',
         licenceNumber: '',
         licenceFile: null,
         salary: '',
         isAuthenticated: false,
+        isDriver: false,
+        hasSalary: false,
+        isLoadman: false,
         username: '',
         password: '',
     });
@@ -46,27 +47,13 @@ const Employees = () => {
     const [selectedItem, setSelectedItem] = useState(null);
     const [roles, setRoles] = useState([]);
     const [showPassword, setShowPassword] = useState(false);
-    const [designations, setDesignations] = useState([]);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [licencePreview, setLicencePreview] = useState(null);
 
     // React Select options
     const [roleOptions, setRoleOptions] = useState([]);
-    const [designationOptions, setDesignationOptions] = useState([]);
     
-    // Check if selected designation is "Driver"
-    const isDriverDesignation = () => {
-        const selectedDesignation = designations.find(d => d.designationId === state.designationId);
-        return selectedDesignation?.designationName?.toLowerCase() === 'driver';
-    };
-    
-    // Check if selected designation is "Loadman"
-    const isLoadmanDesignation = () => {
-        const selectedDesignation = designations.find(d => d.designationId === state.designationId);
-        return selectedDesignation?.designationName?.toLowerCase() === 'loadman';
-    };
-
     useEffect(() => {
         dispatch(setPageTitle('Employee Management'));
         fetchInitialData();
@@ -110,27 +97,17 @@ const Employees = () => {
     const fetchDropdownData = async () => {
         try {
             const rolesResponse = await getRolesApi();
-            const designationsResponse = await getDesignationApi();
-
-            const designationsData = designationsResponse?.data || [];
             const rolesData = rolesResponse?.data || [];
 
             setRoles(rolesData);
-            setDesignations(designationsData);
 
             // Prepare React Select options
             const roleSelectOptions = rolesData.map((role) => ({
                 value: role.roleId,
                 label: role.roleName
             }));
-            
-            const designationSelectOptions = designationsData.map((designation) => ({
-                value: designation.designationId,
-                label: designation.designationName
-            }));
 
             setRoleOptions(roleSelectOptions);
-            setDesignationOptions(designationSelectOptions);
         } catch (error) {
             console.error('Error fetching dropdown data:', error);
             showMessage('error', 'Failed to load dropdown options');
@@ -181,7 +158,11 @@ const Employees = () => {
         { Header: 'Name', accessor: 'employeeName' },
         { Header: 'Mobile No', accessor: 'mobileNo' },
         { Header: 'Role', accessor: 'roleName' },
-        { Header: 'Designation', accessor: 'designationName' },
+        { 
+            Header: 'Driver', 
+            accessor: 'isDriver',
+            Cell: ({ value }) => value ? 'Yes' : 'No'
+        },
         { 
             Header: 'Licence No', 
             accessor: 'licenceNumber',
@@ -191,6 +172,26 @@ const Employees = () => {
             Header: 'Salary', 
             accessor: 'salary', 
             Cell: ({ value }) => value ? `₹${value}` : '-'
+        },
+        { 
+            Header: 'Has Salary', 
+            accessor: 'hasSalary',
+            Cell: ({ value }) => value ? 'Yes' : 'No'
+        },
+        { 
+            Header: 'Loadman', 
+            accessor: 'isLoadman',
+            Cell: ({ value }) => value ? 'Yes' : 'No'
+        },
+        { 
+            Header: 'Authenticated', 
+            accessor: 'isAuthenticated',
+            Cell: ({ value }) => value ? 'Yes' : 'No'
+        },
+        { 
+            Header: 'Username', 
+            accessor: 'userName',
+            Cell: ({ value }) => value || '-'
         },
         roleIdforRole === 'Super Admin'
             ? {
@@ -225,11 +226,13 @@ const Employees = () => {
             addressI: '',
             pincode: '',
             roleId: '',
-            designationId: '',
             licenceNumber: '',
             licenceFile: null,
             salary: '',
             isAuthenticated: false,
+            isDriver: false,
+            hasSalary: false,
+            isLoadman: false,
             username: '',
             password: '',
         });
@@ -254,11 +257,13 @@ const Employees = () => {
             addressI: data.addressI || '',
             pincode: data.pincode || '',
             roleId: data.roleId || '',
-            designationId: data.designationId || '',
             licenceNumber: data.licenceNumber || '',
             licenceFile: null,
             salary: data.salary || '',
             isAuthenticated: data.isAuthenticated || false,
+            isDriver: data.isDriver || false,
+            hasSalary: data.hasSalary || false,
+            isLoadman: data.isLoadman || false,
             username: data.userName || '',
             password: '',
         });
@@ -277,24 +282,23 @@ const Employees = () => {
         if (!state.employeeName) newErrors.employeeName = 'Employee name is required';
         if (!state.mobileNo) newErrors.mobileNo = 'Mobile number is required';
         
-        // Only validate role for non-loadman designations
-        if (!isLoadmanDesignation() && !state.roleId) {
-            newErrors.roleId = 'Role is required';
+        // Validation based on toggles
+        if (state.isAuthenticated && !state.roleId) {
+            newErrors.roleId = 'Role is required when authentication is enabled';
         }
         
-        if (!state.designationId) newErrors.designationId = 'Designation is required';
-        
-        // Validate licence number for driver
-        if (isDriverDesignation() && !state.licenceNumber) {
+        // Validate driver fields if isDriver is true
+        if (state.isDriver && !state.licenceNumber) {
             newErrors.licenceNumber = 'Licence number is required for driver';
         }
         
-        // Validate salary for non-loadman designations
-        if (!isLoadmanDesignation() && !state.salary) {
-            newErrors.salary = 'Salary is required';
+        // Validate salary if hasSalary is true
+        if (state.hasSalary && !state.salary) {
+            newErrors.salary = 'Salary is required when Has Salary is enabled';
         }
         
-        if (!isLoadmanDesignation() && state.isAuthenticated) {
+        // Validate authentication fields if isAuthenticated is true
+        if (state.isAuthenticated) {
             if (!state.username) newErrors.username = 'Username is required when authentication is enabled';
             if (!state.password && !isEdit) newErrors.password = 'Password is required when authentication is enabled';
         }
@@ -312,30 +316,34 @@ const Employees = () => {
         formData.append('mobileNo', state.mobileNo);
         formData.append('addressI', state.addressI);
         formData.append('pincode', state.pincode);
-        formData.append('designationId', state.designationId);
-        formData.append('salary', parseFloat(state.salary) || 0);
+        formData.append('isDriver', state.isDriver ? 1 : 0);
+        formData.append('hasSalary', state.hasSalary ? 1 : 0);
+        formData.append('isLoadman', state.isLoadman ? 1 : 0);
         
-        // Only add role for non-loadman
-        if (!isLoadmanDesignation()) {
+        // Add salary only if hasSalary is true
+        if (state.hasSalary) {
+            formData.append('salary', parseFloat(state.salary) || 0);
+        }
+        
+        // Add role only if authenticated
+        if (state.isAuthenticated) {
             formData.append('roleId', state.roleId);
         }
         
         // Add driver-specific fields
-        if (isDriverDesignation()) {
+        if (state.isDriver) {
             formData.append('licenceNumber', state.licenceNumber);
             if (state.licenceFile) {
                 formData.append('licenceFile', state.licenceFile);
             }
         }
         
-        // Add authentication fields for non-loadman
-        if (!isLoadmanDesignation()) {
-            formData.append('isAuthenticated', state.isAuthenticated ? 1 : 0);
-            if (state.isAuthenticated) {
-                formData.append('username', state.username);
-                if (state.password) {
-                    formData.append('password', state.password);
-                }
+        // Add authentication fields
+        formData.append('isAuthenticated', state.isAuthenticated ? 1 : 0);
+        if (state.isAuthenticated) {
+            formData.append('username', state.username);
+            if (state.password) {
+                formData.append('password', state.password);
             }
         }
 
@@ -395,23 +403,42 @@ const Employees = () => {
                 };
                 reader.readAsDataURL(file);
             }
+        } else if (type === 'checkbox') {
+            setState((prev) => {
+                const updatedState = {
+                    ...prev,
+                    [name]: checked,
+                };
+                
+                // Handle toggle dependencies
+                if (name === 'isAuthenticated') {
+                    if (!checked) {
+                        // When authentication is disabled, clear role
+                        updatedState.roleId = '';
+                        updatedState.username = '';
+                        updatedState.password = '';
+                    }
+                }
+                
+                if (name === 'isDriver' && !checked) {
+                    // When driver is disabled, clear driver-specific fields
+                    updatedState.licenceNumber = '';
+                    updatedState.licenceFile = null;
+                }
+                
+                if (name === 'hasSalary' && !checked) {
+                    // When hasSalary is disabled, clear salary
+                    updatedState.salary = '';
+                }
+                
+                return updatedState;
+            });
         } else {
             setState((prev) => ({
                 ...prev,
-                [name]: type === 'checkbox' ? checked : (type === 'number' ? parseFloat(value) : value),
+                [name]: type === 'number' ? parseFloat(value) : value,
             }));
         }
-    };
-
-    // Handle authentication toggle
-    const handleToggleAuthentication = (e) => {
-        const checked = e.target.checked;
-        setState(prev => ({
-            ...prev,
-            isAuthenticated: checked,
-            // Clear username and password when turning off
-            ...(checked ? {} : { username: '', password: '' })
-        }));
     };
 
     // Handle React Select change
@@ -420,20 +447,6 @@ const Employees = () => {
             ...prev,
             [name]: selectedOption ? selectedOption.value : '',
         }));
-        
-        // Reset dependent fields when designation changes
-        if (name === 'designationId') {
-            // Reset authentication for loadman
-            if (selectedOption && designations.find(d => d.designationId === selectedOption.value)?.designationName?.toLowerCase() === 'loadman') {
-                setState(prev => ({
-                    ...prev,
-                    isAuthenticated: false,
-                    username: '',
-                    password: '',
-                    roleId: '',
-                }));
-            }
-        }
     };
 
     // Get selected value for React Select
@@ -472,40 +485,7 @@ const Employees = () => {
                     
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {/* Designation Field */}
-                            <div>
-                                <label>Designation <span className="text-danger">*</span></label>
-                                <Select
-                                    name="designationId"
-                                    options={designationOptions}
-                                    value={getSelectedValue(designationOptions, state.designationId)}
-                                    onChange={(selectedOption) => handleSelectChange(selectedOption, { name: 'designationId' })}
-                                    placeholder="Select Designation"
-                                    isClearable
-                                    className="react-select"
-                                    classNamePrefix="select"
-                                />
-                                {errors.designationId && <div className="text-danger mt-1 text-sm">{errors.designationId}</div>}
-                            </div>
-
-                            {/* Role Field - Only show for non-loadman */}
-                            {!isLoadmanDesignation() && (
-                                <div>
-                                    <label>Role <span className="text-danger">*</span></label>
-                                    <Select
-                                        name="roleId"
-                                        options={roleOptions}
-                                        value={getSelectedValue(roleOptions, state.roleId)}
-                                        onChange={(selectedOption) => handleSelectChange(selectedOption, { name: 'roleId' })}
-                                        placeholder="Select Role"
-                                        isClearable
-                                        className="react-select"
-                                        classNamePrefix="select"
-                                    />
-                                    {errors.roleId && <div className="text-danger mt-1 text-sm">{errors.roleId}</div>}
-                                </div>
-                            )}
-
+                            {/* Default Fields */}
                             <div>
                                 <label>Name <span className="text-danger">*</span></label>
                                 <input 
@@ -534,78 +514,6 @@ const Employees = () => {
                                 {errors.mobileNo && <div className="text-danger text-sm mt-1">{errors.mobileNo}</div>}
                             </div>
 
-                            {/* Salary Field - Only show for non-loadman */}
-                            {!isLoadmanDesignation() && (
-                                <div>
-                                    <label>Salary <span className="text-danger">*</span></label>
-                                    <input 
-                                        type="number" 
-                                        name="salary" 
-                                        value={state.salary} 
-                                        onChange={handleChange} 
-                                        placeholder="Enter Salary Amount" 
-                                        className="form-input" 
-                                        min="0"
-                                        step="0.01"
-                                    />
-                                    {errors.salary && <div className="text-danger text-sm mt-1">{errors.salary}</div>}
-                                </div>
-                            )}
-
-                            {/* Driver-specific fields */}
-                            {isDriverDesignation() && (
-                                <>
-                                    <div>
-                                        <label>Licence Number <span className="text-danger">*</span></label>
-                                        <input 
-                                            type="text" 
-                                            name="licenceNumber" 
-                                            value={state.licenceNumber} 
-                                            onChange={handleChange} 
-                                            placeholder="Enter Licence Number" 
-                                            className="form-input" 
-                                        />
-                                        {errors.licenceNumber && <div className="text-danger text-sm mt-1">{errors.licenceNumber}</div>}
-                                    </div>
-
-                                    <div className="lg:col-span-3">
-                                        <label>Licence Upload</label>
-                                        <div className="mt-1">
-                                            <input 
-                                                type="file" 
-                                                name="licenceFile" 
-                                                onChange={handleChange} 
-                                                accept="image/*"
-                                                className="form-input"
-                                            />
-                                            <p className="text-xs text-gray-500 mt-1">Upload Licence image (JPG, PNG, GIF, WebP only)</p>
-                                            {errors.licenceFile && <div className="text-danger text-sm mt-1">{errors.licenceFile}</div>}
-                                        </div>
-                                        
-                                        {/* Licence Preview */}
-                                        {licencePreview && (
-                                            <div className="mt-4 relative">
-                                                <p className="text-sm font-medium mb-2">Preview:</p>
-                                                <div className="relative inline-block">
-                                                    <img 
-                                                        src={licencePreview} 
-                                                        alt="Licence Preview" 
-                                                        className="max-w-full h-auto max-h-48 rounded border object-contain"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleRemoveLicence}
-                                                        className="absolute -top-2 -right-2 bg-danger text-white rounded-full p-1 hover:bg-red-700"
-                                                    >
-                                                        <IconX className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-
                             <div className="lg:col-span-3">
                                 <label>Address</label>
                                 <textarea 
@@ -632,64 +540,198 @@ const Employees = () => {
                                 />
                             </div>
 
-                            {/* Authentication Toggle - Only for non-loadman */}
-                            {!isLoadmanDesignation() && (
-                                <div className="lg:col-span-3">
-                                    <label className="flex items-center space-x-2 cursor-pointer">
+                            {/* Toggle Fields Section */}
+                            <div className="lg:col-span-3 border-t pt-4 mt-2">
+                                <h6 className="font-semibold text-base mb-4">Toggle Options</h6>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {/* Is Authenticated Toggle */}
+                                    <div className="flex items-center space-x-2">
                                         <input 
                                             type="checkbox" 
                                             name="isAuthenticated"
                                             checked={state.isAuthenticated}
-                                            onChange={handleToggleAuthentication}
+                                            onChange={handleChange}
                                             className="form-checkbox h-5 w-5 text-primary rounded"
                                         />
-                                        <span className="text-sm font-medium">Enable Authentication</span>
-                                    </label>
-                                </div>
-                            )}
+                                        <label className="text-sm font-medium">Is Authenticated</label>
+                                    </div>
 
-                            {/* Authentication Fields - Only show when enabled and for non-loadman */}
-                            {!isLoadmanDesignation() && state.isAuthenticated && (
-                                <>
-                                    <div>
-                                        <label>Username <span className="text-danger">*</span></label>
+                                    {/* Is Driver Toggle */}
+                                    <div className="flex items-center space-x-2">
                                         <input 
-                                            type="text" 
-                                            name="username" 
-                                            value={state.username} 
-                                            onChange={handleChange} 
-                                            placeholder="Enter Username" 
-                                            className="form-input" 
+                                            type="checkbox" 
+                                            name="isDriver"
+                                            checked={state.isDriver}
+                                            onChange={handleChange}
+                                            className="form-checkbox h-5 w-5 text-primary rounded"
                                         />
-                                        {errors.username && <div className="text-danger text-sm mt-1">{errors.username}</div>}
+                                        <label className="text-sm font-medium">Is Driver</label>
                                     </div>
 
-                                    <div>
-                                        <label>
-                                            {isEdit ? 'New Password (Leave blank to keep current)' : 'Password'} 
-                                            {!isEdit && <span className="text-danger">*</span>}
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type={showPassword ? 'text' : 'password'}
-                                                name="password"
-                                                value={state.password}
-                                                onChange={handleChange}
-                                                placeholder={isEdit ? "Enter new password or leave blank" : "Enter Password"}
-                                                className="form-input pr-10"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowPassword((prev) => !prev)}
-                                                className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
-                                            >
-                                                {showPassword ? 'Hide' : 'Show'}
-                                            </button>
-                                        </div>
-                                        {errors.password && <div className="text-danger text-sm mt-1">{errors.password}</div>}
+                                    {/* Has Salary Toggle */}
+                                    <div className="flex items-center space-x-2">
+                                        <input 
+                                            type="checkbox" 
+                                            name="hasSalary"
+                                            checked={state.hasSalary}
+                                            onChange={handleChange}
+                                            className="form-checkbox h-5 w-5 text-primary rounded"
+                                        />
+                                        <label className="text-sm font-medium">Has Salary</label>
                                     </div>
-                                </>
-                            )}
+
+                                    {/* Is Loadman Toggle */}
+                                    <div className="flex items-center space-x-2">
+                                        <input 
+                                            type="checkbox" 
+                                            name="isLoadman"
+                                            checked={state.isLoadman}
+                                            onChange={handleChange}
+                                            className="form-checkbox h-5 w-5 text-primary rounded"
+                                        />
+                                        <label className="text-sm font-medium">Is Loadman</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Conditional Fields Based on Toggles */}
+                            <div className="lg:col-span-3 border-t pt-4 mt-2">
+                                <h6 className="font-semibold text-base mb-4">Additional Information</h6>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {/* Role Field - Only show if Is Authenticated is enabled */}
+                                    {state.isAuthenticated && (
+                                        <div>
+                                            <label>Role <span className="text-danger">*</span></label>
+                                            <Select
+                                                name="roleId"
+                                                options={roleOptions}
+                                                value={getSelectedValue(roleOptions, state.roleId)}
+                                                onChange={(selectedOption) => handleSelectChange(selectedOption, { name: 'roleId' })}
+                                                placeholder="Select Role"
+                                                isClearable
+                                                className="react-select"
+                                                classNamePrefix="select"
+                                            />
+                                            {errors.roleId && <div className="text-danger mt-1 text-sm">{errors.roleId}</div>}
+                                        </div>
+                                    )}
+
+                                    {/* Salary Field - Only show if Has Salary is enabled */}
+                                    {state.hasSalary && (
+                                        <div>
+                                            <label>Salary <span className="text-danger">*</span></label>
+                                            <input 
+                                                type="number" 
+                                                name="salary" 
+                                                value={state.salary} 
+                                                onChange={handleChange} 
+                                                placeholder="Enter Salary Amount" 
+                                                className="form-input" 
+                                                min="0"
+                                                step="0.01"
+                                            />
+                                            {errors.salary && <div className="text-danger text-sm mt-1">{errors.salary}</div>}
+                                        </div>
+                                    )}
+
+                                    {/* Driver-specific fields */}
+                                    {state.isDriver && (
+                                        <>
+                                            <div>
+                                                <label>Licence Number <span className="text-danger">*</span></label>
+                                                <input 
+                                                    type="text" 
+                                                    name="licenceNumber" 
+                                                    value={state.licenceNumber} 
+                                                    onChange={handleChange} 
+                                                    placeholder="Enter Licence Number" 
+                                                    className="form-input" 
+                                                />
+                                                {errors.licenceNumber && <div className="text-danger text-sm mt-1">{errors.licenceNumber}</div>}
+                                            </div>
+
+                                            <div className="lg:col-span-3">
+                                                <label>Licence Upload</label>
+                                                <div className="mt-1">
+                                                    <input 
+                                                        type="file" 
+                                                        name="licenceFile" 
+                                                        onChange={handleChange} 
+                                                        accept="image/*"
+                                                        className="form-input"
+                                                    />
+                                                    <p className="text-xs text-gray-500 mt-1">Upload Licence image (JPG, PNG, GIF, WebP only)</p>
+                                                    {errors.licenceFile && <div className="text-danger text-sm mt-1">{errors.licenceFile}</div>}
+                                                </div>
+                                                
+                                                {/* Licence Preview */}
+                                                {licencePreview && (
+                                                    <div className="mt-4 relative">
+                                                        <p className="text-sm font-medium mb-2">Preview:</p>
+                                                        <div className="relative inline-block">
+                                                            <img 
+                                                                src={licencePreview} 
+                                                                alt="Licence Preview" 
+                                                                className="max-w-full h-auto max-h-48 rounded border object-contain"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={handleRemoveLicence}
+                                                                className="absolute -top-2 -right-2 bg-danger text-white rounded-full p-1 hover:bg-red-700"
+                                                            >
+                                                                <IconX className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Authentication Fields - Only show when enabled */}
+                                    {state.isAuthenticated && (
+                                        <>
+                                            <div>
+                                                <label>Username <span className="text-danger">*</span></label>
+                                                <input 
+                                                    type="text" 
+                                                    name="username" 
+                                                    value={state.username} 
+                                                    onChange={handleChange} 
+                                                    placeholder="Enter Username" 
+                                                    className="form-input" 
+                                                />
+                                                {errors.username && <div className="text-danger text-sm mt-1">{errors.username}</div>}
+                                            </div>
+
+                                            <div>
+                                                <label>
+                                                    {isEdit ? 'New Password (Leave blank to keep current)' : 'Password'} 
+                                                    {!isEdit && <span className="text-danger">*</span>}
+                                                </label>
+                                                <div className="relative">
+                                                    <input
+                                                        type={showPassword ? 'text' : 'password'}
+                                                        name="password"
+                                                        value={state.password}
+                                                        onChange={handleChange}
+                                                        placeholder={isEdit ? "Enter new password or leave blank" : "Enter Password"}
+                                                        className="form-input pr-10"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPassword((prev) => !prev)}
+                                                        className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700"
+                                                    >
+                                                        {showPassword ? 'Hide' : 'Show'}
+                                                    </button>
+                                                </div>
+                                                {errors.password && <div className="text-danger text-sm mt-1">{errors.password}</div>}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
                         {/* Form Actions */}
