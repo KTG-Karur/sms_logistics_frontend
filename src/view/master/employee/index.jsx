@@ -188,11 +188,6 @@ const Employees = () => {
             accessor: 'isAuthenticated',
             Cell: ({ value }) => value ? 'Yes' : 'No'
         },
-        { 
-            Header: 'Username', 
-            accessor: 'userName',
-            Cell: ({ value }) => value || '-'
-        },
         roleIdforRole === 'Super Admin'
             ? {
                   Header: 'Actions',

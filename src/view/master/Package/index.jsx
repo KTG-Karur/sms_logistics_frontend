@@ -16,7 +16,7 @@ const PackageTypes = () => {
     const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
-    
+
     // Dummy data for package types (Prices for load men)
     const dummyData = [
         { id: 1, packageName: 'Big Bag', pickupPrice: 50, dropPrice: 70 },
@@ -67,14 +67,12 @@ const PackageTypes = () => {
 
     const getPaginatedData = () => {
         let filteredData = packageList;
-        
+
         // Apply search filter
         if (searchTerm) {
-            filteredData = filteredData.filter(pkg => 
-                pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
         }
-        
+
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
         return filteredData.slice(startIndex, endIndex);
@@ -82,13 +80,11 @@ const PackageTypes = () => {
 
     const getTotalCount = () => {
         let filteredData = packageList;
-        
+
         if (searchTerm) {
-            filteredData = filteredData.filter(pkg => 
-                pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
         }
-        
+
         return filteredData.length;
     };
 
@@ -98,29 +94,21 @@ const PackageTypes = () => {
     };
 
     const columns = [
-        { 
-            Header: '#', 
-            accessor: 'id', 
-            Cell: (row) => (
-                <div className="font-medium text-gray-600">
-                    {(currentPage * pageSize) + row.row.index + 1}
-                </div>
-            ),
+        {
+            Header: '#',
+            accessor: 'id',
+            Cell: (row) => <div className="font-medium text-gray-600">{currentPage * pageSize + row.row.index + 1}</div>,
             width: 70,
-            className: 'text-center'
+            className: 'text-center',
         },
-        { 
-            Header: 'Package Name', 
+        {
+            Header: 'Package Name',
             accessor: 'packageName',
-            Cell: ({ value }) => (
-                <div className="font-medium text-gray-800">
-                    {value}
-                </div>
-            ),
-            sort: true 
+            Cell: ({ value }) => <div className="font-medium text-gray-800">{value}</div>,
+            sort: true,
         },
-        { 
-            Header: 'Pickup Price', 
+        {
+            Header: 'Pickup Price',
             accessor: 'pickupPrice',
             Cell: ({ value }) => (
                 <div className="flex items-center">
@@ -129,10 +117,10 @@ const PackageTypes = () => {
                 </div>
             ),
             sort: true,
-            className: 'text-center'
+            className: 'text-center',
         },
-        { 
-            Header: 'Drop Price', 
+        {
+            Header: 'Drop Price',
             accessor: 'dropPrice',
             Cell: ({ value }) => (
                 <div className="flex items-center">
@@ -141,7 +129,7 @@ const PackageTypes = () => {
                 </div>
             ),
             sort: true,
-            className: 'text-center'
+            className: 'text-center',
         },
         roleIdforRole === 'Super Admin'
             ? {
@@ -150,11 +138,7 @@ const PackageTypes = () => {
                   Cell: ({ row }) => (
                       <div className="flex items-center justify-center space-x-2">
                           <Tippy content="Edit">
-                              <button
-                                  type="button"
-                                  onClick={() => onEditForm(row.original)}
-                                  className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200"
-                              >
+                              <button type="button" onClick={() => onEditForm(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200">
                                   <IconPencil className="w-4 h-4" />
                               </button>
                           </Tippy>
@@ -170,7 +154,7 @@ const PackageTypes = () => {
                       </div>
                   ),
                   width: 120,
-                  className: 'text-center'
+                  className: 'text-center',
               }
             : null,
     ].filter(Boolean);
@@ -210,75 +194,68 @@ const PackageTypes = () => {
 
     const validateForm = () => {
         const newErrors = {};
-        
+
         if (!state.packageName.trim()) {
             newErrors.packageName = 'Package name is required';
         } else if (state.packageName.trim().length < 2) {
             newErrors.packageName = 'Package name must be at least 2 characters';
         }
-        
+
         if (!state.pickupPrice) {
             newErrors.pickupPrice = 'Pickup price is required';
         } else if (isNaN(state.pickupPrice) || parseFloat(state.pickupPrice) <= 0) {
             newErrors.pickupPrice = 'Pickup price must be a valid positive number';
         }
-        
+
         if (!state.dropPrice) {
             newErrors.dropPrice = 'Drop price is required';
         } else if (isNaN(state.dropPrice) || parseFloat(state.dropPrice) <= 0) {
             newErrors.dropPrice = 'Drop price must be a valid positive number';
         }
-        
+
         // Check for duplicate package name (excluding current item in edit mode)
-        const duplicatePackage = packageList.find(pkg => 
-            pkg.packageName.toLowerCase() === state.packageName.toLowerCase() && 
-            (!isEdit || pkg.id !== selectedItem?.id)
-        );
-        
+        const duplicatePackage = packageList.find((pkg) => pkg.packageName.toLowerCase() === state.packageName.toLowerCase() && (!isEdit || pkg.id !== selectedItem?.id));
+
         if (duplicatePackage) {
             newErrors.packageName = 'Package name already exists';
         }
-        
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
     const onFormSubmit = async (e) => {
         if (e) e.preventDefault();
-        
+
         if (!validateForm()) {
             return;
         }
-        
+
         const packageData = {
             packageName: state.packageName.trim(),
             pickupPrice: parseFloat(state.pickupPrice),
             dropPrice: parseFloat(state.dropPrice),
         };
-        
+
         try {
             setLoading(true);
-            
+
             // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
             if (isEdit) {
                 // Update existing package
-                const updatedList = packageList.map(pkg => 
-                    pkg.id === selectedItem.id 
-                        ? { ...packageData, id: selectedItem.id }
-                        : pkg
-                );
+                const updatedList = packageList.map((pkg) => (pkg.id === selectedItem.id ? { ...packageData, id: selectedItem.id } : pkg));
                 setPackageList(updatedList);
                 showMessage('success', 'Package type updated successfully');
             } else {
                 // Add new package
-                const newId = Math.max(...packageList.map(pkg => pkg.id), 0) + 1;
+                const newId = Math.max(...packageList.map((pkg) => pkg.id), 0) + 1;
                 const newPackage = { ...packageData, id: newId };
                 setPackageList([...packageList, newPackage]);
                 showMessage('success', 'Package type created successfully');
             }
-            
+
             closeModel();
         } catch (error) {
             console.error('Form submission error:', error);
@@ -294,16 +271,16 @@ const PackageTypes = () => {
             `Are you sure you want to delete "${pkg.packageName}"?`,
             () => {
                 setLoading(true);
-                
+
                 // Simulate API call
                 setTimeout(() => {
-                    const updatedList = packageList.filter(item => item.id !== pkg.id);
+                    const updatedList = packageList.filter((item) => item.id !== pkg.id);
                     setPackageList(updatedList);
                     showMessage('success', 'Package type deleted successfully');
                     setLoading(false);
                 }, 500);
             },
-            'Yes, delete it'
+            'Yes, delete it',
         );
     };
 
@@ -313,12 +290,12 @@ const PackageTypes = () => {
             ...prev,
             [name]: value,
         }));
-        
+
         // Clear error for this field when user starts typing
         if (errors[name]) {
-            setErrors(prev => ({
+            setErrors((prev) => ({
                 ...prev,
-                [name]: undefined
+                [name]: undefined,
             }));
         }
     };
@@ -330,22 +307,8 @@ const PackageTypes = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Package Types</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-1">
-                            Manage package types and their associated pickup/drop prices for load men
-                        </p>
+                        <p className="text-gray-600 dark:text-gray-400 mt-1">Manage package types and their associated pickup/drop prices for load men</p>
                     </div>
-                    {roleIdforRole === 'Super Admin' && (
-                        <button
-                            type="button"
-                            onClick={createModel}
-                            className="btn btn-primary shadow-md hover:shadow-lg transition-all duration-200"
-                        >
-                            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                            </svg>
-                            Add Package Type
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -360,9 +323,9 @@ const PackageTypes = () => {
                     <div className="p-4">
                         <Table
                             columns={columns}
-                            Title={''}
+                            Title={' '}
                             description=""
-                            toggle={false}
+                            toggle={roleIdforRole === 'Super Admin' ? createModel : null}
                             data={getPaginatedData()}
                             pageSize={pageSize}
                             pageIndex={currentPage}
@@ -390,15 +353,9 @@ const PackageTypes = () => {
                         </svg>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No Package Types Found</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                        Get started by adding your first package type with pickup and drop prices.
-                    </p>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">Get started by adding your first package type with pickup and drop prices.</p>
                     {roleIdforRole === 'Super Admin' && (
-                        <button
-                            type="button"
-                            onClick={createModel}
-                            className="btn btn-primary"
-                        >
+                        <button type="button" onClick={createModel} className="btn btn-primary">
                             Add First Package Type
                         </button>
                     )}
@@ -406,12 +363,12 @@ const PackageTypes = () => {
             )}
 
             {/* Modal */}
-            <ModelViewBox 
-                modal={modal} 
-                modelHeader={isEdit ? 'Edit Package Type' : 'Add New Package Type'} 
-                isEdit={isEdit} 
-                setModel={closeModel} 
-                handleSubmit={onFormSubmit} 
+            <ModelViewBox
+                modal={modal}
+                modelHeader={isEdit ? 'Edit Package Type' : 'Add New Package Type'}
+                isEdit={isEdit}
+                setModel={closeModel}
+                handleSubmit={onFormSubmit}
                 modelSize="lg"
                 loading={loading}
                 submitBtnText={isEdit ? 'Update Package' : 'Create Package'}
@@ -423,19 +380,23 @@ const PackageTypes = () => {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Package Name <span className="text-red-500">*</span>
                         </label>
-                        <input 
-                            type="text" 
-                            name="packageName" 
-                            value={state.packageName} 
-                            onChange={handleChange} 
-                            placeholder="Enter package name (e.g., Big Bag, Document, Parcel)" 
+                        <input
+                            type="text"
+                            name="packageName"
+                            value={state.packageName}
+                            onChange={handleChange}
+                            placeholder="Enter package name (e.g., Big Bag, Document, Parcel)"
                             className={`form-input w-full ${errors.packageName ? 'border-red-500' : 'border-gray-300'}`}
                             autoFocus
                         />
                         {errors.packageName && (
                             <p className="mt-1 text-sm text-red-600 flex items-center">
                                 <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                        clipRule="evenodd"
+                                    />
                                 </svg>
                                 {errors.packageName}
                             </p>
@@ -453,12 +414,12 @@ const PackageTypes = () => {
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <span className="text-gray-500 font-medium">₹</span>
                                 </div>
-                                <input 
-                                    type="number" 
-                                    name="pickupPrice" 
-                                    value={state.pickupPrice} 
-                                    onChange={handleChange} 
-                                    placeholder="0.00" 
+                                <input
+                                    type="number"
+                                    name="pickupPrice"
+                                    value={state.pickupPrice}
+                                    onChange={handleChange}
+                                    placeholder="0.00"
                                     className={`form-input w-full pl-10 ${errors.pickupPrice ? 'border-red-500' : 'border-gray-300'}`}
                                     min="0"
                                     step="0.01"
@@ -467,7 +428,11 @@ const PackageTypes = () => {
                             {errors.pickupPrice && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center">
                                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                            clipRule="evenodd"
+                                        />
                                     </svg>
                                     {errors.pickupPrice}
                                 </p>
@@ -484,12 +449,12 @@ const PackageTypes = () => {
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <span className="text-gray-500 font-medium">₹</span>
                                 </div>
-                                <input 
-                                    type="number" 
-                                    name="dropPrice" 
-                                    value={state.dropPrice} 
-                                    onChange={handleChange} 
-                                    placeholder="0.00" 
+                                <input
+                                    type="number"
+                                    name="dropPrice"
+                                    value={state.dropPrice}
+                                    onChange={handleChange}
+                                    placeholder="0.00"
                                     className={`form-input w-full pl-10 ${errors.dropPrice ? 'border-red-500' : 'border-gray-300'}`}
                                     min="0"
                                     step="0.01"
@@ -498,7 +463,11 @@ const PackageTypes = () => {
                             {errors.dropPrice && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center">
                                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        <path
+                                            fillRule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                            clipRule="evenodd"
+                                        />
                                     </svg>
                                     {errors.dropPrice}
                                 </p>
@@ -520,23 +489,15 @@ const PackageTypes = () => {
                                 <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pickup Price</div>
                                     <div className="flex items-center">
-                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                            ₹{parseFloat(state.pickupPrice).toFixed(2)}
-                                        </div>
-                                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">
-                                            PICKUP
-                                        </span>
+                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">₹{parseFloat(state.pickupPrice).toFixed(2)}</div>
+                                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">PICKUP</span>
                                     </div>
                                 </div>
                                 <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-green-200 dark:border-green-800">
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Drop Price</div>
                                     <div className="flex items-center">
-                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                            ₹{parseFloat(state.dropPrice).toFixed(2)}
-                                        </div>
-                                        <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">
-                                            DROP
-                                        </span>
+                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">₹{parseFloat(state.dropPrice).toFixed(2)}</div>
+                                        <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">DROP</span>
                                     </div>
                                 </div>
                             </div>
@@ -554,7 +515,11 @@ const PackageTypes = () => {
                         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
                             <div className="flex items-start">
                                 <svg className="w-5 h-5 text-red-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                        clipRule="evenodd"
+                                    />
                                 </svg>
                                 <div>
                                     <h4 className="font-medium text-red-800 dark:text-red-300 mb-1">Please fix the following errors:</h4>

@@ -29,7 +29,6 @@ import {
     ERROR503,
     Maintenence,
     LoginBoxed,
-    Audit,
     Capa,
     Suppliers,
     PdfSubAuditChecklist,
@@ -42,6 +41,7 @@ import {
     AuditReportPdf,
     AuditorReport,
     Vehicle,
+    PackageIntake,
 } from './Route_Menu';
 import path from 'path';
 
@@ -295,8 +295,8 @@ const routes = [
         element: <Suppliers />,
     },
     {
-        path: '/audit/external-provider',
-        element: <Audit />,
+        path: '/package/intake',
+        element: <PackageIntake />,
     },
     {
      path: '/capa',
