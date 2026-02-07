@@ -44,6 +44,7 @@ import {
     PakagePaymentScreen,
     PakagePayment,
     AssignTrip,
+    VehicleType,
 } from './Route_Menu';
 import path from 'path';
 
@@ -281,8 +282,8 @@ const routes = [
         element: <Staff />,
     },
     {
-        path: '/master/department',
-        element: <Department />,
+        path: '/master/vehicle-type',
+        element: <VehicleType />,
     },
     {
         path: '/master/designation',

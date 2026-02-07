@@ -16,6 +16,7 @@ import ProductSlice from '../productSlice';
 import ExpoSlice from '../expoSlice';
 import ProductEnquirySlice from '../productEnquirySlice'
 import DashboardSlice from '../dashboardSlice';
+import VehicleTypeSlice from '../vehicleTypeSlice';
 
 const rootReducer = combineReducers({
     themeConfig: themeConfigSlice,
@@ -35,6 +36,7 @@ const rootReducer = combineReducers({
     VisitorSlice,
     ExpoSlice,
     DashboardSlice,
+    VehicleTypeSlice,
 });
 
 const store = configureStore({
