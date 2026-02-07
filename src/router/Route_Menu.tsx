@@ -115,7 +115,7 @@ export const Designation = lazy(() => import('../view/master/designation'));
 export const AuditAssignToAuditor = lazy(() => import('../view/master/auditAssignToAuditor'));
 export const PackageIntake = lazy(() => import('../view/package-intake'));
 export const Capa = lazy(() => import('../view/capaManagement'));
-export const Suppliers = lazy(() => import('../view/master/suppliers/Index'));
+export const PakagePayment = lazy(() => import('../view/package-payment'));
 
 //new of asf ev
 export const Package = lazy(() => import('../view/master/Package'));
@@ -127,6 +127,6 @@ export const PdfSubAuditChecklistImages = lazy(() => import('../view/documents/s
 export const PdfSubAuditChecklistBarChart = lazy(() => import('../view/documents/sub-audit-checklist-report-bar-chart'));
 export const SubChecklistAudit = lazy(() => import('../view/master/subChecklistAudit'));
 export const SubChecklistSupplier = lazy(() => import('../view/master/subChecklistSupplier'));
-export const AuditForm = lazy(() => import('../view/auditForm'));
+export const PakagePaymentScreen = lazy(() => import('../view/package-payment-screen'));
 export const AuditFormPdf = lazy(() => import('../view/documents/audit-pdf'));
 export const AuditReSchedule = lazy(() => import('../view/reasignAudit'));

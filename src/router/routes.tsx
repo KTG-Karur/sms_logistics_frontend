@@ -11,7 +11,6 @@ import {
     CompanyInfo,
     SubChecklistAudit,
     SubChecklistSupplier,
-    AuditForm,
     //new asf - ev
     Package,
     //new VMS
@@ -30,7 +29,7 @@ import {
     Maintenence,
     LoginBoxed,
     Capa,
-    Suppliers,
+    PakagePayment,
     PdfSubAuditChecklist,
     AuditReport,
     AuditAssignToAuditor,
@@ -42,6 +41,7 @@ import {
     AuditorReport,
     Vehicle,
     PackageIntake,
+    PakagePaymentScreen,
 } from './Route_Menu';
 import path from 'path';
 
@@ -246,8 +246,8 @@ const routes = [
         element: <Package />,
     },
     {
-        path: '/audit/external-provider/form',
-        element: <AuditForm />,
+        path: '/package/payment/:id',
+        element: <PakagePaymentScreen />,
     },
     {
         path: '/master/sub-checklist-audit',
@@ -291,8 +291,8 @@ const routes = [
         element: <AuditAssignToAuditor />,
     },
     {
-        path: '/master/suppliers',
-        element: <Suppliers />,
+        path: '/package/payment',
+        element: <PakagePayment />,
     },
     {
         path: '/package/intake',
@@ -406,8 +406,8 @@ const dontCkeckRouts = [
         element: <SubChecklistSupplier />,
     },
     {
-        path: '/audit/external-provider/form',
-        element: <AuditForm />,
+        path: '/payments/record/:id',
+        element: <PakagePaymentScreen />,
     },
     //old
     {
