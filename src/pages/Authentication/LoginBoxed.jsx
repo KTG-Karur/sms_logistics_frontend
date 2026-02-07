@@ -2,24 +2,25 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect, useState, useRef } from 'react';
 import { setPageTitle, toggleRTL } from '../../redux/themeStore/themeConfigSlice';
-import Dropdown from '../../components/Dropdown';
-import i18next from 'i18next';
-import IconCaretDown from '../../components/Icon/IconCaretDown';
-import IconMail from '../../components/Icon/IconMail';
 import IconLockDots from '../../components/Icon/IconLockDots';
-import IconBuilding from '../../components/Icon/IconBuilding';
 import IconUser from '../../components/Icon/IconUser';
 import IconEye from '../../components/Icon/IconEye';
 import IconEyeOff from '../../components/Icon/IconEyeOff';
 import IconShield from '../../components/Icon/IconShield';
-import IconChecklist from '../../components/Icon/IconChecks';
-import IconFactory from '../../components/Icon/IconBuilding';
+import IconTruck from '../../components/Icon/IconTruck';
+import IconPackage from '../../components/Icon/IconPackage';
+import IconWarehouse from '../../components/Icon/IconWarehouse';
+import IconRoute from '../../components/Icon/IconRouter';
+// import IconShip from '../../components/Icon/IconShip';
+// import IconPlane from '../../components/Icon/IconPlane';
 import { getLogin, resetLoginStatus } from '../../redux/loginSlice';
 import { showMessage } from '../../util/AllFunction';
-import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+import Lottie from "lottie-react";
+import LogisticLottie from '../../assets/logistics.json'
 
 const LoginBoxed = () => {
     const dispatch = useDispatch();
+    const errorShownRef = useRef(false);
     const { getLoginSuccess, getLoginFailed, error, loginData } = useSelector((state) => ({
         getLoginSuccess: state.LoginSlice.getLoginSuccess,
         getLoginFailed: state.LoginSlice.getLoginFailed,
@@ -28,7 +29,6 @@ const LoginBoxed = () => {
     }));
 
     const navigate = useNavigate();
-    const isRtl = useSelector((state) => state.themeConfig.rtlClass) === 'rtl';
     const themeConfig = useSelector((state) => state.themeConfig);
 
     const [flag, setFlag] = useState(themeConfig.locale);
@@ -42,7 +42,7 @@ const LoginBoxed = () => {
     const desktopFormRef = useRef(null);
 
     useEffect(() => {
-        dispatch(setPageTitle('Supplier Compliance Audit System'));
+        dispatch(setPageTitle('Logistics & Transportation Management System'));
     }, [dispatch]);
 
     useEffect(() => {
@@ -62,16 +62,34 @@ const LoginBoxed = () => {
             }, 300);
         } else if (getLoginFailed) {
             setIsLoading(false);
-            const currentFormRef = window.innerWidth < 1024 ? mobileFormRef.current : desktopFormRef.current;
-            if (currentFormRef) {
-                currentFormRef.classList.add('shake-animation');
+            console.log('Login failed error:', error);
+            
+            // Check if it's a 401 error
+            if (error && error.includes('401') || error.includes('Unauthorized')) {
+                localStorage.clear();
+                showMessage('error', 'Session expired. Please login again.');
                 setTimeout(() => {
-                    currentFormRef.classList.remove('shake-animation');
-                }, 500);
+                    navigate('/auth/boxed-signin');
+                }, 2000);
+            } else {
+                const currentFormRef = window.innerWidth < 1024 ? mobileFormRef.current : desktopFormRef.current;
+                if (currentFormRef) {
+                    currentFormRef.classList.add('shake-animation');
+                    setTimeout(() => {
+                        currentFormRef.classList.remove('shake-animation');
+                    }, 500);
+                }
+                
+                if (error && !errorShownRef.current) {
+                    showMessage('error', error || 'Authentication Failed');
+                    errorShownRef.current = true;
+                    setTimeout(() => {
+                        errorShownRef.current = false;
+                    }, 2000);
+                }
             }
-            showMessage('error', error || 'Authentication Failed');
         }
-    }, [getLoginSuccess, getLoginFailed, loginData, error, navigate]);
+    }, [getLoginSuccess, getLoginFailed, loginData, error, navigate, dispatch]);
 
     const setLocale = (flag) => {
         setFlag(flag);
@@ -82,10 +100,12 @@ const LoginBoxed = () => {
         }
     };
 
-    const submitForm = (e) => {
-        e.preventDefault();
+    const handleLogin = () => {
+        console.log('Login button clicked');
+        
         if (!username || !password) {
             showMessage('error', 'Please enter username and password');
+            
             const currentFormRef = window.innerWidth < 1024 ? mobileFormRef.current : desktopFormRef.current;
             if (currentFormRef) {
                 currentFormRef.classList.add('shake-animation');
@@ -117,7 +137,7 @@ const LoginBoxed = () => {
             <div
                 className="fixed inset-0 -z-10"
                 style={{
-                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 30%, #1e40af 70%, #3730a3 100%)',
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 30%, #3b82f6 70%, #1d4ed8 100%)',
                     width: '100vw',
                     height: '100vh',
                     margin: 0,
@@ -125,7 +145,6 @@ const LoginBoxed = () => {
                 }}
             ></div>
 
-            {/* Audit Pattern Background */}
             <div
                 className="fixed inset-0 opacity-10 -z-5"
                 style={{
@@ -136,7 +155,6 @@ const LoginBoxed = () => {
                 }}
             ></div>
 
-            {/* Grid lines for audit sheet feel */}
             <div className="fixed inset-0 overflow-hidden -z-5 opacity-5">
                 <div className="absolute inset-0" style={{
                     backgroundImage: `
@@ -147,61 +165,59 @@ const LoginBoxed = () => {
                 }}></div>
             </div>
 
-            {/* Audit-themed geometric shapes */}
             <div className="fixed inset-0 overflow-hidden -z-5">
                 <div className="absolute top-20 left-10 w-32 h-32 bg-blue-600/5 rounded-full blur-xl"></div>
-                <div className="absolute bottom-20 right-10 w-40 h-40 bg-indigo-600/5 rounded-full blur-xl"></div>
+                <div className="absolute bottom-20 right-10 w-40 h-40 bg-blue-700/5 rounded-full blur-xl"></div>
                 <div className="absolute top-1/3 right-1/4 w-16 h-16 bg-green-500/5 rounded-lg blur-lg rotate-12"></div>
                 <div className="absolute bottom-1/3 left-1/4 w-24 h-24 bg-yellow-500/5 rounded-lg blur-lg -rotate-12"></div>
             </div>
 
-            {/* Main Content Container */}
             <div className="relative flex min-h-screen items-center justify-center px-4 sm:px-6 lg:px-8 py-8 w-full">
-                {/* Mobile & Tablet: Single Column Layout */}
                 <div className="block lg:hidden w-full max-w-md">
-                    {/* Mobile Header */}
                     <div className="text-center mb-8">
                         <div className="flex justify-center mb-4">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg">
-                                <IconShield className="w-8 h-8 text-white" />
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-lg">
+                                <IconTruck className="w-8 h-8 text-white" />
                             </div>
                         </div>
-                        <h1 className="text-2xl font-bold text-white mb-2">Supplier Compliance Audit</h1>
-                        <p className="text-blue-200 text-sm">Enterprise Audit Management System</p>
+                        <h1 className="text-2xl font-bold text-white mb-2">Logistics Management</h1>
+                        <p className="text-blue-200 text-sm">Transport & Supply Chain Platform</p>
                     </div>
 
-                    {/* Mobile Lottie Animation */}
                     <div className="flex justify-center mb-6">
                         <div className="w-64 h-52 flex items-center justify-center">
-                            <DotLottieReact src="/Data Management.lottie" loop autoplay />
+                            <Lottie
+                                animationData={LogisticLottie}
+                                loop={true}
+                                autoplay={true}
+                                style={{ width: "100%", height: "100%" }}
+                            />
                         </div>
                     </div>
 
-                    {/* Mobile Features */}
                     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
                         <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                                    <IconFactory className="w-5 h-5 text-green-400" />
+                                    <IconTruck className="w-5 h-5 text-green-400" />
                                 </div>
                                 <div>
-                                    <div className="text-white font-medium">Supplier Audits</div>
-                                    <div className="text-blue-100 text-sm">Comprehensive factory inspections</div>
+                                    <div className="text-white font-medium">Fleet Management</div>
+                                    <div className="text-blue-100 text-sm">Real-time vehicle tracking</div>
                                 </div>
                             </div>
                             <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                                    <IconChecklist className="w-5 h-5 text-blue-400" />
+                                    <IconPackage className="w-5 h-5 text-blue-400" />
                                 </div>
                                 <div>
-                                    <div className="text-white font-medium">CAPA Management</div>
-                                    <div className="text-blue-100 text-sm">Corrective & Preventive Actions</div>
+                                    <div className="text-white font-medium">Shipment Tracking</div>
+                                    <div className="text-blue-100 text-sm">End-to-end cargo visibility</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Login Form for Mobile */}
                     <div
                         ref={mobileFormRef}
                         className="relative w-full rounded-2xl border border-white/20 bg-white/95 backdrop-blur-xl p-6 shadow-2xl transition-all duration-500"
@@ -218,10 +234,10 @@ const LoginBoxed = () => {
                                     alt="logo" 
                                 />
                             </div>
-                            <p className="text-gray-600 text-sm">Enter credentials for Audit System access</p>
+                            <p className="text-gray-600 text-sm">Access Logistics Management System</p>
                         </div>
-                        <form className="space-y-5" onSubmit={submitForm}>
-                            {/* Username Field */}
+                        
+                        <div className="space-y-5">
                             <div className="space-y-2">
                                 <label htmlFor="mobile-username" className="block text-sm font-semibold text-gray-700 flex items-center">
                                     <IconUser className="w-4 h-4 mr-2 text-gray-500" />
@@ -235,7 +251,7 @@ const LoginBoxed = () => {
                                         onChange={(e) => setUsername(e.target.value)}
                                         onFocus={() => handleFocus('username')}
                                         onBlur={() => handleBlur('username')}
-                                        placeholder="Auditor / Admin username"
+                                        placeholder="Enter your username"
                                         className="w-full rounded-xl border border-gray-300 bg-white px-12 py-3 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:shadow-lg text-base outline-none"
                                     />
                                     <span className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -244,7 +260,6 @@ const LoginBoxed = () => {
                                 </div>
                             </div>
 
-                            {/* Password Field */}
                             <div className="space-y-2">
                                 <label htmlFor="mobile-password" className="block text-sm font-semibold text-gray-700 flex items-center">
                                     <IconLockDots className="w-4 h-4 mr-2 text-gray-500" />
@@ -258,7 +273,7 @@ const LoginBoxed = () => {
                                         onChange={(e) => setPassword(e.target.value)}
                                         onFocus={() => handleFocus('password')}
                                         onBlur={() => handleBlur('password')}
-                                        placeholder="Enter secure password"
+                                        placeholder="Enter your password"
                                         className="w-full rounded-xl border border-gray-300 bg-white px-12 py-3 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:shadow-lg text-base outline-none"
                                     />
                                     <span className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -274,11 +289,11 @@ const LoginBoxed = () => {
                                 </div>
                             </div>
 
-                            {/* Submit Button */}
                             <button
-                                type="submit"
+                                type="button"
+                                onClick={handleLogin}
                                 disabled={isLoading}
-                                className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 py-3 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-blue-700 hover:to-indigo-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                                className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-800 py-3 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-blue-700 hover:to-blue-900 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
                                     isLoading ? 'animate-pulse' : ''
                                 }`}
                             >
@@ -289,111 +304,108 @@ const LoginBoxed = () => {
                                     </div>
                                 ) : (
                                     <div className="flex items-center justify-center space-x-2">
-                                        <IconShield className="w-5 h-5" />
-                                        <span>Access Audit System</span>
+                                        <IconTruck className="w-5 h-5" />
+                                        <span>Access Logistics Portal</span>
                                     </div>
                                 )}
                             </button>
-                        </form>
+                        </div>
 
-                        {/* Security Notice */}
                         <div className="mt-6 pt-4 border-t border-gray-200">
                             <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
                                 <IconShield className="w-4 h-4" />
-                                <span>ISO 27001 Compliant Security</span>
+                                <span>Secure Transport Management System</span>
                             </div>
                         </div>
 
-                        {/* Version Info */}
                         <div className="mt-4 text-center">
-                            <p className="text-xs text-gray-400">Audit System v3.0 • Production</p>
+                            <p className="text-xs text-gray-400">Logistics System v4.0 • Production</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Desktop: Two Column Layout */}
                 <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-12 w-full max-w-6xl items-center">
-                    {/* Left Side - Audit System Introduction */}
                     <div className="flex flex-col justify-center text-white space-y-8 p-8">
                         <div className="space-y-6">
                             <div className="flex items-center space-x-4">
-                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-xl">
-                                    <IconShield className="w-10 h-10 text-white" />
+                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-xl">
+                                    <IconTruck className="w-10 h-10 text-white" />
                                 </div>
                                 <div>
                                     <h1 className="text-4xl font-bold leading-tight">
-                                        Supplier Compliance
+                                        Logistics & Transportation
                                         <br />
-                                        <span className="text-blue-300">Audit System</span>
+                                        <span className="text-blue-300">Management System</span>
                                     </h1>
-                                    <p className="text-blue-100 text-lg mt-2">Enterprise-grade compliance management</p>
+                                    <p className="text-blue-100 text-lg mt-2">End-to-end supply chain visibility</p>
                                 </div>
                             </div>
 
-                            {/* Audit System Lottie */}
                             <div className="flex justify-center mb-6">
                                 <div className="w-full h-64">
-                                   <DotLottieReact src="/Data Management.lottie" loop autoplay className="w-full h-full" />
-
+                                    <Lottie
+                                        animationData={LogisticLottie}
+                                        loop={true}
+                                        autoplay={true}
+                                        style={{ width: "100%", height: "100%" }}
+                                    />
                                 </div>
                             </div>
 
                             <p className="text-lg text-blue-100 leading-relaxed">
-                                Comprehensive audit management platform for supplier compliance, 
-                                CAPA tracking, and regulatory adherence across your supply chain.
+                                Comprehensive logistics platform for fleet management, shipment tracking, 
+                                warehouse operations, and real-time transportation monitoring across your supply chain.
                             </p>
                         </div>
 
-                        {/* Features Grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center">
-                                        <IconFactory className="w-6 h-6 text-green-400" />
+                                        <IconTruck className="w-6 h-6 text-green-400" />
                                     </div>
                                     <div>
-                                        <div className="text-white font-semibold">Factory Audits</div>
-                                        <div className="text-blue-100 text-xs">On-site inspections</div>
+                                        <div className="text-white font-semibold">Fleet Management</div>
+                                        <div className="text-blue-100 text-xs">Vehicle tracking & maintenance</div>
                                     </div>
                                 </div>
                             </div>
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                                        <IconChecklist className="w-6 h-6 text-blue-400" />
+                                        <IconPackage className="w-6 h-6 text-blue-400" />
                                     </div>
                                     <div>
-                                        <div className="text-white font-semibold">CAPA Tracking</div>
-                                        <div className="text-blue-100 text-xs">Action management</div>
+                                        <div className="text-white font-semibold">Shipment Tracking</div>
+                                        <div className="text-blue-100 text-xs">Real-time cargo visibility</div>
                                     </div>
                                 </div>
                             </div>
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                                        <IconShield className="w-6 h-6 text-purple-400" />
+                                        <IconWarehouse className="w-6 h-6 text-purple-400" />
                                     </div>
                                     <div>
-                                        <div className="text-white font-semibold">Standards</div>
-                                        <div className="text-blue-100 text-xs">IWAY, BSCI, ISO</div>
+                                        <div className="text-white font-semibold">Warehouse Ops</div>
+                                        <div className="text-blue-100 text-xs">Inventory & storage</div>
                                     </div>
                                 </div>
                             </div>
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-12 h-12 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-                                        <div className="text-lg">📊</div>
+                                        <IconRoute className="w-6 h-6 text-yellow-400" />
                                     </div>
                                     <div>
-                                        <div className="text-white font-semibold">Reporting</div>
-                                        <div className="text-blue-100 text-xs">Analytics & insights</div>
+                                        <div className="text-white font-semibold">Route Planning</div>
+                                        <div className="text-blue-100 text-xs">Optimized delivery routes</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right Side - Login Form */}
                     <div className="flex justify-center lg:justify-end">
                         <div
                             ref={desktopFormRef}
@@ -402,7 +414,6 @@ const LoginBoxed = () => {
                                 boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
                             }}
                         >
-                            {/* Form Header */}
                             <div className="mb-8 text-center">
                                 <div className="flex justify-center mb-4">
                                     <img 
@@ -412,12 +423,11 @@ const LoginBoxed = () => {
                                         alt="logo" 
                                     />
                                 </div>
-                                <h2 className="text-xl font-bold text-gray-800 mb-2">Audit System Login</h2>
-                                <p className="text-gray-600 text-sm">Secure access to compliance management platform</p>
+                                <h2 className="text-xl font-bold text-gray-800 mb-2">Logistics Portal Login</h2>
+                                <p className="text-gray-600 text-sm">Secure access to transportation management system</p>
                             </div>
 
-                            <form className="space-y-6" onSubmit={submitForm}>
-                                {/* Username Field */}
+                            <div className="space-y-6">
                                 <div className="space-y-2">
                                     <label htmlFor="desktop-username" className="block text-sm font-semibold text-gray-700 flex items-center">
                                         <IconUser className="w-4 h-4 mr-2 text-gray-500" />
@@ -431,7 +441,7 @@ const LoginBoxed = () => {
                                             onChange={(e) => setUsername(e.target.value)}
                                             onFocus={() => handleFocus('username')}
                                             onBlur={() => handleBlur('username')}
-                                            placeholder="Enter auditor/admin username"
+                                            placeholder="Enter your username"
                                             className="w-full rounded-xl border border-gray-300 bg-white px-12 py-4 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:shadow-lg text-base outline-none"
                                         />
                                         <span className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -440,7 +450,6 @@ const LoginBoxed = () => {
                                     </div>
                                 </div>
 
-                                {/* Password Field */}
                                 <div className="space-y-2">
                                     <label htmlFor="desktop-password" className="block text-sm font-semibold text-gray-700 flex items-center">
                                         <IconLockDots className="w-4 h-4 mr-2 text-gray-500" />
@@ -454,7 +463,7 @@ const LoginBoxed = () => {
                                             onChange={(e) => setPassword(e.target.value)}
                                             onFocus={() => handleFocus('password')}
                                             onBlur={() => handleBlur('password')}
-                                            placeholder="Enter secure password"
+                                            placeholder="Enter your password"
                                             className="w-full rounded-xl border border-gray-300 bg-white px-12 py-4 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:shadow-lg text-base outline-none"
                                         />
                                         <span className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -470,12 +479,11 @@ const LoginBoxed = () => {
                                     </div>
                                 </div>
 
-                               
-                                {/* Submit Button */}
                                 <button
-                                    type="submit"
+                                    type="button"
+                                    onClick={handleLogin}
                                     disabled={isLoading}
-                                    className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 py-4 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-blue-700 hover:to-indigo-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                                    className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-800 py-4 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-blue-700 hover:to-blue-900 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
                                         isLoading ? 'animate-pulse' : ''
                                     }`}
                                 >
@@ -486,86 +494,21 @@ const LoginBoxed = () => {
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-center space-x-3">
-                                            <IconShield className="w-6 h-6" />
-                                            <span className="text-lg">Access Audit Dashboard</span>
+                                            <IconTruck className="w-6 h-6" />
+                                            <span className="text-lg">Access Logistics Dashboard</span>
                                         </div>
                                     )}
                                 </button>
-                            </form>                          
-                            {/* Version Info */}
+                            </div>
+                            
                             <div className="mt-4 text-center">
-                                <p className="text-xs text-gray-400">Supplier Compliance Audit System v3.0 • Asian Fabricx Pvt Ltd</p>
+                                <p className="text-xs text-gray-400">Transport Management System v4.0 • Asian Fabricx Pvt Ltd</p>
                                 <p className="text-xs text-gray-400 mt-1">© 2024 All rights reserved</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            {/* Add custom styles for full viewport coverage */}
-            <style jsx global>{`
-                * {
-                    margin: 0;
-                    padding: 0;
-                    box-sizing: border-box;
-                }
-
-                html,
-                body,
-                #root {
-                    width: 100%;
-                    height: 100%;
-                    margin: 0;
-                    padding: 0;
-                    overflow-x: hidden;
-                }
-
-                .shake-animation {
-                    animation: shake 0.5s ease-in-out;
-                }
-
-                @keyframes shake {
-                    0%,
-                    100% {
-                        transform: translateX(0);
-                    }
-                    25% {
-                        transform: translateX(-5px);
-                    }
-                    75% {
-                        transform: translateX(5px);
-                    }
-                }
-
-                /* Remove black outline from all inputs */
-                input:focus,
-                button:focus,
-                select:focus,
-                textarea:focus {
-                    outline: none !important;
-                    box-shadow: none !important;
-                }
-
-                /* Ensure proper touch targets for mobile */
-                @media (max-width: 768px) {
-                    input,
-                    button {
-                        font-size: 16px; /* Prevent zoom on iOS */
-                    }
-
-                    button {
-                        min-height: 44px; /* Minimum touch target size */
-                    }
-                }
-
-                /* Audit-style grid background */
-                .audit-grid {
-                    background-image: 
-                        linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-                    background-size: 20px 20px;
-                }
-            `}</style>
         </div>
     );
 };
