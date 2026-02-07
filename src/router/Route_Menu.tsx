@@ -112,7 +112,7 @@ export const ChecklistSupplier = lazy(() => import('../view/master/checklistSupp
 export const Staff = lazy(() => import('../view/master/employee'));
 export const Department = lazy(() => import('../view/master/department'));
 export const Designation = lazy(() => import('../view/master/designation'));
-export const AuditAssignToAuditor = lazy(() => import('../view/master/auditAssignToAuditor'));
+export const DailyExpenseEntry = lazy(() => import('../view/dailyExpenseEntry'));
 export const PackageIntake = lazy(() => import('../view/package-intake'));
 export const AssignTrip = lazy(() => import('../view/assign-trip'));
 export const Capa = lazy(() => import('../view/capaManagement'));

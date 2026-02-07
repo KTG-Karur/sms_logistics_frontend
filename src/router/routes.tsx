@@ -32,7 +32,7 @@ import {
     Attendance,
     PdfSubAuditChecklist,
     AuditReport,
-    AuditAssignToAuditor,
+    DailyExpenseEntry,
     AuditFormPdf,
     AuditReSchedule,
     PdfSubAuditChecklistBarChart,
@@ -290,8 +290,8 @@ const routes = [
         element: <Designation />,
     },
     {
-        path: '/master/audit-assign-to-auditor',
-        element: <AuditAssignToAuditor />,
+        path: '/expense/entry',
+        element: <DailyExpenseEntry />,
     },
     {
         path: '/package/payment',
