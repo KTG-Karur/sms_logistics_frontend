@@ -29,7 +29,7 @@ import {
     Maintenence,
     LoginBoxed,
     Capa,
-    PakagePayment,
+    Attendance,
     PdfSubAuditChecklist,
     AuditReport,
     AuditAssignToAuditor,
@@ -42,6 +42,8 @@ import {
     Vehicle,
     PackageIntake,
     PakagePaymentScreen,
+    PakagePayment,
+    AssignTrip,
 } from './Route_Menu';
 import path from 'path';
 
@@ -294,9 +296,17 @@ const routes = [
         path: '/package/payment',
         element: <PakagePayment />,
     },
+     {
+        path: '/master/attendance',
+        element: <Attendance />,
+    },
     {
         path: '/package/intake',
         element: <PackageIntake />,
+    },
+      {
+        path: '/package/assign-trip',
+        element: <AssignTrip />,
     },
     {
      path: '/capa',
@@ -390,7 +400,7 @@ const routes = [
         element: <AuditFormPdf />,
     },
     {
-        path: '/audit/re-schedule',
+        path: '/assign-trip',
         element: <AuditReSchedule />,
     },
 ];

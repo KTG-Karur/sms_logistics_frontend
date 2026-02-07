@@ -114,8 +114,10 @@ export const Department = lazy(() => import('../view/master/department'));
 export const Designation = lazy(() => import('../view/master/designation'));
 export const AuditAssignToAuditor = lazy(() => import('../view/master/auditAssignToAuditor'));
 export const PackageIntake = lazy(() => import('../view/package-intake'));
+export const AssignTrip = lazy(() => import('../view/assign-trip'));
 export const Capa = lazy(() => import('../view/capaManagement'));
 export const PakagePayment = lazy(() => import('../view/package-payment'));
+export const Attendance = lazy(() => import('../view/master/attendance/Index'));
 
 //new of asf ev
 export const Package = lazy(() => import('../view/master/Package'));
