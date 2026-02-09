@@ -11,7 +11,7 @@ import IconCalendar from '../../components/Icon/IconCalendar';
 import IconDollarSign from '../../components/Icon/IconDollarSign';
 import IconFilter from '../../components/Icon/IconSearch';
 import IconSearch from '../../components/Icon/IconSearch';
-import IconCheckCircle from '../../components/Icon/IconCircleCheck';
+import IconCheckCircle from '../../components/Icon/IconCheckCircle';
 import IconClock from '../../components/Icon/IconClock';
 import IconArrowRight from '../../components/Icon/IconChevronRight';
 import IconList from '../../components/Icon/IconListCheck';

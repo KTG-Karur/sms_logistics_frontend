@@ -3,28 +3,39 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
 import IconPencil from '../../../components/Icon/IconPencil';
 import IconTrashLines from '../../../components/Icon/IconTrashLines';
+import IconFilter from '../../../components/Icon/IconSearch';
+import IconX from '../../../components/Icon/IconX';
 import Table from '../../../util/Table';
 import Tippy from '@tippyjs/react';
 import { findArrObj, showMessage } from '../../../util/AllFunction';
-import { getEmployee, createEmployee, updateEmployee, deleteEmployee, resetEmployeeStatus } from '../../../redux/employeeSlice';
+import { getEmployee, createEmployee, updateEmployee, deleteEmployee, resetEmployeeStatus, setFilters, clearFilters } from '../../../redux/employeeSlice';
 import { getRolesApi } from '../../../api/RoleApi';
-import _ from 'lodash';
 import Select from 'react-select';
-import IconX from '../../../components/Icon/IconX';
 
 const Employees = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Employee');
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Staff');
     const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
-    const roleIdforRole = localData?.roleName; // for role Permission (1.superadmin)
+    const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
-    const { getEmployeeSuccess, createEmployeeSuccess, createEmployeeFailed, updateEmployeeSuccess, deleteEmployeeSuccess, updateEmployeeFailed, error, employeeData } = useSelector(
-        (state) => state.EmployeeSlice,
-    );
     
-    const [loading, setLoading] = useState(false);
+    const { 
+        getEmployeeSuccess, 
+        createEmployeeSuccess, 
+        createEmployeeFailed, 
+        updateEmployeeSuccess, 
+        deleteEmployeeSuccess, 
+        updateEmployeeFailed, 
+        error, 
+        employeeData,
+        filteredData,
+        filters,
+        loading 
+    } = useSelector((state) => state.EmployeeSlice);
+    
     const [showForm, setShowForm] = useState(false);
+    const [showFilter, setShowFilter] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
     const [state, setState] = useState({
         employeeName: '',
@@ -42,6 +53,14 @@ const Employees = () => {
         username: '',
         password: '',
     });
+    
+    const [filterState, setFilterState] = useState({
+        is_driver: '',
+        has_salary: '',
+        is_loadman: '',
+        is_active: '1',
+    });
+    
     const [parentList, setParentList] = useState([]);
     const [errors, setErrors] = useState({});
     const [selectedItem, setSelectedItem] = useState(null);
@@ -50,29 +69,41 @@ const Employees = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [licencePreview, setLicencePreview] = useState(null);
-
-    // React Select options
+    
     const [roleOptions, setRoleOptions] = useState([]);
+    
+    // Filter options
+    const filterOptions = [
+        { value: '', label: 'All' },
+        { value: '1', label: 'Yes' },
+        { value: '0', label: 'No' }
+    ];
+    
+    const activeOptions = [
+        { value: '1', label: 'Active' },
+        { value: '0', label: 'Inactive' },
+        { value: '', label: 'All' }
+    ];
     
     useEffect(() => {
         dispatch(setPageTitle('Employee Management'));
         fetchInitialData();
+        // Apply existing filters on mount
+        if (Object.values(filters).some(val => val !== null && val !== '')) {
+            handleFilterApply();
+        }
     }, []);
-
-    // Reset to first page when data changes
+    
     useEffect(() => {
         setCurrentPage(0);
     }, [parentList]);
-
+    
     const fetchInitialData = async () => {
         try {
-            setLoading(true);
-            await dispatch(getEmployee());
+            await dispatch(getEmployee(filters));
             await fetchDropdownData();
         } catch (error) {
             showMessage('error', 'Failed to load data');
-        } finally {
-            setLoading(false);
         }
     };
     
@@ -80,47 +111,42 @@ const Employees = () => {
         setCurrentPage(pageIndex);
         setPageSize(newPageSize);
     };
-
-    // Add function to get paginated data
+    
     const getPaginatedData = () => {
         const dataArray = parentList || [];
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
         return dataArray.slice(startIndex, endIndex);
     };
-
-    // Add function to get total count
+    
     const getTotalCount = () => {
         return (parentList || []).length;
     };
-
+    
     const fetchDropdownData = async () => {
         try {
             const rolesResponse = await getRolesApi();
             const rolesData = rolesResponse?.data || [];
-
             setRoles(rolesData);
-
-            // Prepare React Select options
+            
             const roleSelectOptions = rolesData.map((role) => ({
                 value: role.roleId,
                 label: role.roleName
             }));
-
             setRoleOptions(roleSelectOptions);
         } catch (error) {
             console.error('Error fetching dropdown data:', error);
             showMessage('error', 'Failed to load dropdown options');
         }
     };
-
+    
     useEffect(() => {
         if (getEmployeeSuccess) {
-            setParentList(employeeData);
+            setParentList(filteredData);
             dispatch(resetEmployeeStatus());
         }
-    }, [getEmployeeSuccess, employeeData]);
-
+    }, [getEmployeeSuccess, filteredData]);
+    
     useEffect(() => {
         if (createEmployeeSuccess) {
             showMessage('success', 'Employee created successfully');
@@ -128,11 +154,11 @@ const Employees = () => {
             dispatch(resetEmployeeStatus());
             fetchInitialData();
         } else if (createEmployeeFailed) {
-            showMessage('error', error || 'create employee Failed');
+            showMessage('error', error || 'Create employee failed');
             dispatch(resetEmployeeStatus());
         }
     }, [createEmployeeSuccess, createEmployeeFailed]);
-
+    
     useEffect(() => {
         if (updateEmployeeSuccess) {
             showMessage('success', 'Employee updated successfully');
@@ -140,11 +166,11 @@ const Employees = () => {
             dispatch(resetEmployeeStatus());
             fetchInitialData();
         } else if (updateEmployeeFailed) {
-            showMessage('error', error || 'update employee Failed');
+            showMessage('error', error || 'Update employee failed');
             dispatch(resetEmployeeStatus());
         }
     }, [updateEmployeeSuccess, updateEmployeeFailed]);
-
+    
     useEffect(() => {
         if (deleteEmployeeSuccess) {
             showMessage('success', 'Employee deleted successfully');
@@ -152,7 +178,8 @@ const Employees = () => {
             fetchInitialData();
         }
     }, [deleteEmployeeSuccess]);
-
+    
+    // Columns for table
     const columns = [
         { Header: 'S.No', accessor: 'id', Cell: (row) => <div>{row?.row?.index + 1}</div> },
         { Header: 'Name', accessor: 'employeeName' },
@@ -188,6 +215,15 @@ const Employees = () => {
             accessor: 'isAuthenticated',
             Cell: ({ value }) => value ? 'Yes' : 'No'
         },
+        { 
+            Header: 'Status', 
+            accessor: 'isActive',
+            Cell: ({ value }) => (
+                <span className={`badge ${value ? 'bg-success' : 'bg-danger'}`}>
+                    {value ? 'Active' : 'Inactive'}
+                </span>
+            )
+        },
         roleIdforRole === 'Super Admin'
             ? {
                   Header: 'Actions',
@@ -213,7 +249,8 @@ const Employees = () => {
               }
             : null,
     ].filter(Boolean);
-
+    
+    // Form functions
     const onFormClear = () => {
         setState({
             employeeName: '',
@@ -238,13 +275,13 @@ const Employees = () => {
         setLicencePreview(null);
         setShowForm(false);
     };
-
+    
     const openAddForm = () => {
         onFormClear();
         setShowForm(true);
         setIsEdit(false);
     };
-
+    
     const onEditForm = (data) => {
         setState({
             employeeName: data.employeeName || '',
@@ -271,11 +308,23 @@ const Employees = () => {
             setLicencePreview(data.licenceImage);
         }
     };
-
+    
     const validateForm = () => {
         const newErrors = {};
         if (!state.employeeName) newErrors.employeeName = 'Employee name is required';
         if (!state.mobileNo) newErrors.mobileNo = 'Mobile number is required';
+        
+        // Mobile number validation
+        const mobileRegex = /^[0-9]{10}$/;
+        if (state.mobileNo && !mobileRegex.test(state.mobileNo)) {
+            newErrors.mobileNo = 'Mobile number must be 10 digits';
+        }
+        
+        // Pincode validation
+        const pincodeRegex = /^[0-9]{6}$/;
+        if (state.pincode && !pincodeRegex.test(state.pincode)) {
+            newErrors.pincode = 'Pincode must be 6 digits';
+        }
         
         // Validation based on toggles
         if (state.isAuthenticated && !state.roleId) {
@@ -301,19 +350,20 @@ const Employees = () => {
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
-
+    
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validateForm()) return;
-
+    
         const formData = new FormData();
-        formData.append('employeeName', state.employeeName);
-        formData.append('mobileNo', state.mobileNo);
-        formData.append('addressI', state.addressI);
+        formData.append('employee_name', state.employeeName);
+        formData.append('mobile_no', state.mobileNo);
+        formData.append('address_i', state.addressI);
         formData.append('pincode', state.pincode);
-        formData.append('isDriver', state.isDriver ? 1 : 0);
-        formData.append('hasSalary', state.hasSalary ? 1 : 0);
-        formData.append('isLoadman', state.isLoadman ? 1 : 0);
+        formData.append('is_driver', state.isDriver ? 1 : 0);
+        formData.append('has_salary', state.hasSalary ? 1 : 0);
+        formData.append('is_loadman', state.isLoadman ? 1 : 0);
+        formData.append('is_authenticated', state.isAuthenticated ? 1 : 0);
         
         // Add salary only if hasSalary is true
         if (state.hasSalary) {
@@ -322,26 +372,25 @@ const Employees = () => {
         
         // Add role only if authenticated
         if (state.isAuthenticated) {
-            formData.append('roleId', state.roleId);
+            formData.append('role_id', state.roleId);
         }
         
         // Add driver-specific fields
         if (state.isDriver) {
-            formData.append('licenceNumber', state.licenceNumber);
+            formData.append('licence_number', state.licenceNumber);
             if (state.licenceFile) {
                 formData.append('licenceFile', state.licenceFile);
             }
         }
         
         // Add authentication fields
-        formData.append('isAuthenticated', state.isAuthenticated ? 1 : 0);
         if (state.isAuthenticated) {
             formData.append('username', state.username);
             if (state.password) {
                 formData.append('password', state.password);
             }
         }
-
+    
         try {
             if (isEdit) {
                 await dispatch(
@@ -358,7 +407,7 @@ const Employees = () => {
             showMessage('error', 'Failed to save employee data');
         }
     };
-
+    
     const handleDeleteEmployee = (employee) => {
         showMessage(
             'warning',
@@ -373,7 +422,7 @@ const Employees = () => {
             'Yes, delete it',
         );
     };
-
+    
     const handleChange = (e) => {
         const { name, value, type, checked, files } = e.target;
         
@@ -382,6 +431,12 @@ const Employees = () => {
             // Validate file type (only images)
             if (file && !file.type.startsWith('image/')) {
                 showMessage('error', 'Please upload only image files (JPG, PNG, etc.)');
+                return;
+            }
+            
+            // Validate file size (max 5MB)
+            if (file && file.size > 5 * 1024 * 1024) {
+                showMessage('error', 'File size should be less than 5MB');
                 return;
             }
             
@@ -419,6 +474,7 @@ const Employees = () => {
                     // When driver is disabled, clear driver-specific fields
                     updatedState.licenceNumber = '';
                     updatedState.licenceFile = null;
+                    setLicencePreview(null);
                 }
                 
                 if (name === 'hasSalary' && !checked) {
@@ -429,27 +485,67 @@ const Employees = () => {
                 return updatedState;
             });
         } else {
+            // Only allow numbers for mobile and pincode
+            let processedValue = value;
+            if (name === 'mobileNo' || name === 'pincode' || name === 'salary') {
+                processedValue = value.replace(/[^0-9.]/g, '');
+            }
+            
             setState((prev) => ({
                 ...prev,
-                [name]: type === 'number' ? parseFloat(value) : value,
+                [name]: processedValue,
             }));
         }
     };
-
-    // Handle React Select change
+    
+    // Handle React Select change for roles
     const handleSelectChange = (selectedOption, { name }) => {
         setState((prev) => ({
             ...prev,
             [name]: selectedOption ? selectedOption.value : '',
         }));
     };
-
+    
+    // Filter handlers
+    const handleFilterChange = (selectedOption, { name }) => {
+        setFilterState(prev => ({
+            ...prev,
+            [name]: selectedOption ? selectedOption.value : ''
+        }));
+    };
+    
+    const handleFilterApply = () => {
+        // Convert filter state to API parameters
+        const apiFilters = {};
+        Object.keys(filterState).forEach(key => {
+            if (filterState[key] !== '') {
+                apiFilters[key] = filterState[key];
+            }
+        });
+        
+        dispatch(setFilters(apiFilters));
+        dispatch(getEmployee(apiFilters));
+        setShowFilter(false);
+    };
+    
+    const handleFilterClear = () => {
+        setFilterState({
+            is_driver: '',
+            has_salary: '',
+            is_loadman: '',
+            is_active: '1',
+        });
+        dispatch(clearFilters());
+        dispatch(getEmployee({}));
+        setShowFilter(false);
+    };
+    
     // Get selected value for React Select
     const getSelectedValue = (options, value) => {
-        if (!value) return null;
-        return options.find(option => option.value === value) || null;
+        if (value === undefined || value === null || value === '') return null;
+        return options.find(option => option.value === value.toString()) || null;
     };
-
+    
     // Handle licence file removal
     const handleRemoveLicence = () => {
         setState(prev => ({
@@ -459,9 +555,106 @@ const Employees = () => {
         }));
         setLicencePreview(null);
     };
-
+    
     return (
         <div>
+            {/* Filter Panel */}
+            {showFilter && (
+                <div className="panel mb-6">
+                    <div className="flex items-center justify-between mb-5">
+                        <h5 className="font-semibold text-lg dark:text-white-light">
+                            Filter Employees
+                        </h5>
+                        <button
+                            type="button"
+                            onClick={() => setShowFilter(false)}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            <IconX className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Driver Filter */}
+                        <div>
+                            <label>Driver Status</label>
+                            <Select
+                                name="is_driver"
+                                options={filterOptions}
+                                value={getSelectedValue(filterOptions, filterState.is_driver)}
+                                onChange={(selectedOption) => handleFilterChange(selectedOption, { name: 'is_driver' })}
+                                placeholder="All"
+                                isClearable={false}
+                                className="react-select"
+                                classNamePrefix="select"
+                            />
+                        </div>
+                        
+                        {/* Has Salary Filter */}
+                        <div>
+                            <label>Has Salary</label>
+                            <Select
+                                name="has_salary"
+                                options={filterOptions}
+                                value={getSelectedValue(filterOptions, filterState.has_salary)}
+                                onChange={(selectedOption) => handleFilterChange(selectedOption, { name: 'has_salary' })}
+                                placeholder="All"
+                                isClearable={false}
+                                className="react-select"
+                                classNamePrefix="select"
+                            />
+                        </div>
+                        
+                        {/* Loadman Filter */}
+                        <div>
+                            <label>Loadman Status</label>
+                            <Select
+                                name="is_loadman"
+                                options={filterOptions}
+                                value={getSelectedValue(filterOptions, filterState.is_loadman)}
+                                onChange={(selectedOption) => handleFilterChange(selectedOption, { name: 'is_loadman' })}
+                                placeholder="All"
+                                isClearable={false}
+                                className="react-select"
+                                classNamePrefix="select"
+                            />
+                        </div>
+                        
+                        {/* Active Status Filter */}
+                        <div>
+                            <label>Status</label>
+                            <Select
+                                name="is_active"
+                                options={activeOptions}
+                                value={getSelectedValue(activeOptions, filterState.is_active)}
+                                onChange={(selectedOption) => handleFilterChange(selectedOption, { name: 'is_active' })}
+                                placeholder="All"
+                                isClearable={false}
+                                className="react-select"
+                                classNamePrefix="select"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2 mt-6">
+                        <button
+                            type="button"
+                            onClick={handleFilterClear}
+                            className="btn btn-outline-secondary"
+                        >
+                            Clear Filters
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleFilterApply}
+                            className="btn btn-primary"
+                        >
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+            )}
+            
             {/* Employee Form - Above the Table (only shows when showForm is true) */}
             {showForm && (
                 <div className="panel mb-6">
@@ -533,6 +726,7 @@ const Employees = () => {
                                     maxLength={6} 
                                     minLength={6} 
                                 />
+                                {errors.pincode && <div className="text-danger text-sm mt-1">{errors.pincode}</div>}
                             </div>
 
                             {/* Toggle Fields Section */}
@@ -655,7 +849,7 @@ const Employees = () => {
                                                         accept="image/*"
                                                         className="form-input"
                                                     />
-                                                    <p className="text-xs text-gray-500 mt-1">Upload Licence image (JPG, PNG, GIF, WebP only)</p>
+                                                    <p className="text-xs text-gray-500 mt-1">Upload Licence image (JPG, PNG, GIF, WebP only, Max 5MB)</p>
                                                     {errors.licenceFile && <div className="text-danger text-sm mt-1">{errors.licenceFile}</div>}
                                                 </div>
                                                 
@@ -741,16 +935,90 @@ const Employees = () => {
                             <button
                                 type="submit"
                                 className="btn btn-primary"
+                                disabled={loading}
                             >
-                                {isEdit ? 'Update Employee' : 'Add Employee'}
+                                {loading ? (
+                                    <span className="flex items-center">
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Processing...
+                                    </span>
+                                ) : (
+                                    isEdit ? 'Update Employee' : 'Add Employee'
+                                )}
                             </button>
                         </div>
                     </form>
                 </div>
             )}
-
+            
             {/* Employees Table */}
             <div className="panel">
+                <div className="flex justify-between items-center mb-6">
+                    <h5 className="font-semibold text-lg dark:text-white-light">Employee List</h5>
+                    <div className="flex space-x-2">
+                        {/* Filter Button */}
+                        <button
+                            type="button"
+                            onClick={() => setShowFilter(!showFilter)}
+                            className="btn btn-outline-primary"
+                        >
+                            <IconFilter className="ltr:mr-2 rtl:ml-2" />
+                            Filter
+                        </button>
+                        
+                        {/* Add Button - Only for Super Admin */}
+                        {roleIdforRole === 'Super Admin' && (
+                            <button
+                                type="button"
+                                onClick={openAddForm}
+                                className="btn btn-primary"
+                                disabled={loading}
+                            >
+                                Add Employee
+                            </button>
+                        )}
+                    </div>
+                </div>
+                
+                {/* Show active filters */}
+                {Object.values(filters).some(val => val !== null && val !== '') && (
+                    <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded">
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-sm font-medium">Active Filters:</span>
+                            {filters.is_driver !== null && filters.is_driver !== '' && (
+                                <span className="badge bg-primary">
+                                    Driver: {filters.is_driver === '1' ? 'Yes' : 'No'}
+                                </span>
+                            )}
+                            {filters.has_salary !== null && filters.has_salary !== '' && (
+                                <span className="badge bg-primary">
+                                    Has Salary: {filters.has_salary === '1' ? 'Yes' : 'No'}
+                                </span>
+                            )}
+                            {filters.is_loadman !== null && filters.is_loadman !== '' && (
+                                <span className="badge bg-primary">
+                                    Loadman: {filters.is_loadman === '1' ? 'Yes' : 'No'}
+                                </span>
+                            )}
+                            {filters.is_active !== null && filters.is_active !== '' && (
+                                <span className="badge bg-primary">
+                                    Status: {filters.is_active === '1' ? 'Active' : 'Inactive'}
+                                </span>
+                            )}
+                            <button
+                                type="button"
+                                onClick={handleFilterClear}
+                                className="text-danger text-sm hover:underline ml-2"
+                            >
+                                Clear All
+                            </button>
+                        </div>
+                    </div>
+                )}
+                
                 {loading ? (
                     <div className="flex items-center justify-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
@@ -758,8 +1026,8 @@ const Employees = () => {
                 ) : (
                     <Table
                         columns={columns}
-                        Title={'Employee List'}
-                        toggle={roleIdforRole === 'Super Admin' ? openAddForm : false}
+                        Title={''}
+                        toggle={false}
                         data={getPaginatedData()}
                         pageSize={pageSize}
                         pageIndex={currentPage}
