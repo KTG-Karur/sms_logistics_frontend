@@ -16,8 +16,7 @@ import {
     //new VMS
     ChecklistSupplier,
     Staff,
-    Department,
-    Designation,
+    StaffSalary,
     //old
     ContactUsBoxed,
     ContactUsCover,
@@ -45,6 +44,7 @@ import {
     PakagePayment,
     AssignTrip,
     VehicleType,
+    ExpensesSettlement,
 } from './Route_Menu';
 import path from 'path';
 
@@ -253,8 +253,12 @@ const routes = [
         element: <PakagePaymentScreen />,
     },
     {
-        path: '/master/sub-checklist-audit',
+        path: '/expenses/settlement/details',
         element: <SubChecklistAudit />,
+    },
+    {
+        path: '/staff/salary',
+        element: <StaffSalary />,
     },
     {
         path: '/master/vehicle',
@@ -286,8 +290,8 @@ const routes = [
         element: <VehicleType />,
     },
     {
-        path: '/master/designation',
-        element: <Designation />,
+        path: '/expenses/settlement',
+        element: <ExpensesSettlement />,
     },
     {
         path: '/expense/entry',
