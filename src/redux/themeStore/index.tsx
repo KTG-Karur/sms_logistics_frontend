@@ -17,6 +17,7 @@ import ExpoSlice from '../expoSlice';
 import ProductEnquirySlice from '../productEnquirySlice'
 import DashboardSlice from '../dashboardSlice';
 import VehicleTypeSlice from '../vehicleTypeSlice';
+import PackageTypeSlice from '../packageTypeSlice';
 import VehiclesSlice from '../vehiclesSlice';
 
 const rootReducer = combineReducers({
@@ -38,6 +39,7 @@ const rootReducer = combineReducers({
     ExpoSlice,
     DashboardSlice,
     VehicleTypeSlice,
+    PackageTypeSlice,
     VehiclesSlice,
 });
 

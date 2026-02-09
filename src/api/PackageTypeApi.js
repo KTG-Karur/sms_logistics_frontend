@@ -1,9 +1,9 @@
 import { apiReturnCallBack } from './ApiConfig';
 
-// GET all vehicles with filters
-export async function getVehiclesApi(request = {}) {
+// GET all packageTypes
+export async function getPackageTypeApi(request) {
     try {
-        const response = await apiReturnCallBack('GET', '/vehicles', request);
+        const response = await apiReturnCallBack('GET', '/package-types', request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -20,10 +20,10 @@ export async function getVehiclesApi(request = {}) {
     }
 }
 
-// CREATE vehicle
-export async function createVehiclesApi(request) {
+// CREATE packageType
+export async function createPackageTypeApi(request) {
     try {
-        const response = await apiReturnCallBack('FORMPOST', '/vehicles', request);
+        const response = await apiReturnCallBack('POST', '/package-types', request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -40,10 +40,10 @@ export async function createVehiclesApi(request) {
     }
 }
 
-// UPDATE vehicle
-export async function updateVehiclesApi(request, vehicleId) {
+// UPDATE packageType
+export async function updatePackageTypeApi(request, packageTypeId) {
     try {
-        const response = await apiReturnCallBack('FORMPUT', `/vehicles/${vehicleId}`, request);
+        const response = await apiReturnCallBack('PUT', `/package-types/${packageTypeId}`, request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -60,10 +60,9 @@ export async function updateVehiclesApi(request, vehicleId) {
     }
 }
 
-// DELETE vehicle (soft delete by setting isActive to 0)
-export async function deleteVehiclesApi(vehicleId) {
+export async function deletePackageTypeApi(packageTypeId) {
     try {
-        const response = await apiReturnCallBack('DELETE', `/vehicles/${vehicleId}`, { "isActive": 0 });
+        const response = await apiReturnCallBack('DELETE', `/package-types/${packageTypeId}`, { "isActive": 0}); // Pass true to indicate no body
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {

@@ -8,6 +8,13 @@ import Tippy from '@tippyjs/react';
 import ModelViewBox from '../../../util/ModelViewBox';
 import { findArrObj, showMessage } from '../../../util/AllFunction';
 import _ from 'lodash';
+import { 
+    getPackageType, 
+    createPackageType, 
+    updatePackageType, 
+    deletePackageType,
+    resetPackageTypeStatus 
+} from '../../../redux/packageTypeSlice';
 
 const PackageTypes = () => {
     const loginInfo = localStorage.getItem('loginInfo');
@@ -17,29 +24,25 @@ const PackageTypes = () => {
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
-    // Dummy data for package types (Prices for load men)
-    const dummyData = [
-        { id: 1, packageName: 'Big Bag', pickupPrice: 50, dropPrice: 70 },
-        { id: 2, packageName: 'Box', pickupPrice: 30, dropPrice: 45 },
-        { id: 3, packageName: 'Small Package', pickupPrice: 20, dropPrice: 35 },
-        { id: 4, packageName: 'Medium Package', pickupPrice: 40, dropPrice: 60 },
-        { id: 5, packageName: 'Large Package', pickupPrice: 60, dropPrice: 85 },
-        { id: 6, packageName: 'XL Package', pickupPrice: 80, dropPrice: 110 },
-        { id: 7, packageName: 'Document', pickupPrice: 15, dropPrice: 25 },
-        { id: 8, packageName: 'Parcel', pickupPrice: 25, dropPrice: 40 },
-        { id: 9, packageName: 'Container', pickupPrice: 100, dropPrice: 150 },
-        { id: 10, packageName: 'Crate', pickupPrice: 45, dropPrice: 65 },
-    ];
+    // Get package types from Redux store
+    const packageTypeState = useSelector((state) => state.PackageTypeSlice || {});
+    const {
+        packageTypeData = [],
+        loading = false,
+        error = null,
+        getPackageTypeSuccess = false,
+        createPackageTypeSuccess = false,
+        updatePackageTypeSuccess = false,
+        deletePackageTypeSuccess = false,
+    } = packageTypeState;
 
     const [modal, setModal] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
     const [state, setState] = useState({
-        packageName: '',
-        pickupPrice: '',
-        dropPrice: '',
+        package_type_name: '',
+        package_pickup_price: '',
+        package_drop_price: '',
     });
-    const [packageList, setPackageList] = useState([]);
     const [errors, setErrors] = useState({});
     const [selectedItem, setSelectedItem] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
@@ -51,14 +54,48 @@ const PackageTypes = () => {
         fetchPackageData();
     }, []);
 
-    const fetchPackageData = () => {
-        setLoading(true);
-        // Simulate API call with timeout
-        setTimeout(() => {
-            setPackageList(dummyData);
-            setLoading(false);
-        }, 500);
+    useEffect(() => {
+        if (createPackageTypeSuccess) {
+            showMessage('success', 'Package type created successfully');
+            closeModel();
+            dispatch(resetPackageTypeStatus());
+        }
+
+        if (updatePackageTypeSuccess) {
+            showMessage('success', 'Package type updated successfully');
+            closeModel();
+            dispatch(resetPackageTypeStatus());
+        }
+
+        if (deletePackageTypeSuccess) {
+            showMessage('success', 'Package type deleted successfully');
+            dispatch(resetPackageTypeStatus());
+        }
+
+        if (error) {
+            showMessage('error', error);
+            dispatch(resetPackageTypeStatus());
+        }
+    }, [createPackageTypeSuccess, updatePackageTypeSuccess, deletePackageTypeSuccess, error]);
+
+    const fetchPackageData = async () => {
+        try {
+            await dispatch(getPackageType({})).unwrap();
+        } catch (error) {
+            console.error('Error fetching package types:', error);
+            showMessage('error', 'Failed to load package types');
+        }
     };
+
+    // Transform API data for the table
+    const transformedPackageTypes = packageTypeData.map((item, index) => ({
+        id: item.package_type_id,
+        packageName: item.package_type_name,
+        pickupPrice: item.package_pickup_price,
+        dropPrice: item.package_drop_price,
+        is_active: item.is_active ? 'Active' : 'Inactive',
+        originalData: item // Keep original data for reference
+    }));
 
     const handlePaginationChange = (pageIndex, newPageSize) => {
         setCurrentPage(pageIndex);
@@ -66,11 +103,13 @@ const PackageTypes = () => {
     };
 
     const getPaginatedData = () => {
-        let filteredData = packageList;
+        let filteredData = transformedPackageTypes;
 
         // Apply search filter
         if (searchTerm) {
-            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
+            filteredData = filteredData.filter((pkg) => 
+                pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase())
+            );
         }
 
         const startIndex = currentPage * pageSize;
@@ -79,10 +118,12 @@ const PackageTypes = () => {
     };
 
     const getTotalCount = () => {
-        let filteredData = packageList;
+        let filteredData = transformedPackageTypes;
 
         if (searchTerm) {
-            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
+            filteredData = filteredData.filter((pkg) => 
+                pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase())
+            );
         }
 
         return filteredData.length;
@@ -112,7 +153,7 @@ const PackageTypes = () => {
             accessor: 'pickupPrice',
             Cell: ({ value }) => (
                 <div className="flex items-center">
-                    <span className="text-lg font-bold text-blue-600">₹{value}</span>
+                    <span className="text-lg font-bold text-blue-600">₹{parseFloat(value).toFixed(2)}</span>
                     <span className="ml-2 text-xs text-gray-500 bg-blue-50 px-2 py-0.5 rounded">Pickup</span>
                 </div>
             ),
@@ -124,11 +165,26 @@ const PackageTypes = () => {
             accessor: 'dropPrice',
             Cell: ({ value }) => (
                 <div className="flex items-center">
-                    <span className="text-lg font-bold text-green-600">₹{value}</span>
+                    <span className="text-lg font-bold text-green-600">₹{parseFloat(value).toFixed(2)}</span>
                     <span className="ml-2 text-xs text-gray-500 bg-green-50 px-2 py-0.5 rounded">Drop</span>
                 </div>
             ),
             sort: true,
+            className: 'text-center',
+        },
+        {
+            Header: 'Status',
+            accessor: 'is_active',
+            Cell: ({ value }) => (
+                <span className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
+                    value === 'Active' 
+                        ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' 
+                        : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
+                }`}>
+                    {value}
+                </span>
+            ),
+            width: 100,
             className: 'text-center',
         },
         roleIdforRole === 'Super Admin'
@@ -138,7 +194,11 @@ const PackageTypes = () => {
                   Cell: ({ row }) => (
                       <div className="flex items-center justify-center space-x-2">
                           <Tippy content="Edit">
-                              <button type="button" onClick={() => onEditForm(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200">
+                              <button 
+                                  type="button" 
+                                  onClick={() => onEditForm(row.original)} 
+                                  className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200"
+                              >
                                   <IconPencil className="w-4 h-4" />
                               </button>
                           </Tippy>
@@ -167,9 +227,9 @@ const PackageTypes = () => {
 
     const onFormClear = () => {
         setState({
-            packageName: '',
-            pickupPrice: '',
-            dropPrice: '',
+            package_type_name: '',
+            package_pickup_price: '',
+            package_drop_price: '',
         });
         setSelectedItem(null);
         setErrors({});
@@ -183,9 +243,9 @@ const PackageTypes = () => {
 
     const onEditForm = (data) => {
         setState({
-            packageName: data.packageName || '',
-            pickupPrice: data.pickupPrice || '',
-            dropPrice: data.dropPrice || '',
+            package_type_name: data.packageName || '',
+            package_pickup_price: data.pickupPrice || '',
+            package_drop_price: data.dropPrice || '',
         });
         setIsEdit(true);
         setSelectedItem(data);
@@ -195,29 +255,33 @@ const PackageTypes = () => {
     const validateForm = () => {
         const newErrors = {};
 
-        if (!state.packageName.trim()) {
-            newErrors.packageName = 'Package name is required';
-        } else if (state.packageName.trim().length < 2) {
-            newErrors.packageName = 'Package name must be at least 2 characters';
+        if (!state.package_type_name.trim()) {
+            newErrors.package_type_name = 'Package name is required';
+        } else if (state.package_type_name.trim().length < 2) {
+            newErrors.package_type_name = 'Package name must be at least 2 characters';
         }
 
-        if (!state.pickupPrice) {
-            newErrors.pickupPrice = 'Pickup price is required';
-        } else if (isNaN(state.pickupPrice) || parseFloat(state.pickupPrice) <= 0) {
-            newErrors.pickupPrice = 'Pickup price must be a valid positive number';
+        if (!state.package_pickup_price) {
+            newErrors.package_pickup_price = 'Pickup price is required';
+        } else if (isNaN(state.package_pickup_price) || parseFloat(state.package_pickup_price) <= 0) {
+            newErrors.package_pickup_price = 'Pickup price must be a valid positive number';
         }
 
-        if (!state.dropPrice) {
-            newErrors.dropPrice = 'Drop price is required';
-        } else if (isNaN(state.dropPrice) || parseFloat(state.dropPrice) <= 0) {
-            newErrors.dropPrice = 'Drop price must be a valid positive number';
+        if (!state.package_drop_price) {
+            newErrors.package_drop_price = 'Drop price is required';
+        } else if (isNaN(state.package_drop_price) || parseFloat(state.package_drop_price) <= 0) {
+            newErrors.package_drop_price = 'Drop price must be a valid positive number';
         }
 
         // Check for duplicate package name (excluding current item in edit mode)
-        const duplicatePackage = packageList.find((pkg) => pkg.packageName.toLowerCase() === state.packageName.toLowerCase() && (!isEdit || pkg.id !== selectedItem?.id));
+        const duplicatePackage = transformedPackageTypes.find(
+            (pkg) => 
+                pkg.packageName.toLowerCase() === state.package_type_name.toLowerCase() && 
+                (!isEdit || pkg.id !== selectedItem?.id)
+        );
 
         if (duplicatePackage) {
-            newErrors.packageName = 'Package name already exists';
+            newErrors.package_type_name = 'Package name already exists';
         }
 
         setErrors(newErrors);
@@ -231,37 +295,27 @@ const PackageTypes = () => {
             return;
         }
 
-        const packageData = {
-            packageName: state.packageName.trim(),
-            pickupPrice: parseFloat(state.pickupPrice),
-            dropPrice: parseFloat(state.dropPrice),
+        const requestData = {
+            package_type_name: state.package_type_name.trim(),
+            package_pickup_price: parseFloat(state.package_pickup_price),
+            package_drop_price: parseFloat(state.package_drop_price),
         };
 
         try {
-            setLoading(true);
-
-            // Simulate API call
-            await new Promise((resolve) => setTimeout(resolve, 500));
-
             if (isEdit) {
-                // Update existing package
-                const updatedList = packageList.map((pkg) => (pkg.id === selectedItem.id ? { ...packageData, id: selectedItem.id } : pkg));
-                setPackageList(updatedList);
-                showMessage('success', 'Package type updated successfully');
+                await dispatch(updatePackageType({
+                    request: requestData,
+                    packageTypeId: selectedItem.id
+                })).unwrap();
             } else {
-                // Add new package
-                const newId = Math.max(...packageList.map((pkg) => pkg.id), 0) + 1;
-                const newPackage = { ...packageData, id: newId };
-                setPackageList([...packageList, newPackage]);
-                showMessage('success', 'Package type created successfully');
+                await dispatch(createPackageType(requestData)).unwrap();
             }
-
-            closeModel();
+            
+            // Refresh data after successful operation
+            fetchPackageData();
         } catch (error) {
             console.error('Form submission error:', error);
-            showMessage('error', 'Failed to save package data');
-        } finally {
-            setLoading(false);
+            showMessage('error', error.message || 'Failed to save package data');
         }
     };
 
@@ -269,16 +323,13 @@ const PackageTypes = () => {
         showMessage(
             'warning',
             `Are you sure you want to delete "${pkg.packageName}"?`,
-            () => {
-                setLoading(true);
-
-                // Simulate API call
-                setTimeout(() => {
-                    const updatedList = packageList.filter((item) => item.id !== pkg.id);
-                    setPackageList(updatedList);
-                    showMessage('success', 'Package type deleted successfully');
-                    setLoading(false);
-                }, 500);
+            async () => {
+                try {
+                    await dispatch(deletePackageType(pkg.id)).unwrap();
+                    fetchPackageData();
+                } catch (error) {
+                    showMessage('error', error.message || 'Failed to delete package type');
+                }
             },
             'Yes, delete it',
         );
@@ -345,7 +396,7 @@ const PackageTypes = () => {
             </div>
 
             {/* Empty State */}
-            {!loading && packageList.length === 0 && (
+            {!loading && transformedPackageTypes.length === 0 && (
                 <div className="text-center py-12">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
                         <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -382,14 +433,14 @@ const PackageTypes = () => {
                         </label>
                         <input
                             type="text"
-                            name="packageName"
-                            value={state.packageName}
+                            name="package_type_name"
+                            value={state.package_type_name}
                             onChange={handleChange}
-                            placeholder="Enter package name (e.g., Big Bag, Document, Parcel)"
-                            className={`form-input w-full ${errors.packageName ? 'border-red-500' : 'border-gray-300'}`}
+                            placeholder="Enter package name (e.g., Bag, Box, Document)"
+                            className={`form-input w-full ${errors.package_type_name ? 'border-red-500' : 'border-gray-300'}`}
                             autoFocus
                         />
-                        {errors.packageName && (
+                        {errors.package_type_name && (
                             <p className="mt-1 text-sm text-red-600 flex items-center">
                                 <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                     <path
@@ -398,7 +449,7 @@ const PackageTypes = () => {
                                         clipRule="evenodd"
                                     />
                                 </svg>
-                                {errors.packageName}
+                                {errors.package_type_name}
                             </p>
                         )}
                     </div>
@@ -416,16 +467,16 @@ const PackageTypes = () => {
                                 </div>
                                 <input
                                     type="number"
-                                    name="pickupPrice"
-                                    value={state.pickupPrice}
+                                    name="package_pickup_price"
+                                    value={state.package_pickup_price}
                                     onChange={handleChange}
                                     placeholder="0.00"
-                                    className={`form-input w-full pl-10 ${errors.pickupPrice ? 'border-red-500' : 'border-gray-300'}`}
+                                    className={`form-input w-full pl-10 ${errors.package_pickup_price ? 'border-red-500' : 'border-gray-300'}`}
                                     min="0"
                                     step="0.01"
                                 />
                             </div>
-                            {errors.pickupPrice && (
+                            {errors.package_pickup_price && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center">
                                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                         <path
@@ -434,7 +485,7 @@ const PackageTypes = () => {
                                             clipRule="evenodd"
                                         />
                                     </svg>
-                                    {errors.pickupPrice}
+                                    {errors.package_pickup_price}
                                 </p>
                             )}
                             <p className="mt-1 text-xs text-gray-500">Price paid to load man for pickup service</p>
@@ -451,16 +502,16 @@ const PackageTypes = () => {
                                 </div>
                                 <input
                                     type="number"
-                                    name="dropPrice"
-                                    value={state.dropPrice}
+                                    name="package_drop_price"
+                                    value={state.package_drop_price}
                                     onChange={handleChange}
                                     placeholder="0.00"
-                                    className={`form-input w-full pl-10 ${errors.dropPrice ? 'border-red-500' : 'border-gray-300'}`}
+                                    className={`form-input w-full pl-10 ${errors.package_drop_price ? 'border-red-500' : 'border-gray-300'}`}
                                     min="0"
                                     step="0.01"
                                 />
                             </div>
-                            {errors.dropPrice && (
+                            {errors.package_drop_price && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center">
                                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                         <path
@@ -469,7 +520,7 @@ const PackageTypes = () => {
                                             clipRule="evenodd"
                                         />
                                     </svg>
-                                    {errors.dropPrice}
+                                    {errors.package_drop_price}
                                 </p>
                             )}
                             <p className="mt-1 text-xs text-gray-500">Price paid to load man for drop service</p>
@@ -477,7 +528,8 @@ const PackageTypes = () => {
                     </div>
 
                     {/* Price Preview */}
-                    {state.pickupPrice && state.dropPrice && !errors.pickupPrice && !errors.dropPrice && (
+                    {state.package_pickup_price && state.package_drop_price && 
+                     !errors.package_pickup_price && !errors.package_drop_price && (
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                             <h4 className="font-medium text-gray-800 dark:text-gray-300 mb-3 flex items-center">
                                 <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -489,14 +541,18 @@ const PackageTypes = () => {
                                 <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pickup Price</div>
                                     <div className="flex items-center">
-                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">₹{parseFloat(state.pickupPrice).toFixed(2)}</div>
+                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                            ₹{parseFloat(state.package_pickup_price).toFixed(2)}
+                                        </div>
                                         <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">PICKUP</span>
                                     </div>
                                 </div>
                                 <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-green-200 dark:border-green-800">
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Drop Price</div>
                                     <div className="flex items-center">
-                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">₹{parseFloat(state.dropPrice).toFixed(2)}</div>
+                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                            ₹{parseFloat(state.package_drop_price).toFixed(2)}
+                                        </div>
                                         <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">DROP</span>
                                     </div>
                                 </div>

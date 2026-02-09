@@ -62,7 +62,7 @@ export async function updateVehicleTypeApi(request, vehicleTypeId) {
 
 export async function deleteVehicleTypeApi(vehicleTypeId) {
     try {
-        const response = await apiReturnCallBack('PUT', `/vehicle-types/${vehicleTypeId}`, { "isActive": 0}); // Pass true to indicate no body
+        const response = await apiReturnCallBack('DELETE', `/vehicle-types/${vehicleTypeId}`, { "isActive": 0}); // Pass true to indicate no body
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
