@@ -6,7 +6,7 @@ import 'tippy.js/dist/tippy.css';
 import moment from 'moment';
 
 // Icons
-import IconCheckCircle from '../../components/Icon/IconCircleCheck';
+import IconCheckCircle from '../../components/Icon/IconCheckCircle';
 import IconXCircle from '../../components/Icon/IconXCircle';
 import IconClock from '../../components/Icon/IconClock';
 import IconAlertCircle from '../../components/Icon/IconInfoCircle';

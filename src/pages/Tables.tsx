@@ -11,7 +11,7 @@ import IconTrashLines from '../components/Icon/IconTrashLines';
 import IconXCircle from '../components/Icon/IconXCircle';
 import IconPencil from '../components/Icon/IconPencil';
 import IconHorizontalDots from '../components/Icon/IconHorizontalDots';
-import IconCircleCheck from '../components/Icon/IconCircleCheck';
+import IconCircleCheck from '../components/Icon/IconCheckCircle';
 import IconSettings from '../components/Icon/IconSettings';
 
 const tableData = [

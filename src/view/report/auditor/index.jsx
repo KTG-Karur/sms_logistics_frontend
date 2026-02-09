@@ -12,7 +12,7 @@ import IconClock from '../../../components/Icon/IconClock';
 import IconUser from '../../../components/Icon/IconUser';
 import IconTrendingUp from '../../../components/Icon/IconTrendingUp';
 import IconAlertCircle from '../../../components/Icon/IconX';
-import IconCheckCircle from '../../../components/Icon/IconCircleCheck';
+import IconCheckCircle from '../../../components/Icon/IconCheckCircle';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import _ from 'lodash';

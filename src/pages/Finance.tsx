@@ -13,7 +13,7 @@ import IconLitecoin from '../components/Icon/IconLitecoin';
 import IconBinance from '../components/Icon/IconBinance';
 import IconTether from '../components/Icon/IconTether';
 import IconSolana from '../components/Icon/IconSolana';
-import IconCircleCheck from '../components/Icon/IconCircleCheck';
+import IconCircleCheck from '../components/Icon/IconCheckCircle';
 import IconInfoCircle from '../components/Icon/IconInfoCircle';
 
 const Finance = () => {

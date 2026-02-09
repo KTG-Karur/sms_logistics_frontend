@@ -7,7 +7,7 @@ import IconFactory from '../components/Icon/IconBuilding';
 import IconShield from '../components/Icon/IconShield';
 import IconTrendingUp from '../components/Icon/IconTrendingUp';
 import IconEye from '../components/Icon/IconEye';
-import IconCheckCircle from '../components/Icon/IconCircleCheck';
+import IconCheckCircle from '../components/Icon/IconCheckCircle';
 import IconXCircle from '../components/Icon/IconXCircle';
 import IconClipboard from '../components/Icon/IconClipboardText';
 import IconCalendar from '../components/Icon/IconCalendar';

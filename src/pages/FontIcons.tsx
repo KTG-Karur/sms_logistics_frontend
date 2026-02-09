@@ -25,7 +25,7 @@ import IconChatDots from '../components/Icon/IconChatDots';
 import IconChatNotification from '../components/Icon/IconChatNotification';
 import IconChecks from '../components/Icon/IconChecks';
 import IconChrome from '../components/Icon/IconChrome';
-import IconCircleCheck from '../components/Icon/IconCircleCheck';
+import IconCircleCheck from '../components/Icon/IconCheckCircle';
 import IconClipboardText from '../components/Icon/IconClipboardText';
 import IconClock from '../components/Icon/IconClock';
 import IconCloudDownload from '../components/Icon/IconCloudDownload';

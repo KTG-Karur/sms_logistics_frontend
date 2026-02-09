@@ -6,7 +6,7 @@ import { getEmployee } from '../../../redux/employeeSlice';
 import moment from 'moment';
 import IconCalendar from '../../../components/Icon/IconCalendar';
 import IconUser from '../../../components/Icon/IconUser';
-import IconCheckCircle from '../../../components/Icon/IconCircleCheck';
+import IconCheckCircle from '../../../components/Icon/IconCheckCircle';
 import IconXCircle from '../../../components/Icon/IconXCircle';
 import IconSun from '../../../components/Icon/IconSun';
 import IconSearch from '../../../components/Icon/IconSearch';
