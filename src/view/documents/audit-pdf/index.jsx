@@ -1,181 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import IconPrinter from '../../../components/Icon/IconPrinter';
-import IconCancel from '../../../components/Icon/IconX';
+import IconBack from '../../../components/Icon/IconArrowLeft';
 import moment from 'moment';
 
-const AuditPrintPage = () => {
+const PackageReportPrint = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const [auditData, setAuditData] = useState(null);
+    const [reportData, setReportData] = useState(null);
 
-    // Static audit data for demonstration
-    const staticAuditData = {
-        auditId: 'AUD-2024-001',
-        auditDate: '2024-01-15',
-        visitDate: '2024-01-15',
-        status: 'Completed',
-        supplierName: 'Precision Engineering Works',
-        supplierType: 'Machining & Fabrication',
-        employeeCount: '85',
-        productionCapacity: '5000 units/month',
-        asianAuditorName: 'Rajesh Kumar',
-        lastAuditDate: '2023-07-20',
-        machineCount: '45',
-        products: 'Elevator components, Metal brackets, CNC machined parts',
-        supplierRepresentative: 'Mr. Sanjay Sharma',
-        lastAuditScore: '78',
-        currentScore: '85',
-        transportAvailable: true,
-        accommodationAvailable: false,
-        animalsAllowed: false,
-
-        checklists: [
-            {
-                id: 1,
-                title: '1. MANAGEMENT SYSTEM & COMPLIANCE',
-                order: 1,
-                items: [
-                    {
-                        id: 1.1,
-                        title: '1.1 Management System Requirement 1 - Quality Policy documented and communicated',
-                        selectedValue: 'yes',
-                        description: 'Quality policy clearly displayed in production area',
-                    },
-                    {
-                        id: 1.2,
-                        title: '1.2 Management System Requirement 2 - Management review conducted quarterly',
-                        selectedValue: 'yes',
-                        description: 'Management review records available for last 4 quarters',
-                    },
-                    { id: 1.3, title: '1.3 Management System Requirement 3 - Document control system implemented', selectedValue: 'yes', description: 'Electronic document control system in place' },
-                    { id: 1.4, title: '1.4 Management System Requirement 4 - Records maintained for 3 years minimum', selectedValue: 'no', description: 'Some records available only for 2 years' },
-                    { id: 1.5, title: '1.5 Management System Requirement 5 - Internal audit program established', selectedValue: 'yes', description: 'Internal audit schedule followed regularly' },
-                ],
-            },
-            {
-                id: 2,
-                title: '2. HEALTH & SAFETY',
-                order: 2,
-                items: [
-                    { id: 2.1, title: '2.1 Safety Requirement 1 - PPE provided to all workers', selectedValue: 'yes', description: 'Helmets, safety shoes, gloves provided' },
-                    { id: 2.2, title: '2.2 Safety Requirement 2 - First aid kits available and maintained', selectedValue: 'yes', description: '4 first aid kits strategically placed' },
-                    { id: 2.3, title: '2.3 Safety Requirement 3 - Fire extinguishers checked monthly', selectedValue: 'no', description: 'Last check was 45 days ago' },
-                    { id: 2.4, title: '2.4 Safety Requirement 4 - Safety training conducted annually', selectedValue: 'yes', description: 'Last training conducted on 15-Dec-2023' },
-                    { id: 2.5, title: '2.5 Safety Requirement 5 - Emergency exits clearly marked', selectedValue: 'yes', description: 'All exits properly marked and unobstructed' },
-                ],
-            },
-            {
-                id: 3,
-                title: '3. ENVIRONMENTAL MANAGEMENT',
-                order: 3,
-                items: [
-                    { id: 3.1, title: '3.1 Environmental Compliance 1 - Waste management system in place', selectedValue: 'yes', description: 'Segregation bins for recyclable waste' },
-                    { id: 3.2, title: '3.2 Environmental Compliance 2 - Hazardous waste disposed properly', selectedValue: 'yes', description: 'Authorized agency collects hazardous waste' },
-                    { id: 3.3, title: '3.3 Environmental Compliance 3 - Energy conservation measures', selectedValue: 'na', description: 'Not applicable for small facility' },
-                    { id: 3.4, title: '3.4 Environmental Compliance 4 - Water conservation practices', selectedValue: 'yes', description: 'Water recycling system installed' },
-                    { id: 3.5, title: '3.5 Environmental Compliance 5 - Pollution control equipment maintained', selectedValue: 'yes', description: 'Dust collectors functioning properly' },
-                ],
-            },
-            {
-                id: 4,
-                title: '4. QUALITY CONTROL',
-                order: 4,
-                items: [
-                    { id: 4.1, title: '4.1 Quality Standard 1 - Incoming material inspection', selectedValue: 'yes', description: 'All raw materials checked before use' },
-                    { id: 4.2, title: '4.2 Quality Standard 2 - In-process quality checks', selectedValue: 'yes', description: 'Checkpoints at each production stage' },
-                    { id: 4.3, title: '4.3 Quality Standard 3 - Final inspection before dispatch', selectedValue: 'yes', description: '100% inspection for critical components' },
-                    { id: 4.4, title: '4.4 Quality Standard 4 - Calibration of measuring instruments', selectedValue: 'no', description: '3 instruments overdue for calibration' },
-                    { id: 4.5, title: '4.5 Quality Standard 5 - Non-conforming product control', selectedValue: 'yes', description: 'Separate area for rejected materials' },
-                ],
-            },
-            {
-                id: 5,
-                title: '5. PRODUCTION FACILITIES',
-                order: 5,
-                items: [
-                    { id: 5.1, title: '5.1 Facility Requirement 1 - Adequate space for operations', selectedValue: 'yes', description: 'Production area well organized' },
-                    { id: 5.2, title: '5.2 Facility Requirement 2 - Proper lighting in work areas', selectedValue: 'yes', description: 'LED lighting installed throughout' },
-                    { id: 5.3, title: '5.3 Facility Requirement 3 - Ventilation system adequate', selectedValue: 'no', description: 'Poor ventilation in grinding section' },
-                    { id: 5.4, title: '5.4 Facility Requirement 4 - Housekeeping standards maintained', selectedValue: 'yes', description: '5S implementation visible' },
-                    { id: 5.5, title: '5.5 Facility Requirement 5 - Equipment layout optimized', selectedValue: 'yes', description: 'Material flow smooth and efficient' },
-                ],
-            },
-            {
-                id: 6,
-                title: '6. WORKER WELFARE',
-                order: 6,
-                items: [
-                    { id: 6.1, title: '6.1 Worker Welfare 1 - Clean drinking water available', selectedValue: 'yes', description: 'RO water purifiers installed' },
-                    { id: 6.2, title: '6.2 Worker Welfare 2 - Sanitary facilities maintained', selectedValue: 'yes', description: 'Clean washrooms available' },
-                    { id: 6.3, title: '6.3 Worker Welfare 3 - Rest area provided', selectedValue: 'yes', description: 'Dedicated rest area with seating' },
-                    { id: 6.4, title: '6.4 Worker Welfare 4 - First aid training provided', selectedValue: 'no', description: 'No first aid training conducted' },
-                    { id: 6.5, title: '6.5 Worker Welfare 5 - Working hours compliance', selectedValue: 'yes', description: '8-hour shifts maintained' },
-                ],
-            },
-            {
-                id: 7,
-                title: '7. DOCUMENTATION & RECORDS',
-                order: 7,
-                items: [
-                    { id: 7.1, title: '7.1 Documentation 1 - SOPs available for all processes', selectedValue: 'yes', description: 'All SOPs documented and accessible' },
-                    { id: 7.2, title: '7.2 Documentation 2 - Training records maintained', selectedValue: 'yes', description: 'Training files organized properly' },
-                    { id: 7.3, title: '7.3 Documentation 3 - Maintenance records updated', selectedValue: 'no', description: 'Some maintenance records missing' },
-                    { id: 7.4, title: '7.4 Documentation 4 - Quality records traceable', selectedValue: 'yes', description: 'Batch traceability maintained' },
-                    { id: 7.5, title: '7.5 Documentation 5 - Customer complaints recorded', selectedValue: 'yes', description: 'Complaint register maintained' },
-                ],
-            },
+    // Default data structure if no data is passed
+    const defaultReportData = {
+        packageId: 'PKG-2024-001',
+        tripId: 'TRP-2024-001',
+        trackingNumber: 'TRK-789456123',
+        status: 'Delivered',
+        date: '2024-01-15',
+        
+        // Route Information
+        fromCenter: 'Chennai Central Hub',
+        fromLocation: '123 Main Street, Chennai',
+        toCenter: 'Bangalore South Terminal',
+        toLocation: '456 Park Avenue, Bangalore',
+        distance: '350 km',
+        estimatedDuration: '5 hours',
+        actualDuration: '5 hours 15 mins',
+        
+        // Customer Information
+        senderName: 'John Doe',
+        senderMobile: '9876543210',
+        receiverName: 'Robert Johnson',
+        receiverMobile: '8765432109',
+        
+        // Package Details
+        packageDetails: [
+            { packageType: 'Box', quantity: 2, rate: 100, pickupPrice: 30, dropPrice: 45, total: 275 },
+            { packageType: 'Document', quantity: 1, rate: 50, pickupPrice: 15, dropPrice: 25, total: 90 }
         ],
-
-        workerInterviews: [
-            {
-                id: 1,
-                name: 'Ramesh Patel',
-                designation: 'CNC Operator',
-                natureOfWork: 'Machine operation and maintenance',
-                questions: [
-                    { question: 'Are you provided with proper safety equipment?', response: 'Yes, we get all required PPE' },
-                    { question: 'Is training provided for new machines?', response: 'Yes, supervisor provides training' },
-                    { question: 'Are working hours comfortable?', response: 'Yes, 8 hours with proper breaks' },
-                ],
-            },
-            {
-                id: 2,
-                name: 'Sunita Desai',
-                designation: 'Quality Inspector',
-                natureOfWork: 'Final quality checking and documentation',
-                questions: [
-                    { question: 'Are quality standards clearly defined?', response: 'Yes, we have checklists for each product' },
-                    { question: 'How are quality issues reported?', response: 'We fill non-conformance reports' },
-                    { question: 'Is management supportive of quality initiatives?', response: 'Yes, they encourage quality improvements' },
-                ],
-            },
-            {
-                id: 3,
-                name: 'Vikram Singh',
-                designation: 'Production Supervisor',
-                natureOfWork: 'Production planning and supervision',
-                questions: [
-                    { question: 'Are production targets realistic?', response: 'Yes, achievable with current resources' },
-                    { question: 'Is there adequate maintenance support?', response: 'Mostly yes, but sometimes delays' },
-                    { question: 'How is communication with management?', response: 'Regular meetings held every week' },
-                ],
-            },
-        ],
-
-        auditorRemarks:
-            'Overall, the supplier shows good compliance with most requirements. Major non-conformities were found in fire safety equipment maintenance and instrument calibration. The supplier has shown willingness to address these issues. Production facilities are well-maintained and quality systems are effectively implemented. Worker welfare facilities are adequate. Documentation system needs improvement in maintenance records.',
-
-        externalProviderComments:
-            'The audit process was professional and thorough. We appreciate the constructive feedback. We will implement corrective actions for the non-conformities within 30 days. The audit helped us identify areas for improvement. We are committed to maintaining high standards. Thank you for the opportunity to improve our systems.',
+        totalWeight: '30 kg',
+        dimensions: 'Various sizes',
+        packageValue: '₹5000',
+        notes: 'Fragile items - Handle with care',
+        specialInstructions: 'Deliver before 3 PM',
+        
+        // Payment Information
+        totalAmount: 365,
+        paymentBy: 'sender',
+        paymentStatus: 'Paid',
+        paymentMethod: 'Cash',
+        paidAmount: 365,
+        dueAmount: 0,
+        paymentDate: '2024-01-15',
+        
+        // Trip Details
+        tripDate: '2024-01-15',
+        tripStatus: 'Completed',
+        departureTime: '09:00 AM',
+        arrivalTime: '02:00 PM',
+        currentLocation: 'Bangalore South Terminal',
+        lastUpdated: '2024-01-15 14:00',
+        
+        // Vehicle Details
+        vehicleNumber: 'TN-01-AB-1234',
+        vehicleType: 'Tata Ace',
+        vehicleCapacity: '1 ton',
+        vehicleModel: '2022',
+        insuranceNumber: 'INS-789456',
+        insuranceExpiry: '2025-12-31',
+        
+        // Driver Details
+        driverName: 'Rajesh Kumar',
+        driverMobile: '9876543211',
+        driverLicense: 'DL-7894561230',
+        driverExpiry: '2026-05-15',
+        
+        // Load Man Details
+        loadManName: 'Suresh Patel',
+        loadManMobile: '9876543212',
+        
+        // Delivery Details
+        deliveryTime: '2024-01-15 14:15',
+        receivedBy: 'Robert Johnson',
+        receiverSignature: true,
+        deliveryProof: 'signed_document.jpg',
+        
+        // Audit Information
+        scannedBy: 'Kumar Swamy',
+        scannedDate: '2024-01-15 08:30',
+        verifiedBy: 'Mohan Reddy',
+        verifiedDate: '2024-01-15 08:45',
+        
+        // Additional Information
+        loadingTime: '08:45 AM',
+        unloadingTime: '02:10 PM',
+        fuelConsumed: '25 liters',
+        routeTaken: 'Chennai - Vellore - Krishnagiri - Bangalore',
+        
+        // Documents
+        documents: ['invoice.pdf', 'packing_list.pdf', 'delivery_receipt.pdf']
     };
 
     useEffect(() => {
-        if (location.state?.auditData) {
-            setAuditData(location.state.auditData);
+        if (location.state?.reportData) {
+            setReportData(location.state.reportData);
         } else {
-            setAuditData(staticAuditData);
+            setReportData(defaultReportData);
         }
     }, [location.state]);
 
@@ -191,56 +121,28 @@ const AuditPrintPage = () => {
         return moment(date).format('DD/MM/YYYY');
     };
 
-    // Calculate scores
-    const calculateScores = () => {
-        const data = auditData || staticAuditData;
-        let totalItems = 0;
-        let yesCount = 0;
-        let noCount = 0;
-        let naCount = 0;
-
-        data.checklists?.forEach((checklist) => {
-            checklist.items?.forEach((item) => {
-                totalItems++;
-                if (item.selectedValue === 'yes') yesCount++;
-                else if (item.selectedValue === 'no') noCount++;
-                else if (item.selectedValue === 'na') naCount++;
-            });
-        });
-
-        const completionPercentage = totalItems > 0 ? Math.round(((yesCount + noCount + naCount) / totalItems) * 100) : 0;
-        const compliancePercentage = totalItems > 0 ? Math.round((yesCount / totalItems) * 100) : 0;
-
-        return {
-            totalItems,
-            yesCount,
-            noCount,
-            naCount,
-            completionPercentage,
-            compliancePercentage,
-        };
+    const formatDateTime = (dateTime) => {
+        return moment(dateTime).format('DD/MM/YYYY HH:mm');
     };
 
-    const scores = calculateScores();
-    const data = auditData || staticAuditData;
+    // Calculate totals
+    const calculateTotals = () => {
+        if (!reportData) return { items: 0, totalAmount: 0 };
+        
+        const items = reportData.packageDetails?.length || 0;
+        const totalAmount = reportData.totalAmount || 0;
+        
+        return { items, totalAmount };
+    };
 
-    // Flatten all checklist items for single table
-    const allChecklistItems = [];
-    data.checklists?.forEach((checklist) => {
-        checklist.items?.forEach((item) => {
-            allChecklistItems.push({
-                ...item,
-                checklistTitle: checklist.title,
-                checklistOrder: checklist.order,
-            });
-        });
-    });
+    const totals = calculateTotals();
+    const data = reportData || defaultReportData;
 
     return (
         <div className="p-4 bg-gray-100 min-h-screen">
             {/* Printable Area - PAPER FORM STYLE */}
             <div
-                id="audit-report-to-print"
+                id="package-report-to-print"
                 className="bg-white mx-auto"
                 style={{
                     width: '210mm',
@@ -250,7 +152,7 @@ const AuditPrintPage = () => {
                     fontFamily: '"Times New Roman", serif',
                 }}
             >
-                {/* HEADER SECTION - OLD SCHOOL PAPER FORM STYLE */}
+                {/* HEADER SECTION */}
                 <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '4mm' }}>
                     <tr>
                         <td width="150" style={{ border: '1px solid #000', padding: '2px', verticalAlign: 'middle', textAlign: 'center' }}>
@@ -265,12 +167,12 @@ const AuditPrintPage = () => {
                             />
                         </td>
                         <td style={{ border: '1px solid #000', padding: '2px 4px', verticalAlign: 'middle', textAlign: 'center' }}>
-                            <div style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', lineHeight: '1.2' }}>SUB-SUPPLIER / EXTERNAL PROVIDER COMPLIANCE AUDIT REPORT</div>
+                            <div style={{ fontSize: '14pt', fontWeight: 'bold', textTransform: 'uppercase', lineHeight: '1.2' }}>COMPREHENSIVE PACKAGE DELIVERY REPORT</div>
                         </td>
                     </tr>
                 </table>
 
-                {/* EXTERNAL PROVIDER PERFORMANCE ASSESSMENT */}
+                {/* REPORT HEADER */}
                 <table
                     width="100%"
                     cellPadding="0"
@@ -291,7 +193,7 @@ const AuditPrintPage = () => {
                                 padding: 0,
                             }}
                         >
-                            External Provider Performance cum Assessment :
+                            Package & Delivery Tracking Report :
                         </td>
 
                         <td
@@ -304,344 +206,683 @@ const AuditPrintPage = () => {
                                 whiteSpace: 'nowrap',
                             }}
                         >
-                            {data.auditId} : {formatDate(data.auditDate)}
+                            {data.packageId} : {formatDate(data.date)}
                         </td>
                     </tr>
                 </table>
 
-                {/* SUPPLIER INFORMATION SECTION - OLD SCHOOL FORM STYLE */}
+                {/* PACKAGE INFORMATION SECTION */}
                 <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '10pt' }}>
-                    {/* Supplier Name - Full Width Row */}
                     <tr>
-                        <td
-                            width="25%"
-                            style={{
-                                border: '1px solid #000',
-                                padding: '3px 6px',
-                                fontWeight: 'bold',
-                                verticalAlign: 'middle',
-                            }}
-                        >
-                            Supplier Name:
-                        </td>
-                        <td
-                            colSpan={3}
-                            style={{
-                                border: '1px solid #000',
-                                padding: '3px 6px',
-                                verticalAlign: 'middle',
-                            }}
-                        >
-                            {data.supplierName}
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                            SECTION 1: PACKAGE & TRACKING INFORMATION
                         </td>
                     </tr>
-
-                    {/* Row 1: Type of Supplier | No. of Machines */}
+                    
+                    {/* Package ID & Trip ID */}
                     <tr>
                         <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
-                            Type of Supplier:
+                            Package ID:
                         </td>
-                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
-                            {data.supplierType}
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', color: '#1e40af' }}>
+                            {data.packageId}
                         </td>
                         <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
-                            No. of Machines:
+                            Trip ID:
                         </td>
-                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
-                            {data.machineCount}
-                        </td>
-                    </tr>
-
-                    {/* Row 2: No. of Employees | Name of the Products */}
-                    <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>No. of Employees:</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{data.employeeCount}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Name of the Products:</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{data.products}</td>
-                    </tr>
-
-                    {/* Row 3: Production Capacity | Date of Visit */}
-                    <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Production Capacity:</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{data.productionCapacity}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Date of Visit:</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{formatDate(data.visitDate)}</td>
-                    </tr>
-
-                    {/* Row 4: Asian Auditor Name | Supplier Representative */}
-                    <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Asian Auditor Name:</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{data.asianAuditorName}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Supplier Representative:</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{data.supplierRepresentative}</td>
-                    </tr>
-
-                    {/* Row 5: Last Audit Date | Last Audit Score & Current Score */}
-                    <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Last Audit Date:</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{formatDate(data.lastAuditDate)}</td>
-                        <td
-                            colSpan={2}
-                            style={{
-                                border: '1px solid #000',
-                                padding: '1px', // 👈 creates separation
-                                backgroundColor: '#fff', // 👈 prevents bleed
-                                verticalAlign: 'middle',
-                            }}
-                        >
-                            <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: 'none', borderCollapse: 'collapse' }}>
-                                <tr>
-                                    <td width="50%" style={{ borderRight: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'middle' }}>
-                                        Last Audit Score:
-                                    </td>
-                                    <td width="50%" style={{ padding: '3px 6px', fontWeight: 'bold', textAlign: 'center', verticalAlign: 'middle' }}>
-                                        Current Score:
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style={{ borderRight: '1px solid #000', padding: '3px 6px', textAlign: 'center', verticalAlign: 'middle' }}>{data.lastAuditScore}%</td>
-                                    <td style={{ padding: '3px 6px', textAlign: 'center', verticalAlign: 'middle' }}>{data.currentScore}%</td>
-                                </tr>
-                            </table>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', color: '#7c3aed' }}>
+                            {data.tripId}
                         </td>
                     </tr>
 
-                    {/* Row 6: Transportation, Accommodation, Animals */}
+                    {/* Tracking No & Status */}
                     <tr>
-                        <td
-                            colSpan={4}
-                            style={{
-                                border: '1px solid #000',
-                                padding: 0,
-                                verticalAlign: 'middle',
-                            }}
-                        >
-                            <table width="100%" cellPadding="0" cellSpacing="0" style={{ borderCollapse: 'collapse' }}>
-                                <tr>
-                                    <td
-                                        width="33.33%"
-                                        style={{
-                                            borderRight: '1px solid #000',
-                                            padding: '3px 6px',
-                                            textAlign: 'center',
-                                            verticalAlign: 'middle',
-                                            fontWeight: 'bold',
-                                        }}
-                                    >
-                                        Transportation:
-                                        <span style={{ fontWeight: 'normal' }}> {data.transportAvailable ? 'YES' : 'NO'}</span>
-                                    </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Tracking Number:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.trackingNumber}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Status:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', 
+                            color: data.status === 'Delivered' ? '#059669' : 
+                                   data.status === 'In Transit' ? '#2563eb' : 
+                                   data.status === 'Pending' ? '#f59e0b' : '#dc2626' }}>
+                            {data.status}
+                        </td>
+                    </tr>
 
-                                    <td
-                                        width="33.33%"
-                                        style={{
-                                            borderRight: '1px solid #000',
-                                            padding: '3px 6px',
-                                            textAlign: 'center',
-                                            verticalAlign: 'middle',
-                                            fontWeight: 'bold',
-                                        }}
-                                    >
-                                        Accommodation:
-                                        <span style={{ fontWeight: 'normal' }}> {data.accommodationAvailable ? 'YES' : 'NO'}</span>
-                                    </td>
+                    {/* Package Date & Last Updated */}
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Package Date:</td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{formatDate(data.date)}</td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>Last Updated:</td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>{formatDateTime(data.lastUpdated)}</td>
+                    </tr>
+                </table>
 
-                                    <td
-                                        width="33.34%"
-                                        style={{
-                                            padding: '3px 6px',
-                                            textAlign: 'center',
-                                            verticalAlign: 'middle',
-                                            fontWeight: 'bold',
-                                        }}
-                                    >
-                                        Animals:
-                                        <span style={{ fontWeight: 'normal' }}> {data.animalsAllowed ? 'YES' : 'NO'}</span>
-                                    </td>
-                                </tr>
-                            </table>
+                {/* ROUTE INFORMATION */}
+                <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '10pt' }}>
+                    <tr>
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                            SECTION 2: ROUTE & TRANSPORT INFORMATION
+                        </td>
+                    </tr>
+                    
+                    {/* From Center & To Center */}
+                    <tr>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#eff6ff' }}>
+                            From Center:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#eff6ff' }}>
+                            {data.fromCenter}
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#ecfdf5' }}>
+                            To Center:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#ecfdf5' }}>
+                            {data.toCenter}
+                        </td>
+                    </tr>
+
+                    {/* From Location & To Location */}
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#eff6ff' }}>
+                            From Location:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#eff6ff' }}>
+                            {data.fromLocation}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#ecfdf5' }}>
+                            To Location:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#ecfdf5' }}>
+                            {data.toLocation}
+                        </td>
+                    </tr>
+
+                    {/* Distance & Duration */}
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Distance:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.distance}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Est. Duration:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.estimatedDuration}
+                        </td>
+                    </tr>
+
+                    {/* Route Taken */}
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Route Taken:
+                        </td>
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.routeTaken}
+                        </td>
+                    </tr>
+
+                    {/* Current Location */}
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#fef3c7' }}>
+                            Current Location:
+                        </td>
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#fef3c7' }}>
+                            {data.currentLocation}
                         </td>
                     </tr>
                 </table>
 
-                {/* AUDIT CHECKLIST TABLE */}
+                {/* CUSTOMER INFORMATION */}
+                <table width="100%" cellPadding="0" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '10pt' }}>
+                    <tr>
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                            SECTION 3: CUSTOMER INFORMATION
+                        </td>
+                    </tr>
+                    
+                    {/* Sender Information */}
+                    <tr>
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', backgroundColor: '#eff6ff', textAlign: 'center' }}>
+                            SENDER DETAILS
+                        </td>
+                    </tr>
+                    <tr>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Name:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.senderName}
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Mobile:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.senderMobile}
+                        </td>
+                    </tr>
+
+                    {/* Receiver Information */}
+                    <tr>
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', backgroundColor: '#ecfdf5', textAlign: 'center' }}>
+                            RECEIVER DETAILS
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Name:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.receiverName}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Mobile:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.receiverMobile}
+                        </td>
+                    </tr>
+                </table>
+
+                {/* PACKAGE DETAILS TABLE */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
                     <tr>
-                        <td colspan="7" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>
-                            1. AUDIT CHECKLIST RESULTS
+                        <td colspan="7" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                            SECTION 4: PACKAGE DETAILS
                         </td>
                     </tr>
                     <tr>
                         <th width="5%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
                             S.No
                         </th>
-                        <th width="45%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'left', fontWeight: 'bold', fontSize: '9pt' }}>
-                            Requirement / Activity
+                        <th width="25%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'left', fontWeight: 'bold', fontSize: '9pt' }}>
+                            Package Type
                         </th>
-                        <th width="8%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
-                            Yes
+                        <th width="10%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
+                            Quantity
                         </th>
-                        <th width="8%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
-                            No
+                        <th width="12%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
+                            Rate (₹)
                         </th>
-                        <th width="8%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
-                            N/A
+                        <th width="12%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
+                            Pickup (₹)
                         </th>
-                        <th width="26%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'left', fontWeight: 'bold', fontSize: '9pt' }}>
-                            Observations
+                        <th width="12%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
+                            Drop (₹)
+                        </th>
+                        <th width="14%" style={{ border: '1px solid #000', padding: '3px 4px', textAlign: 'center', fontWeight: 'bold', fontSize: '9pt' }}>
+                            Total (₹)
                         </th>
                     </tr>
 
-                    {allChecklistItems.map((item, index) => {
-                        const isNewChecklist = index === 0 || allChecklistItems[index - 1].checklistOrder !== item.checklistOrder;
-
-                        return (
-                            <React.Fragment key={item.id}>
-                                {isNewChecklist && (
-                                    <tr>
-                                        <td colspan="7" style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '10pt', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                            {item.checklistTitle}
-                                        </td>
-                                    </tr>
-                                )}
-                                <tr>
-                                    <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top', lineHeight: '1.2' }}>{item.id.toFixed(1)}</td>
-                                    <td style={{ border: '1px solid #000', padding: '2px 3px', verticalAlign: 'top', lineHeight: '1.2' }}>{item.title}</td>
-                                    <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top', lineHeight: '1.2' }}>
-                                        {item.selectedValue === 'yes' ? '✓' : ''}
-                                    </td>
-                                    <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top', lineHeight: '1.2' }}>
-                                        {item.selectedValue === 'no' ? '✓' : ''}
-                                    </td>
-                                    <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top', lineHeight: '1.2' }}>
-                                        {item.selectedValue === 'na' ? '✓' : ''}
-                                    </td>
-                                    <td style={{ border: '1px solid #000', padding: '2px 3px', verticalAlign: 'top', lineHeight: '1.2' }}>{item.description}</td>
-                                </tr>
-                            </React.Fragment>
-                        );
-                    })}
+                    {data.packageDetails?.map((pkg, index) => (
+                        <tr key={index}>
+                            <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top' }}>{index + 1}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px 3px', verticalAlign: 'top' }}>{pkg.packageType}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top' }}>{pkg.quantity}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top' }}>₹{pkg.rate}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top' }}>₹{pkg.pickupPrice}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top' }}>₹{pkg.dropPrice}</td>
+                            <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top', fontWeight: 'bold' }}>₹{pkg.total}</td>
+                        </tr>
+                    ))}
 
                     {/* SUMMARY ROW */}
                     <tr>
-                        <td colspan="2" style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9pt', fontWeight: 'bold', textAlign: 'right' }}>
-                            TOTAL SUMMARY:
+                        <td colspan="6" style={{ border: '1px solid #000', padding: '3px 4px', fontSize: '9pt', fontWeight: 'bold', textAlign: 'right' }}>
+                            TOTAL AMOUNT:
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', fontWeight: 'bold', lineHeight: '1.2' }}>{scores.yesCount}</td>
-                        <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', fontWeight: 'bold', lineHeight: '1.2' }}>{scores.noCount}</td>
-                        <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', fontWeight: 'bold', lineHeight: '1.2' }}>{scores.naCount}</td>
-                        <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', fontWeight: 'bold', lineHeight: '1.2' }}>Total: {scores.totalItems}</td>
+                        <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', fontWeight: 'bold', fontSize: '10pt', color: '#1e40af' }}>
+                            ₹{data.totalAmount}
+                        </td>
                     </tr>
                 </table>
 
-                {/* WORKER INTERVIEWS SECTION */}
+                {/* PACKAGE SPECIFICATIONS & NOTES */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
                     <tr>
-                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>
-                            2. WORKER INTERVIEWS
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '10pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                            PACKAGE SPECIFICATIONS
                         </td>
                     </tr>
-
-                    {data.workerInterviews.map((interview, interviewIndex) => (
-                        <React.Fragment key={interview.id}>
-                            {/* Interview Header */}
-                            <tr>
-                                <td width="15%" style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', verticalAlign: 'middle' }}>
-                                    Interview #{interviewIndex + 1}:
-                                </td>
-                                <td width="35%" style={{ border: '1px solid #000', padding: '2px 4px', verticalAlign: 'middle' }}>
-                                    Name: {interview.name}
-                                </td>
-                                <td width="25%" style={{ border: '1px solid #000', padding: '2px 4px', verticalAlign: 'middle' }}>
-                                    Designation: {interview.designation}
-                                </td>
-                                <td width="25%" style={{ border: '1px solid #000', padding: '2px 4px', verticalAlign: 'middle' }}>
-                                    Work: {interview.natureOfWork}
-                                </td>
-                            </tr>
-
-                            {/* Questions Table */}
-                            <tr>
-                                <td colspan="4" style={{ border: '1px solid #000', padding: '0' }}>
-                                    <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: 'none', borderCollapse: 'collapse', fontSize: '8pt' }}>
-                                        <tr>
-                                            <th width="10%" style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', fontWeight: 'bold' }}>
-                                                Q.No
-                                            </th>
-                                            <th width="45%" style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'left', fontWeight: 'bold' }}>
-                                                Question
-                                            </th>
-                                            <th width="45%" style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'left', fontWeight: 'bold' }}>
-                                                Response
-                                            </th>
-                                        </tr>
-                                        {interview.questions.map((question, qIndex) => (
-                                            <tr key={qIndex}>
-                                                <td style={{ border: '1px solid #000', padding: '2px 3px', textAlign: 'center', verticalAlign: 'top', lineHeight: '1.2' }}>{qIndex + 1}</td>
-                                                <td style={{ border: '1px solid #000', padding: '2px 3px', verticalAlign: 'top', lineHeight: '1.2' }}>{question.question}</td>
-                                                <td style={{ border: '1px solid #000', padding: '2px 3px', verticalAlign: 'top', lineHeight: '1.2' }}>{question.response}</td>
-                                            </tr>
-                                        ))}
-                                    </table>
-                                </td>
-                            </tr>
-                        </React.Fragment>
-                    ))}
+                    <tr>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Total Weight:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.totalWeight}
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Dimensions:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.dimensions}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Package Value:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', color: '#059669' }}>
+                            {data.packageValue}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            No. of Items:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.packageDetails?.length || 0}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Notes:
+                        </td>
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.notes}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Special Instructions:
+                        </td>
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#fef3c7' }}>
+                            {data.specialInstructions}
+                        </td>
+                    </tr>
                 </table>
 
-                {/* AUDITOR REMARKS */}
+                {/* PAYMENT INFORMATION */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
                     <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>
-                            3. AUDITOR REMARKS & OBSERVATIONS
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                            SECTION 5: PAYMENT INFORMATION
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Total Amount:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '11pt', color: '#1e40af' }}>
+                            ₹{data.totalAmount}
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Payment Status:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', 
+                            color: data.paymentStatus === 'Paid' ? '#059669' : '#dc2626' }}>
+                            {data.paymentStatus}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Payment By:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.paymentBy === 'sender' ? 'Sender' : 'Receiver'}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Payment Method:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.paymentMethod}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#ecfdf5' }}>
+                            Paid Amount:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#ecfdf5', fontWeight: 'bold', color: '#059669' }}>
+                            ₹{data.paidAmount}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#fee2e2' }}>
+                            Due Amount:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#fee2e2', fontWeight: 'bold', color: '#dc2626' }}>
+                            ₹{data.dueAmount}
+                        </td>
+                    </tr>
+
+                    {data.paymentDate && (
+                        <tr>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                                Payment Date:
+                            </td>
+                            <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                                {formatDate(data.paymentDate)}
+                            </td>
+                        </tr>
+                    )}
+                </table>
+
+                {/* VEHICLE, DRIVER & LOAD MAN DETAILS */}
+                <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
+                    <tr>
+                        <td colspan="6" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                            SECTION 6: VEHICLE & CREW INFORMATION
+                        </td>
+                    </tr>
+                    
+                    {/* Vehicle Details Header */}
+                    <tr>
+                        <td colspan="6" style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', backgroundColor: '#e0e7ff', textAlign: 'center' }}>
+                            VEHICLE DETAILS
                         </td>
                     </tr>
                     <tr>
-                        <td style={{ border: '1px solid #000', padding: '6px 8px', lineHeight: '1.3', minHeight: '30mm' }}>{data.auditorRemarks}</td>
+                        <td width="20%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Vehicle Number:
+                        </td>
+                        <td width="30%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', color: '#7c3aed' }}>
+                            {data.vehicleNumber}
+                        </td>
+                        <td width="20%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Vehicle Type:
+                        </td>
+                        <td width="30%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.vehicleType}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Capacity:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.vehicleCapacity}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Model:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.vehicleModel}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Insurance No:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.insuranceNumber}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Insurance Expiry:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {formatDate(data.insuranceExpiry)}
+                        </td>
+                    </tr>
+
+                    {/* Driver Details Header */}
+                    <tr>
+                        <td colspan="6" style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', backgroundColor: '#dbeafe', textAlign: 'center' }}>
+                            DRIVER DETAILS
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Driver Name:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', color: '#1e40af' }}>
+                            {data.driverName}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Driver Mobile:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.driverMobile}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            License Number:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.driverLicense}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            License Expiry:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {formatDate(data.driverExpiry)}
+                        </td>
+                    </tr>
+
+                    {/* Load Man Details Header */}
+                    <tr>
+                        <td colspan="6" style={{ border: '1px solid #000', padding: '2px 4px', fontWeight: 'bold', backgroundColor: '#d1fae5', textAlign: 'center' }}>
+                            LOAD MAN DETAILS
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Load Man Name:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold', color: '#059669' }}>
+                            {data.loadManName}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Load Man Mobile:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.loadManMobile}
+                        </td>
                     </tr>
                 </table>
 
-                {/* EXTERNAL PROVIDER COMMENTS */}
+                {/* TRIP & DELIVERY DETAILS */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
                     <tr>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>
-                            4. EXTERNAL PROVIDER COMMENTS
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                            SECTION 7: TRIP & DELIVERY DETAILS
                         </td>
                     </tr>
+                    
                     <tr>
-                        <td style={{ border: '1px solid #000', padding: '6px 8px', lineHeight: '1.3', minHeight: '20mm' }}>{data.externalProviderComments}</td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Trip Date:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {formatDate(data.tripDate)}
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Trip Status:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold',
+                            color: data.tripStatus === 'Completed' ? '#059669' :
+                                   data.tripStatus === 'In Progress' ? '#2563eb' :
+                                   data.tripStatus === 'Delayed' ? '#f59e0b' : '#dc2626' }}>
+                            {data.tripStatus}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Departure Time:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.departureTime}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Arrival Time:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.arrivalTime}
+                        </td>
+                    </tr>
+
+                    {data.actualDuration && (
+                        <tr>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                                Actual Duration:
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                                {data.actualDuration}
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                                Fuel Consumed:
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                                {data.fuelConsumed}
+                            </td>
+                        </tr>
+                    )}
+
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#ecfdf5' }}>
+                            Delivery Time:
+                        </td>
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#ecfdf5' }}>
+                            {data.deliveryTime ? formatDateTime(data.deliveryTime) : 'Not Delivered Yet'}
+                        </td>
+                    </tr>
+
+                    {data.receivedBy && (
+                        <tr>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#d1fae5' }}>
+                                Received By:
+                            </td>
+                            <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', backgroundColor: '#d1fae5', fontWeight: 'bold' }}>
+                                {data.receivedBy}
+                            </td>
+                        </tr>
+                    )}
+
+                    {data.loadingTime && data.unloadingTime && (
+                        <tr>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                                Loading Time:
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                                {data.loadingTime}
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                                Unloading Time:
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                                {data.unloadingTime}
+                            </td>
+                        </tr>
+                    )}
+                </table>
+
+                {/* AUDIT & VERIFICATION */}
+                <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
+                    <tr>
+                        <td colspan="4" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                            SECTION 8: AUDIT & VERIFICATION
+                        </td>
+                    </tr>
+                    
+                    <tr>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Scanned By:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.scannedBy}
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Scanned Date:
+                        </td>
+                        <td width="25%" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.scannedDate ? formatDateTime(data.scannedDate) : 'N/A'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Verified By:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.verifiedBy}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Verified Date:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.verifiedDate ? formatDateTime(data.verifiedDate) : 'N/A'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Delivery Proof:
+                        </td>
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle' }}>
+                            {data.deliveryProof || 'Not Available'}
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style={{ border: '1px solid #000', padding: '3px 6px', fontWeight: 'bold', verticalAlign: 'middle' }}>
+                            Receiver Signature:
+                        </td>
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', verticalAlign: 'middle', fontWeight: 'bold',
+                            color: data.receiverSignature ? '#059669' : '#dc2626' }}>
+                            {data.receiverSignature ? 'YES - Signature Obtained' : 'NO - Signature Not Obtained'}
+                        </td>
                     </tr>
                 </table>
+
+                {/* DOCUMENTS */}
+                {data.documents && data.documents.length > 0 && (
+                    <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
+                        <tr>
+                            <td style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                                ATTACHED DOCUMENTS
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style={{ border: '1px solid #000', padding: '6px 8px', lineHeight: '1.3' }}>
+                                {data.documents.map((doc, index) => (
+                                    <div key={index} style={{ marginBottom: '2px' }}>
+                                        {index + 1}. {doc}
+                                    </div>
+                                ))}
+                            </td>
+                        </tr>
+                    </table>
+                )}
 
                 {/* SIGNATURE SECTION */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', marginBottom: '5mm', fontSize: '9pt' }}>
                     <tr>
-                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', textTransform: 'uppercase' }}>
-                            5. AUDIT CONCLUSION & SIGNATURES
+                        <td colspan="3" style={{ border: '1px solid #000', padding: '3px 6px', fontSize: '11pt', fontWeight: 'bold', textAlign: 'center', backgroundColor: '#f0f0f0' }}>
+                            AUDIT CONCLUSION & SIGNATURES
                         </td>
                     </tr>
                     <tr>
                         <td width="33%" style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'center', verticalAlign: 'top' }}>
                             <div style={{ fontSize: '10pt', fontWeight: 'bold', marginBottom: '10px' }}>
-                                {scores.compliancePercentage >= 70 ? 'SATISFACTORY' : scores.compliancePercentage >= 50 ? 'NEEDS IMPROVEMENT' : 'UNSATISFACTORY'}
+                                {data.status === 'Delivered' ? 'DELIVERY SUCCESSFUL' : 
+                                 data.status === 'In Transit' ? 'IN PROGRESS' : 
+                                 data.status === 'Pending' ? 'PENDING DELIVERY' : 'DELIVERY ISSUE'}
                             </div>
                             <div style={{ borderTop: '1px solid #000', width: '80%', margin: '0 auto', paddingTop: '8px' }}>
-                                <div style={{ fontSize: '9pt' }}>Audit Completion Date</div>
-                                <div style={{ fontSize: '9pt', fontWeight: 'bold', marginTop: '3px' }}>{formatDate(data.auditDate)}</div>
+                                <div style={{ fontSize: '9pt' }}>Report Generation Date</div>
+                                <div style={{ fontSize: '9pt', fontWeight: 'bold', marginTop: '3px' }}>{moment().format('DD/MM/YYYY HH:mm')}</div>
                             </div>
                         </td>
                         <td width="34%" style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'center', verticalAlign: 'top' }}>
-                            <div style={{ fontSize: '10pt', fontWeight: 'bold', marginBottom: '5px' }}>AUDITOR SIGNATURE</div>
+                            <div style={{ fontSize: '10pt', fontWeight: 'bold', marginBottom: '5px' }}>OPERATIONS MANAGER</div>
                             <div style={{ borderTop: '1px solid #000', width: '80%', margin: '15px auto 0', paddingTop: '8px' }}>
-                                <div style={{ fontSize: '9pt' }}>{data.asianAuditorName}</div>
-                                <div style={{ fontSize: '8pt', marginTop: '2px' }}>Asian Fabrics Auditor</div>
+                                <div style={{ fontSize: '9pt' }}>Asian Logistics Operations</div>
+                                <div style={{ fontSize: '8pt', marginTop: '2px' }}>Authorized Signature</div>
                             </div>
                         </td>
                         <td width="33%" style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'center', verticalAlign: 'top' }}>
-                            <div style={{ fontSize: '10pt', fontWeight: 'bold', marginBottom: '5px' }}>SUPPLIER ACKNOWLEDGEMENT</div>
+                            <div style={{ fontSize: '10pt', fontWeight: 'bold', marginBottom: '5px' }}>CUSTOMER ACKNOWLEDGEMENT</div>
                             <div style={{ borderTop: '1px solid #000', width: '80%', margin: '15px auto 0', paddingTop: '8px' }}>
-                                <div style={{ fontSize: '9pt' }}>{data.supplierRepresentative}</div>
-                                <div style={{ fontSize: '8pt', marginTop: '2px' }}>Supplier Representative</div>
+                                <div style={{ fontSize: '9pt' }}>{data.receiverName || 'Customer'}</div>
+                                <div style={{ fontSize: '8pt', marginTop: '2px' }}>Receiver Signature</div>
                             </div>
                         </td>
                     </tr>
@@ -651,12 +892,13 @@ const AuditPrintPage = () => {
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', fontSize: '8pt' }}>
                     <tr>
                         <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>
-                            <div>--- END OF AUDIT REPORT ---</div>
+                            <div>--- END OF PACKAGE REPORT ---</div>
                             <div style={{ marginTop: '2px' }}>
-                                Document ID: {data.auditId} | Generated on: {moment().format('DD/MM/YYYY HH:mm')} | Page 1 of 1
+                                Report ID: {data.packageId} | Generated on: {moment().format('DD/MM/YYYY HH:mm')} | Page 1 of 1
                             </div>
                             <div style={{ marginTop: '2px' }}>
-                                Items: {scores.totalItems} | Yes: {scores.yesCount} ({Math.round((scores.yesCount / scores.totalItems) * 100)}%) | No: {scores.noCount} | N/A: {scores.naCount}
+                                Package Items: {data.packageDetails?.length || 0} | Total Value: ₹{data.totalAmount} | Status: {data.status} | 
+                                Payment: {data.paymentStatus} | Vehicle: {data.vehicleNumber}
                             </div>
                         </td>
                     </tr>
@@ -667,31 +909,16 @@ const AuditPrintPage = () => {
             <div className="mt-6 flex justify-center gap-4">
                 <button
                     onClick={handleBack}
-                    style={{
-                        padding: '8px 20px',
-                        background: '#6b7280',
-                        color: 'white',
-                        border: '1px solid #4b5563',
-                        borderRadius: '2px',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                    }}
+                    className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center"
                 >
-                    ← Back
+                    <IconBack className="w-4 h-4 mr-2" />
+                    Back to Report
                 </button>
                 <button
                     onClick={handlePrint}
-                    style={{
-                        padding: '8px 20px',
-                        background: '#2563eb',
-                        color: 'white',
-                        border: '1px solid #1d4ed8',
-                        borderRadius: '2px',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                    }}
+                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center"
                 >
-                    <IconPrinter className="inline w-4 h-4 mr-2" />
+                    <IconPrinter className="w-4 h-4 mr-2" />
                     Print Report
                 </button>
             </div>
@@ -713,12 +940,12 @@ const AuditPrintPage = () => {
                         padding: 0 !important;
                     }
 
-                    #audit-report-to-print,
-                    #audit-report-to-print * {
+                    #package-report-to-print,
+                    #package-report-to-print * {
                         visibility: visible;
                     }
 
-                    #audit-report-to-print {
+                    #package-report-to-print {
                         position: absolute !important;
                         left: 0 !important;
                         top: 0 !important;
@@ -767,61 +994,55 @@ const AuditPrintPage = () => {
                         vertical-align: top !important;
                     }
 
-                    #audit-report-to-print > div {
+                    #package-report-to-print > div {
                         margin-bottom: 8mm !important;
                     }
 
-                    #audit-report-to-print > div:last-child {
+                    #package-report-to-print > div:last-child {
                         position: relative !important;
                         bottom: 0 !important;
                         margin-top: 10mm !important;
                     }
 
-                    /* Table header colors */
-                    div[style*="background-color: #1e40af"] {
-                        background-color: #1e40af !important;
-                        color: white !important;
-                    }
-                    
-                    div[style*="background-color: #059669"] {
-                        background-color: #059669 !important;
-                        color: white !important;
-                    }
-                    
-                    div[style*="background-color: #7c3aed"] {
-                        background-color: #7c3aed !important;
-                        color: white !important;
-                    }
-                    
-                    div[style*="background-color: #dc2626"] {
-                        background-color: #dc2626 !important;
-                        color: white !important;
-                    }
-                    
-                    div[style*="background-color: #f59e0b"] {
-                        background-color: #f59e0b !important;
-                        color: white !important;
-                    }
-
                     /* Background colors */
-                    tr[style*="background-color: #f3f4f6"] {
-                        background-color: #f3f4f6 !important;
+                    td[style*="background-color: #f0f0f0"] {
+                        background-color: #f0f0f0 !important;
                     }
                     
-                    div[style*="background-color: #f9fafb"] {
-                        background-color: #f9fafb !important;
+                    td[style*="background-color: #eff6ff"] {
+                        background-color: #eff6ff !important;
                     }
                     
-                    div[style*="background-color: #f8fafc"] {
-                        background-color: #f8fafc !important;
-                    }
-                    
-                    div[style*="background-color: #ecfdf5"] {
+                    td[style*="background-color: #ecfdf5"] {
                         background-color: #ecfdf5 !important;
                     }
                     
-                    div[style*="background-color: #eff6ff"] {
-                        background-color: #eff6ff !important;
+                    td[style*="background-color: #fef3c7"] {
+                        background-color: #fef3c7 !important;
+                    }
+                    
+                    td[style*="background-color: #fee2e2"] {
+                        background-color: #fee2e2 !important;
+                    }
+                    
+                    td[style*="background-color: #e0e7ff"] {
+                        background-color: #e0e7ff !important;
+                    }
+                    
+                    td[style*="background-color: #dbeafe"] {
+                        background-color: #dbeafe !important;
+                    }
+                    
+                    td[style*="background-color: #d1fae5"] {
+                        background-color: #d1fae5 !important;
+                    }
+                    
+                    td[style*="background-color: #f9fafb"] {
+                        background-color: #f9fafb !important;
+                    }
+                    
+                    td[style*="background-color: #f8fafc"] {
+                        background-color: #f8fafc !important;
                     }
 
                     /* Border colors */
@@ -834,22 +1055,40 @@ const AuditPrintPage = () => {
                     }
 
                     /* Text colors */
-                    div[style*="color: #065f46"] {
-                        color: #065f46 !important;
-                    }
-                    
-                    div[style*="color: #1e40af"] {
+                    div[style*="color: #1e40af"],
+                    td[style*="color: #1e40af"] {
                         color: #1e40af !important;
                     }
                     
-                    div[style*="color: #059669"] {
+                    div[style*="color: #059669"],
+                    td[style*="color: #059669"] {
                         color: #059669 !important;
+                    }
+                    
+                    div[style*="color: #7c3aed"],
+                    td[style*="color: #7c3aed"] {
+                        color: #7c3aed !important;
+                    }
+                    
+                    div[style*="color: #dc2626"],
+                    td[style*="color: #dc2626"] {
+                        color: #dc2626 !important;
+                    }
+                    
+                    div[style*="color: #f59e0b"],
+                    td[style*="color: #f59e0b"] {
+                        color: #f59e0b !important;
+                    }
+                    
+                    div[style*="color: #2563eb"],
+                    td[style*="color: #2563eb"] {
+                        color: #2563eb !important;
                     }
                 }
 
                 /* Screen styles */
                 @media screen {
-                    #audit-report-to-print {
+                    #package-report-to-print {
                         border-radius: 4px;
                         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
                         background: white;
@@ -858,21 +1097,21 @@ const AuditPrintPage = () => {
                         margin-bottom: 20px;
                     }
 
-                    #audit-report-to-print::-webkit-scrollbar {
+                    #package-report-to-print::-webkit-scrollbar {
                         width: 8px;
                     }
 
-                    #audit-report-to-print::-webkit-scrollbar-track {
+                    #package-report-to-print::-webkit-scrollbar-track {
                         background: #f1f1f1;
                         border-radius: 4px;
                     }
 
-                    #audit-report-to-print::-webkit-scrollbar-thumb {
+                    #package-report-to-print::-webkit-scrollbar-thumb {
                         background: #c1c1c1;
                         border-radius: 4px;
                     }
 
-                    #audit-report-to-print::-webkit-scrollbar-thumb:hover {
+                    #package-report-to-print::-webkit-scrollbar-thumb:hover {
                         background: #a1a1a1;
                     }
                 }
@@ -881,4 +1120,4 @@ const AuditPrintPage = () => {
     );
 };
 
-export default AuditPrintPage;
+export default PackageReportPrint;

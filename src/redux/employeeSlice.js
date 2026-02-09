@@ -1,8 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { getEmployeeApi, createEmployeeApi, updateEmployeeApi, deleteEmployeeApi } from '../api/EmployeeApi';
 
-export const getEmployee = createAsyncThunk('employee/getEmployee', async (request) => {
-    return await getEmployeeApi(request);
+export const getEmployee = createAsyncThunk('employee/getEmployee', async (filters = {}) => {
+    return await getEmployeeApi(filters);
 });
 
 export const createEmployee = createAsyncThunk('employee/createEmployee', async (request) => {
@@ -21,6 +21,7 @@ const employeeSlice = createSlice({
     name: 'employee',
     initialState: {
         employeeData: [],
+        filteredData: [],
         loading: false,
         error: null,
         getEmployeeSuccess: false,
@@ -31,6 +32,12 @@ const employeeSlice = createSlice({
         updateEmployeeFailed: false,
         deleteEmployeeSuccess: false,
         deleteEmployeeFailed: false,
+        filters: {
+            is_driver: null,
+            has_salary: null,
+            is_loadman: null,
+            is_active: null,
+        },
     },
     reducers: {
         resetEmployeeStatus: (state) => {
@@ -44,7 +51,17 @@ const employeeSlice = createSlice({
             state.deleteEmployeeFailed = false;
             state.error = null;
             state.loading = false;
-            state.employeeData = [];
+        },
+        setFilters: (state, action) => {
+            state.filters = { ...state.filters, ...action.payload };
+        },
+        clearFilters: (state) => {
+            state.filters = {
+                is_driver: null,
+                has_salary: null,
+                is_loadman: null,
+                is_active: null,
+            };
         },
     },
     extraReducers: (builder) => {
@@ -58,7 +75,8 @@ const employeeSlice = createSlice({
             })
             .addCase(getEmployee.fulfilled, (state, action) => {
                 state.loading = false;
-                state.employeeData = action.payload.data;
+                state.employeeData = action.payload.data || [];
+                state.filteredData = action.payload.data || [];
                 state.getEmployeeSuccess = true;
                 state.getEmployeeFailed = false;
             })
@@ -78,7 +96,10 @@ const employeeSlice = createSlice({
             })
             .addCase(createEmployee.fulfilled, (state, action) => {
                 state.loading = false;
-                state.employeeData.push(action.payload);
+                if (action.payload.data) {
+                    state.employeeData.unshift(action.payload.data);
+                    state.filteredData.unshift(action.payload.data);
+                }
                 state.createEmployeeSuccess = true;
                 state.createEmployeeFailed = false;
             })
@@ -98,8 +119,12 @@ const employeeSlice = createSlice({
             })
             .addCase(updateEmployee.fulfilled, (state, action) => {
                 state.loading = false;
-                const index = state.employeeData.findIndex((employee) => employee.id === action.payload.id);
-                if (index !== -1) state.employeeData[index] = action.payload;
+                const updatedEmployee = action.payload.data;
+                const index = state.employeeData.findIndex((employee) => employee.employeeId === updatedEmployee.employeeId);
+                if (index !== -1) {
+                    state.employeeData[index] = updatedEmployee;
+                    state.filteredData[index] = updatedEmployee;
+                }
                 state.updateEmployeeSuccess = true;
                 state.updateEmployeeFailed = false;
             })
@@ -119,7 +144,9 @@ const employeeSlice = createSlice({
             })
             .addCase(deleteEmployee.fulfilled, (state, action) => {
                 state.loading = false;
-                state.employeeData = state.employeeData.filter((employee) => employee.id !== action.payload);
+                const employeeId = action.meta.arg;
+                state.employeeData = state.employeeData.filter((employee) => employee.employeeId !== employeeId);
+                state.filteredData = state.filteredData.filter((employee) => employee.employeeId !== employeeId);
                 state.deleteEmployeeSuccess = true;
                 state.deleteEmployeeFailed = false;
             })
@@ -132,5 +159,5 @@ const employeeSlice = createSlice({
     },
 });
 
-export const { resetEmployeeStatus } = employeeSlice.actions;
+export const { resetEmployeeStatus, setFilters, clearFilters } = employeeSlice.actions;
 export default employeeSlice.reducer;
