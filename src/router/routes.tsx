@@ -9,8 +9,7 @@ import {
     Employee,
     Role,
     CompanyInfo,
-    SubChecklistAudit,
-    SubChecklistSupplier,
+    ExpenseSettlementDetails,
     //new asf - ev
     Package,
     //new VMS
@@ -27,17 +26,16 @@ import {
     ERROR503,
     Maintenence,
     LoginBoxed,
-    Capa,
     Attendance,
     PdfSubAuditChecklist,
-    AuditReport,
+    PackageReport,
     DailyExpenseEntry,
-    AuditFormPdf,
+    PackageReportPrint,
     AuditReSchedule,
     PdfSubAuditChecklistBarChart,
     PdfSubAuditChecklistImages,
-    AuditReportPdf,
-    AuditorReport,
+    ProfitLossReportPDF,
+    DailyProfitLossReport,
     Vehicle,
     PackageIntake,
     PakagePaymentScreen,
@@ -255,7 +253,7 @@ const routes = [
     },
     {
         path: '/expenses/settlement/details',
-        element: <SubChecklistAudit />,
+        element: <ExpenseSettlementDetails />,
     },
     {
         path: '/staff/salary',
@@ -266,20 +264,16 @@ const routes = [
         element: <Vehicle />,
     },
     {
-        path: '/master/sub-checklist-supplier',
-        element: <SubChecklistSupplier />,
-    },
-    {
         path: '/master/checklist-supplier',
         element: <ChecklistSupplier />,
     },
     {
         path: '/reports/audit-report',
-        element: <AuditReport />,
+        element: <PackageReport />,
     },
     {
         path: '/reports/auditor-report',
-        element: <AuditorReport />,
+        element: <DailyProfitLossReport />,
     },
     //old
     {
@@ -315,10 +309,6 @@ const routes = [
         element: <AssignTrip />,
     },
     {
-     path: '/capa',
-     element : <Capa />,
-    },
-    {
      path: '/report/profit-loss',
      element : <ProfitLossReport />,
     },
@@ -350,7 +340,7 @@ const routes = [
     },
     {
         path: '/documents/audit-report-pdf',
-        element: <AuditReportPdf />,
+        element: <ProfitLossReportPDF />,
     },
     // pages
 
@@ -407,7 +397,7 @@ const routes = [
     },
     {
         path: '/audit/report-pdf',
-        element: <AuditFormPdf />,
+        element: <PackageReportPrint />,
     },
     {
         path: '/assign-trip',
@@ -419,11 +409,7 @@ const dontCkeckRouts = [
     //new VMS
     {
         path: '/master/sub-checklist-audit',
-        element: <SubChecklistAudit />,
-    },
-    {
-        path: '/master/sub-checklist-supplier',
-        element: <SubChecklistSupplier />,
+        element: <ExpenseSettlementDetails />,
     },
     {
         path: '/payments/record/:id',
@@ -444,7 +430,7 @@ const dontCkeckRouts = [
     },
     {
         path: '/documents/audit-report-pdf',
-        element: <AuditReportPdf />,
+        element: <ProfitLossReportPDF />,
     },
     {
         path: '/pages/contact-us-boxed',
@@ -499,7 +485,7 @@ const dontCkeckRouts = [
     },
     {
         path: '/audit/report-pdf',
-        element: <AuditFormPdf />,
+        element: <PackageReportPrint />,
     },
 ];
 

@@ -115,22 +115,20 @@ export const ExpensesSettlement = lazy(() => import('../view/expensesSettlement'
 export const DailyExpenseEntry = lazy(() => import('../view/dailyExpenseEntry'));
 export const PackageIntake = lazy(() => import('../view/package-intake'));
 export const AssignTrip = lazy(() => import('../view/assign-trip'));
-export const Capa = lazy(() => import('../view/capaManagement'));
 export const PakagePayment = lazy(() => import('../view/package-payment'));
 export const Attendance = lazy(() => import('../view/master/attendance/Index'));
 
 //new of asf ev
 export const Package = lazy(() => import('../view/master/Package'));
-export const AuditReport = lazy(() => import('../view/report/audit'));
-export const AuditorReport = lazy(() => import('../view/report/auditor'));
-export const AuditReportPdf = lazy(() => import('../view/documents/audit-report-pdf'));
+export const PackageReport = lazy(() => import('../view/report/packageReport'));
+export const DailyProfitLossReport = lazy(() => import('../view/report/dailyProfitLossReport'));
+export const ProfitLossReportPDF = lazy(() => import('../view/documents/profitLossReportPDF'));
 export const PdfSubAuditChecklist = lazy(() => import('../view/documents/sub-audit-checklist-report-pdf'));
 export const PdfSubAuditChecklistImages = lazy(() => import('../view/documents/sub-audit-checklist-images'));
 export const PdfSubAuditChecklistBarChart = lazy(() => import('../view/documents/sub-audit-checklist-report-bar-chart'));
-export const SubChecklistAudit = lazy(() => import('../view/master/subChecklistAudit'));
-export const SubChecklistSupplier = lazy(() => import('../view/master/subChecklistSupplier'));
+export const ExpenseSettlementDetails = lazy(() => import('../view/master/expenseSettlementDetails'));
 export const PakagePaymentScreen = lazy(() => import('../view/package-payment-screen'));
-export const AuditFormPdf = lazy(() => import('../view/documents/audit-pdf'));
-export const ProfitLossReport = lazy(() => import('../view/report/profitandloss'));
+export const PackageReportPrint = lazy(() => import('../view/documents/packageReportPrint'));
+export const ProfitLossReport = lazy(() => import('../view/report/monthlyProfitLossReport'));
 export const AuditReSchedule = lazy(() => import('../view/reasignAudit'));
 export const VehicleType = lazy(() => import('../view/master/vehicleType'));
