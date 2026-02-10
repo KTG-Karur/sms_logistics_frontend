@@ -23,6 +23,7 @@ import IconChevronUp from '../../components/Icon/IconChevronUp';
 import IconInfoCircle from '../../components/Icon/IconInfoCircle';
 import IconFlag from '../../components/Icon/IconAt';
 import IconSearch from '../../components/Icon/IconSearch';
+import IconFilter from '../../components/Icon/IconCoffee';
 
 // Custom responsive table component
 const ResponsiveTable = ({ 
@@ -403,9 +404,9 @@ const AssignTrip = () => {
         },
         {
             id: 3,
-            fromCenter: 'Bangalore South Terminal',
+            fromCenter: 'Karur Hub',
             toCenter: 'Hyderabad Distribution Center',
-            fromLocation: 'Bangalore Tech Park',
+            fromLocation: 'Karur Textile Market',
             toLocation: '234 Banjara Hills, Hyderabad',
             fromMobile: '9876543212',
             fromName: 'Priya Sharma',
@@ -428,7 +429,7 @@ const AssignTrip = () => {
             totalAmount: 425,
             paymentBy: 'from',
             paidAmount: 425,
-            status: 'completed',
+            status: 'pending',
             deliveryStatus: 'not_started',
             date: '2024-01-19',
             totalWeight: 15,
@@ -436,9 +437,9 @@ const AssignTrip = () => {
         },
         {
             id: 4,
-            fromCenter: 'Bangalore South Terminal',
+            fromCenter: 'Karur Hub',
             toCenter: 'Pune Delivery Hub',
-            fromLocation: 'Bangalore IT Park',
+            fromLocation: 'Karur IT Park',
             toLocation: '123 MG Road, Pune',
             fromMobile: '9876543214',
             fromName: 'Vikram Singh',
@@ -533,6 +534,39 @@ const AssignTrip = () => {
             totalWeight: 75,
             totalVolume: 0.216,
         },
+        {
+            id: 7,
+            fromCenter: 'Karur Hub',
+            toCenter: 'Coimbatore Terminal',
+            fromLocation: 'Karur Bus Stand',
+            toLocation: 'Coimbatore City Center',
+            fromMobile: '9876543217',
+            fromName: 'Karthik Raj',
+            toMobile: '8765432115',
+            toName: 'Senthil Kumar',
+            packageDetails: [
+                { 
+                    id: 1, 
+                    packageType: 'Textiles', 
+                    quantity: 8, 
+                    rate: 75, 
+                    pickupPrice: 25, 
+                    dropPrice: 35, 
+                    total: 660,
+                    weight: 32,
+                    dimensions: '40x30x20 cm',
+                    specialInstructions: 'Textile goods'
+                }
+            ],
+            totalAmount: 660,
+            paymentBy: 'from',
+            paidAmount: 660,
+            status: 'pending',
+            deliveryStatus: 'not_started',
+            date: '2024-01-22',
+            totalWeight: 32,
+            totalVolume: 0.192,
+        },
     ]);
 
     // States
@@ -564,8 +598,7 @@ const AssignTrip = () => {
                             total: 275,
                             weight: 25,
                             dimensions: '30x30x30 cm',
-                            specialInstructions: 'Fragile',
-                            assignedLoadmen: [dummyLoadmen[0]]
+                            specialInstructions: 'Fragile'
                         },
                         { 
                             id: 2, 
@@ -577,14 +610,14 @@ const AssignTrip = () => {
                             total: 90,
                             weight: 2,
                             dimensions: 'A4 Envelope',
-                            specialInstructions: 'Handle with care',
-                            assignedLoadmen: [dummyLoadmen[1]]
+                            specialInstructions: 'Handle with care'
                         }
                     ]
                 }
             ],
             vehicle: dummyVehicles[0],
             driver: dummyDrivers[0],
+            loadmen: [dummyLoadmen[0], dummyLoadmen[1]],
             tripDate: '2024-01-20',
             estimatedDeparture: '08:00',
             estimatedArrival: '14:00',
@@ -607,12 +640,13 @@ const AssignTrip = () => {
     const [pageSize, setPageSize] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [tripMode, setTripMode] = useState('new');
+    const [selectedBranch, setSelectedBranch] = useState('all');
 
     // Form states for trip assignment
     const [selectedBookings, setSelectedBookings] = useState([]);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [selectedDriver, setSelectedDriver] = useState(null);
-    const [packageLoadmen, setPackageLoadmen] = useState({});
+    const [selectedLoadmen, setSelectedLoadmen] = useState([]);
     const [tripDate, setTripDate] = useState(new Date().toISOString().split('T')[0]);
     const [estimatedDeparture, setEstimatedDeparture] = useState('08:00');
     const [estimatedArrival, setEstimatedArrival] = useState('18:00');
@@ -628,11 +662,26 @@ const AssignTrip = () => {
     const [addonArrival, setAddonArrival] = useState('22:00');
     const [addonRemarks, setAddonRemarks] = useState('');
 
-    // Memoized values
-    const availableBookings = useMemo(() => 
-        dummyBookings.filter(booking => booking.deliveryStatus === 'not_started'),
-        [dummyBookings]
-    );
+    // Get unique branches from dummyBookings
+    const branches = useMemo(() => {
+        const uniqueBranches = [...new Set(dummyBookings.map(booking => booking.fromCenter))];
+        const branchOptions = uniqueBranches.map(branch => ({
+            value: branch,
+            label: branch
+        }));
+        return [{ value: 'all', label: 'All Branches' }, ...branchOptions];
+    }, []);
+
+    // Filter available bookings by selected branch
+    const availableBookings = useMemo(() => {
+        let filtered = dummyBookings.filter(booking => booking.deliveryStatus === 'not_started');
+        
+        if (selectedBranch !== 'all') {
+            filtered = filtered.filter(booking => booking.fromCenter === selectedBranch);
+        }
+        
+        return filtered;
+    }, [dummyBookings, selectedBranch]);
 
     const activeTrips = useMemo(() => 
         trips.filter(trip => 
@@ -675,14 +724,20 @@ const AssignTrip = () => {
             const allStages = [selectedParentTrip.bookings, ...selectedParentTrip.addonStages.map(stage => stage.bookings)].flat();
             const lastDestination = allStages[allStages.length - 1]?.toCenter;
             
-            const addonBookings = availableBookings.filter(booking => 
+            let addonBookings = availableBookings.filter(booking => 
                 booking.fromCenter === lastDestination
             );
+            
+            // Apply branch filter to addon bookings as well
+            if (selectedBranch !== 'all') {
+                addonBookings = addonBookings.filter(booking => booking.fromCenter === selectedBranch);
+            }
+            
             setAvailableAddonBookings(addonBookings);
             setSelectedAddonBookings([]);
-            setPackageLoadmen({});
+            setSelectedLoadmen([]);
         }
-    }, [selectedParentTrip, tripMode, availableBookings]);
+    }, [selectedParentTrip, tripMode, availableBookings, selectedBranch]);
 
     // Get vehicle options
     const getVehicleOptions = useCallback(() => {
@@ -749,14 +804,6 @@ const AssignTrip = () => {
             data: booking,
         }));
     }, [selectedParentTrip, availableAddonBookings]);
-
-    // Handle loadmen assignment for specific package
-    const handlePackageLoadmenChange = useCallback((bookingId, packageId, loadmen) => {
-        setPackageLoadmen(prev => ({
-            ...prev,
-            [`${bookingId}_${packageId}`]: loadmen
-        }));
-    }, []);
 
     // Toggle view details for a trip
     const toggleTripDetails = useCallback((tripId) => {
@@ -879,20 +926,9 @@ const AssignTrip = () => {
         }
         if (!selectedVehicle) newErrors.selectedVehicle = 'Vehicle is required';
         if (!selectedDriver) newErrors.selectedDriver = 'Driver is required';
-        
-        bookings.forEach(booking => {
-            const bookingId = booking.data.id;
-            const packages = booking.data.packageDetails || [];
-            
-            packages.forEach(pkg => {
-                const packageKey = `${bookingId}_${pkg.id}`;
-                const assignedLoadmen = packageLoadmen[packageKey] || [];
-                
-                if (assignedLoadmen.length === 0) {
-                    newErrors[`loadmen_${packageKey}`] = `At least one loadman is required for ${pkg.packageType} (Package #${pkg.id}) in Booking #${bookingId}`;
-                }
-            });
-        });
+        if (selectedLoadmen.length === 0) {
+            newErrors.loadmen = 'At least one loadman is required for the trip';
+        }
         
         const dateField = tripMode === 'addon' ? addonTripDate : tripDate;
         if (!dateField) newErrors.date = 'Trip date is required';
@@ -915,7 +951,7 @@ const AssignTrip = () => {
         return Object.keys(newErrors).length === 0;
     }, [
         tripMode, selectedAddonBookings, selectedBookings, 
-        selectedVehicle, selectedDriver, packageLoadmen,
+        selectedVehicle, selectedDriver, selectedLoadmen,
         addonTripDate, tripDate, addonDeparture, estimatedDeparture,
         addonArrival, estimatedArrival, selectedTotals.totalWeight
     ]);
@@ -932,17 +968,14 @@ const AssignTrip = () => {
         const tripId = trips.length + 1;
         const bookings = tripMode === 'addon' ? selectedAddonBookings : selectedBookings;
 
-        // Prepare bookings with assigned loadmen per package
+        // Prepare bookings with assigned loadmen
         const bookingsWithLoadmen = bookings.map(booking => {
             const bookingId = booking.data.id;
             const packagesWithLoadmen = (booking.data.packageDetails || []).map(pkg => {
-                const packageKey = `${bookingId}_${pkg.id}`;
-                const assignedLoadmen = packageLoadmen[packageKey] || [];
-                
                 return {
                     ...pkg,
-                    assignedLoadmen: assignedLoadmen.map(l => l.data),
-                    assignedLoadmenNames: assignedLoadmen.map(l => l.data.name).join(', ')
+                    assignedLoadmen: selectedLoadmen.map(l => l.data),
+                    assignedLoadmenNames: selectedLoadmen.map(l => l.data.name).join(', ')
                 };
             });
 
@@ -950,9 +983,7 @@ const AssignTrip = () => {
                 ...booking.data,
                 packageDetails: packagesWithLoadmen,
                 deliveryStatus: 'scheduled',
-                assignedLoadmen: Array.from(new Set(
-                    packagesWithLoadmen.flatMap(pkg => pkg.assignedLoadmen || [])
-                ))
+                assignedLoadmen: selectedLoadmen.map(l => l.data)
             };
         });
 
@@ -968,6 +999,7 @@ const AssignTrip = () => {
                 actualArrival: null,
                 remarks: addonRemarks,
                 status: 'scheduled',
+                loadmen: selectedLoadmen.map(l => l.data),
                 createdAt: new Date().toISOString(),
                 totalWeight: selectedTotals.totalWeight,
                 totalPackages: selectedTotals.totalPackages,
@@ -998,6 +1030,7 @@ const AssignTrip = () => {
                 addonStages: [],
                 vehicle: selectedVehicle.data,
                 driver: selectedDriver.data,
+                loadmen: selectedLoadmen.map(l => l.data),
                 tripDate: tripDate,
                 estimatedDeparture: estimatedDeparture,
                 estimatedArrival: estimatedArrival,
@@ -1041,12 +1074,20 @@ const AssignTrip = () => {
             data: parentTrip.driver,
         });
 
+        // Set loadmen from parent trip
+        if (parentTrip.loadmen && parentTrip.loadmen.length > 0) {
+            setSelectedLoadmen(parentTrip.loadmen.map(loadman => ({
+                value: loadman.id,
+                label: `${loadman.name} - ${loadman.mobileNo}`,
+                data: loadman,
+            })));
+        }
+
         setAddonTripDate(parentTrip.tripDate);
         setAddonDeparture('15:00');
         setAddonArrival('22:00');
         setAddonRemarks('');
         setSelectedAddonBookings([]);
-        setPackageLoadmen({});
     }, []);
 
     // Update trip status
@@ -1084,7 +1125,7 @@ const AssignTrip = () => {
         setSelectedBookings([]);
         setSelectedVehicle(null);
         setSelectedDriver(null);
-        setPackageLoadmen({});
+        setSelectedLoadmen([]);
         setTripDate(new Date().toISOString().split('T')[0]);
         setEstimatedDeparture('08:00');
         setEstimatedArrival('18:00');
@@ -1144,19 +1185,17 @@ const AssignTrip = () => {
         if (!trip.expanded) return null;
 
         const allStages = [
-            { stageNumber: 0, stageName: 'Main Trip', bookings: trip.bookings, status: trip.status, actualArrival: trip.actualArrival },
+            { stageNumber: 0, stageName: 'Main Trip', bookings: trip.bookings, status: trip.status, actualArrival: trip.actualArrival, loadmen: trip.loadmen },
             ...(trip.addonStages || []).map(stage => ({ ...stage, stageName: `Add-on Stage ${stage.stageNumber}` }))
         ];
 
         const allLoadmen = new Set();
         allStages.forEach(stage => {
-            stage.bookings?.forEach(booking => {
-                booking.packageDetails?.forEach(pkg => {
-                    pkg.assignedLoadmen?.forEach(loadman => {
-                        allLoadmen.add(loadman.name);
-                    });
+            if (stage.loadmen && stage.loadmen.length > 0) {
+                stage.loadmen.forEach(loadman => {
+                    allLoadmen.add(loadman.name);
                 });
-            });
+            }
         });
 
         return (
@@ -1367,6 +1406,14 @@ const AssignTrip = () => {
                                             </div>
                                         </div>
                                         
+                                        {stage.loadmen && stage.loadmen.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-gray-200">
+                                                <div className="text-sm text-gray-700">
+                                                    <span className="font-medium">Loadmen for this stage:</span> {stage.loadmen.map(l => l.name).join(', ')}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
                                         {stage.remarks && (
                                             <div className="mt-3 pt-3 border-t border-gray-200">
                                                 <div className="text-sm text-gray-700">
@@ -1436,7 +1483,7 @@ const AssignTrip = () => {
                                                                     </div>
                                                                 </div>
                                                                 <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                                                                    {pkg.assignedLoadmen?.map(l => l.name).join(', ') || 'No loadmen'}
+                                                                    {stage.loadmen?.map(l => l.name).join(', ') || 'No loadmen'}
                                                                 </div>
                                                             </div>
                                                             {pkg.specialInstructions && (
@@ -1564,13 +1611,11 @@ const AssignTrip = () => {
                 
                 const allLoadmen = new Set();
                 allStages.forEach(stage => {
-                    stage.bookings?.forEach(booking => {
-                        booking.packageDetails?.forEach(pkg => {
-                            pkg.assignedLoadmen?.forEach(loadman => {
-                                allLoadmen.add(loadman.name);
-                            });
+                    if (stage.loadmen && stage.loadmen.length > 0) {
+                        stage.loadmen.forEach(loadman => {
+                            allLoadmen.add(loadman.name);
                         });
-                    });
+                    }
                 });
                 
                 return (
@@ -1798,8 +1843,29 @@ const AssignTrip = () => {
                     </div>
                 </div>
 
-                {/* Action Buttons - Responsive */}
-                <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
+                {/* Action Buttons - Responsive with Branch Filter */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                    <div className="w-full sm:w-auto">
+                        <div className="flex items-center space-x-2">
+                            <IconFilter className="w-4 h-4 text-gray-500" />
+                            <span className="text-xs sm:text-sm font-medium text-gray-700">Filter by Branch:</span>
+                        </div>
+                        <Select
+                            options={branches}
+                            value={branches.find(branch => branch.value === selectedBranch)}
+                            onChange={(option) => setSelectedBranch(option.value)}
+                            className="react-select mt-2 w-full sm:w-48 lg:w-64"
+                            classNamePrefix="select"
+                            styles={{
+                                control: (base) => ({
+                                    ...base,
+                                    minHeight: '38px',
+                                    fontSize: window.innerWidth < 640 ? '12px' : '14px',
+                                }),
+                            }}
+                        />
+                    </div>
+                    
                     <button
                         type="button"
                         onClick={() => {
@@ -1886,6 +1952,9 @@ const AssignTrip = () => {
                                 <div>
                                     <label className="block text-xs sm:text-sm lg:text-base font-medium text-gray-700 mb-2">
                                         {tripMode === 'addon' ? 'Available Bookings at Current Destination' : 'Available Bookings'}
+                                        {selectedBranch !== 'all' && (
+                                            <span className="text-primary ml-2">(Filtered by: {selectedBranch})</span>
+                                        )}
                                     </label>
                                     <Select
                                         isMulti
@@ -1936,97 +2005,6 @@ const AssignTrip = () => {
                                     )}
                                 </div>
                             </div>
-
-                            {/* Package Loadmen Assignment */}
-                            {(tripMode === 'addon' ? selectedAddonBookings : selectedBookings).length > 0 && (
-                                <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
-                                    <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
-                                        <IconUsers className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-500" />
-                                        Assign Loadmen to Each Package *
-                                    </h3>
-                                    <div className="space-y-4 sm:space-y-6">
-                                        {(tripMode === 'addon' ? selectedAddonBookings : selectedBookings).map((booking) => (
-                                            <div key={booking.data.id} className="bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200">
-                                                <div className="mb-4 sm:mb-6">
-                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4">
-                                                        <div className="mb-2 sm:mb-0">
-                                                            <h4 className="font-semibold text-gray-800 text-sm sm:text-base">
-                                                                Booking #{booking.data.id}: {booking.data.fromCenter} → {booking.data.toCenter}
-                                                            </h4>
-                                                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                                                                Total: {booking.data.totalWeight}kg • ₹{booking.data.totalAmount} • {booking.data.packageDetails.length} packages
-                                                            </p>
-                                                        </div>
-                                                        <div className="text-xs sm:text-sm text-gray-500">
-                                                            Customer: {booking.data.fromName}
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <div className="space-y-3 sm:space-y-4">
-                                                        {booking.data.packageDetails.map((pkg, pkgIndex) => (
-                                                            <div key={pkg.id} className="bg-white rounded p-3 sm:p-4 border border-gray-200">
-                                                                <div className="flex flex-col sm:flex-row sm:items-start justify-between mb-3">
-                                                                    <div className="mb-2 sm:mb-0">
-                                                                        <h5 className="font-medium text-gray-800 text-sm sm:text-base">
-                                                                            Package {pkgIndex + 1}: {pkg.packageType} × {pkg.quantity}
-                                                                        </h5>
-                                                                        <div className="flex flex-wrap gap-2 mt-1">
-                                                                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                                                                                Weight: {pkg.weight}kg
-                                                                            </span>
-                                                                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                                                                                Amount: ₹{pkg.total}
-                                                                            </span>
-                                                                            {pkg.specialInstructions && (
-                                                                                <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                                                                                    {pkg.specialInstructions}
-                                                                                </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div className="text-xs sm:text-sm text-gray-500">
-                                                                        Assign loadmen for this package
-                                                                    </div>
-                                                                </div>
-                                                                
-                                                                <div>
-                                                                    <Select
-                                                                        isMulti
-                                                                        options={getLoadmenOptions()}
-                                                                        value={packageLoadmen[`${booking.data.id}_${pkg.id}`] || []}
-                                                                        onChange={(selected) => handlePackageLoadmenChange(booking.data.id, pkg.id, selected)}
-                                                                        placeholder={`Select loadmen for ${pkg.packageType}`}
-                                                                        className="react-select"
-                                                                        classNamePrefix="select"
-                                                                        styles={{
-                                                                            control: (base) => ({
-                                                                                ...base,
-                                                                                borderColor: errors[`loadmen_${booking.data.id}_${pkg.id}`] ? '#ef4444' : '#d1d5db',
-                                                                                minHeight: '40px',
-                                                                                fontSize: window.innerWidth < 640 ? '12px' : '14px',
-                                                                            }),
-                                                                        }}
-                                                                    />
-                                                                    {errors[`loadmen_${booking.data.id}_${pkg.id}`] && (
-                                                                        <p className="mt-2 text-xs sm:text-sm text-red-600">{errors[`loadmen_${booking.data.id}_${pkg.id}`]}</p>
-                                                                    )}
-                                                                    {(packageLoadmen[`${booking.data.id}_${pkg.id}`] || []).length > 0 && (
-                                                                        <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                                                                            <p className="text-xs sm:text-sm text-green-700">
-                                                                                Selected: {packageLoadmen[`${booking.data.id}_${pkg.id}`]?.length || 0} loadmen
-                                                                            </p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
 
                             {/* Vehicle Selection */}
                             <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
@@ -2108,6 +2086,55 @@ const AssignTrip = () => {
                                                 <div className="font-medium text-sm sm:text-base">{selectedDriver.data.name}</div>
                                                 <div className="mt-1">License: {selectedDriver.data.licenseNo}</div>
                                                 <div className="mt-1">Mobile: {selectedDriver.data.mobileNo}</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Loadmen Selection - Common for entire trip */}
+                            <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
+                                <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
+                                    <IconUsers className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-500" />
+                                    Select Loadmen for Trip *
+                                </h3>
+                                <div>
+                                    <label className="block text-xs sm:text-sm lg:text-base font-medium text-gray-700 mb-2">
+                                        Available Loadmen
+                                    </label>
+                                    <Select
+                                        isMulti
+                                        options={getLoadmenOptions()}
+                                        value={selectedLoadmen}
+                                        onChange={setSelectedLoadmen}
+                                        placeholder="Select loadmen for this trip"
+                                        className="react-select"
+                                        classNamePrefix="select"
+                                        styles={{
+                                            control: (base) => ({
+                                                ...base,
+                                                borderColor: errors.loadmen ? '#ef4444' : '#d1d5db',
+                                                minHeight: '40px',
+                                                fontSize: window.innerWidth < 640 ? '12px' : '14px',
+                                            }),
+                                        }}
+                                    />
+                                    {errors.loadmen && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.loadmen}</p>}
+                                    
+                                    {selectedLoadmen.length > 0 && (
+                                        <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
+                                            <div className="text-xs sm:text-sm text-gray-700">
+                                                <div className="font-medium text-sm sm:text-base">{selectedLoadmen.length} Loadmen Selected</div>
+                                                <div className="mt-1">
+                                                    {selectedLoadmen.map((loadman, index) => (
+                                                        <span key={loadman.value} className="inline-block bg-white px-2 py-1 rounded text-xs mr-1 mb-1 border">
+                                                            {loadman.data.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                                <p className="text-xs text-green-600 mt-2">
+                                                    These loadmen will be assigned to handle all packages in the selected bookings
+                                                </p>
                                             </div>
                                         </div>
                                     )}
@@ -2196,7 +2223,7 @@ const AssignTrip = () => {
                                     <div className="text-center">
                                         <div className="text-xs sm:text-sm text-gray-600">Total Loadmen</div>
                                         <div className="text-lg sm:text-xl lg:text-2xl font-bold text-primary">
-                                            {Object.values(packageLoadmen).flat().length}
+                                            {selectedLoadmen.length}
                                         </div>
                                     </div>
                                 </div>
@@ -2209,7 +2236,7 @@ const AssignTrip = () => {
                                         <div className="text-center">
                                             <div className="text-xs sm:text-sm text-gray-600">Team Size</div>
                                             <div className="text-lg sm:text-xl font-bold text-primary">
-                                                {Object.values(packageLoadmen).flat().length + 1}
+                                                {selectedLoadmen.length + 1}
                                             </div>
                                         </div>
                                     </div>
