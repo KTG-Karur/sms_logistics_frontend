@@ -45,6 +45,7 @@ import {
     AssignTrip,
     VehicleType,
     ExpensesSettlement,
+    ProfitLossReport,
 } from './Route_Menu';
 import path from 'path';
 
@@ -316,6 +317,10 @@ const routes = [
     {
      path: '/capa',
      element : <Capa />,
+    },
+    {
+     path: '/report/profit-loss',
+     element : <ProfitLossReport />,
     },
     //old
     {

@@ -131,5 +131,6 @@ export const SubChecklistAudit = lazy(() => import('../view/master/subChecklistA
 export const SubChecklistSupplier = lazy(() => import('../view/master/subChecklistSupplier'));
 export const PakagePaymentScreen = lazy(() => import('../view/package-payment-screen'));
 export const AuditFormPdf = lazy(() => import('../view/documents/audit-pdf'));
+export const ProfitLossReport = lazy(() => import('../view/report/profitandloss'));
 export const AuditReSchedule = lazy(() => import('../view/reasignAudit'));
 export const VehicleType = lazy(() => import('../view/master/vehicleType'));

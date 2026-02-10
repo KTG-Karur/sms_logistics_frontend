@@ -18,9 +18,11 @@ import ModelViewBox from '../../../util/ModelViewBox';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import _ from 'lodash';
+import { useNavigate } from 'react-router-dom';
 
 const PackageReport = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
 
     // Dummy data for reports (expanded with all required details)
     const dummyReportData = [
@@ -437,14 +439,9 @@ const PackageReport = () => {
         searchQuery: '',
         selectedStatus: null,
         selectedPaymentStatus: null,
-        selectedFromCenter: null,
-        selectedToCenter: null,
-        selectedDriver: null,
-        selectedVehicle: null,
+        selectedCustomer: null,
         startDate: '',
         toDate: '',
-        minAmount: '',
-        maxAmount: '',
     });
 
     const [appliedFilters, setAppliedFilters] = useState(null);
@@ -478,6 +475,18 @@ const PackageReport = () => {
         { value: 'Kolkata East Station', label: 'Kolkata East Station' },
         { value: 'Pune Cargo Terminal', label: 'Pune Cargo Terminal' },
         { value: 'Ahmedabad Logistics Hub', label: 'Ahmedabad Logistics Hub' },
+    ];
+
+    const customerOptions = [
+        { value: 'all', label: 'All Customers' },
+        { value: 'John Doe', label: 'John Doe' },
+        { value: 'Sarah Williams', label: 'Sarah Williams' },
+        { value: 'David Wilson', label: 'David Wilson' },
+        { value: 'Emily Davis', label: 'Emily Davis' },
+        { value: 'Robert Johnson', label: 'Robert Johnson' },
+        { value: 'Mike Brown', label: 'Mike Brown' },
+        { value: 'Lisa Miller', label: 'Lisa Miller' },
+        { value: 'Michael Taylor', label: 'Michael Taylor' },
     ];
 
     const driverOptions = [
@@ -579,12 +588,23 @@ const PackageReport = () => {
             ),
         },
         {
-            Header: 'Amount',
-            accessor: 'totalAmount',
-            Cell: ({ value, row }) => (
-                <div>
-                    <div className="font-bold text-gray-800">₹{value}</div>
-                    <div className={`text-xs px-1 rounded ${getPaymentStatusColor(row.original.paymentStatus)}`}>
+            Header: 'Payment Details',
+            accessor: 'paymentDetails',
+            Cell: ({ row }) => (
+                <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">Total:</span>
+                        <span className="font-bold text-gray-800">₹{row.original.totalAmount}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">Paid:</span>
+                        <span className="font-medium text-green-600">₹{row.original.paidAmount}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">Pending:</span>
+                        <span className="font-medium text-red-600">₹{row.original.dueAmount}</span>
+                    </div>
+                    <div className={`text-xs px-1 rounded text-center mt-1 ${getPaymentStatusColor(row.original.paymentStatus)}`}>
                         {row.original.paymentStatus}
                     </div>
                 </div>
@@ -628,13 +648,6 @@ const PackageReport = () => {
                             title="View Details"
                         >
                             <IconEye className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => handleViewTrip(data)}
-                            className="flex items-center justify-center w-8 h-8 text-purple-600 hover:text-purple-800 transition-colors"
-                            title="View Trip Details"
-                        >
-                            <IconTruck className="w-4 h-4" />
                         </button>
                         <button
                             onClick={() => handleExportReport(data)}
@@ -682,24 +695,12 @@ const PackageReport = () => {
             filtered = filtered.filter((report) => report.paymentStatus === filters.selectedPaymentStatus.value);
         }
 
-        // Apply from center filter
-        if (filters.selectedFromCenter && filters.selectedFromCenter.value !== 'all') {
-            filtered = filtered.filter((report) => report.fromCenter === filters.selectedFromCenter.value);
-        }
-
-        // Apply to center filter
-        if (filters.selectedToCenter && filters.selectedToCenter.value !== 'all') {
-            filtered = filtered.filter((report) => report.toCenter === filters.selectedToCenter.value);
-        }
-
-        // Apply driver filter
-        if (filters.selectedDriver && filters.selectedDriver.value !== 'all') {
-            filtered = filtered.filter((report) => report.driverName === filters.selectedDriver.value);
-        }
-
-        // Apply vehicle filter
-        if (filters.selectedVehicle && filters.selectedVehicle.value !== 'all') {
-            filtered = filtered.filter((report) => report.vehicleNumber === filters.selectedVehicle.value.split(' ')[0]);
+        // Apply customer filter
+        if (filters.selectedCustomer && filters.selectedCustomer.value !== 'all') {
+            filtered = filtered.filter((report) => 
+                report.senderName === filters.selectedCustomer.value || 
+                report.receiverName === filters.selectedCustomer.value
+            );
         }
 
         // Apply date filter
@@ -710,15 +711,6 @@ const PackageReport = () => {
                 const end = moment(filters.toDate);
                 return reportDate.isBetween(start, end, null, '[]');
             });
-        }
-
-        // Apply amount filter
-        if (filters.minAmount) {
-            filtered = filtered.filter((report) => report.totalAmount >= parseFloat(filters.minAmount));
-        }
-
-        if (filters.maxAmount) {
-            filtered = filtered.filter((report) => report.totalAmount <= parseFloat(filters.maxAmount));
         }
 
         setTimeout(() => {
@@ -734,14 +726,9 @@ const PackageReport = () => {
             searchQuery: '',
             selectedStatus: null,
             selectedPaymentStatus: null,
-            selectedFromCenter: null,
-            selectedToCenter: null,
-            selectedDriver: null,
-            selectedVehicle: null,
+            selectedCustomer: null,
             startDate: '',
             toDate: '',
-            minAmount: '',
-            maxAmount: '',
         });
         setAppliedFilters(null);
         setShowAdvancedFilters(false);
@@ -753,11 +740,6 @@ const PackageReport = () => {
     const handleViewDetails = (report) => {
         setSelectedReport(report);
         setShowDetailsModal(true);
-    };
-
-    const handleViewTrip = (report) => {
-        setSelectedReport(report);
-        setShowTripModal(true);
     };
 
     const handleExportReport = (report) => {
@@ -953,9 +935,16 @@ const PackageReport = () => {
         XLSX.writeFile(wb, fileName);
     };
 
-    const onGeneratePDF = () => {
-        // This would typically call a PDF generation API
-        
+    const onGeneratePDF = async () => {
+         const pdfData = {
+                filteredData: filteredData,
+                filters: appliedFilters,
+                stats: getStats(),
+                generatedDate: moment().format('DD/MM/YYYY HH:mm'),
+                totalRecords: filteredData.length
+            };
+
+            navigate('/audit/report-pdf',{state : pdfData})
     };
 
     const handlePaginationChange = (pageIndex, newPageSize) => {
@@ -1057,14 +1046,14 @@ const PackageReport = () => {
                                 />
                             </div>
 
-                            {/* From Center Filter */}
+                            {/* Customer Filter */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">From Center</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
                                 <Select
-                                    options={centerOptions}
-                                    value={filters.selectedFromCenter}
-                                    onChange={(selectedOption) => setFilters({ ...filters, selectedFromCenter: selectedOption })}
-                                    placeholder="From Center"
+                                    options={customerOptions}
+                                    value={filters.selectedCustomer}
+                                    onChange={(selectedOption) => setFilters({ ...filters, selectedCustomer: selectedOption })}
+                                    placeholder="Select Customer"
                                     isSearchable
                                     isClearable
                                     styles={customStyles}
@@ -1088,6 +1077,20 @@ const PackageReport = () => {
                             {/* Advanced Filters */}
                             {showAdvancedFilters && (
                                 <>
+                                    {/* From Center Filter */}
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">From Center</label>
+                                        <Select
+                                            options={centerOptions}
+                                            value={filters.selectedFromCenter}
+                                            onChange={(selectedOption) => setFilters({ ...filters, selectedFromCenter: selectedOption })}
+                                            placeholder="From Center"
+                                            isSearchable
+                                            isClearable
+                                            styles={customStyles}
+                                        />
+                                    </div>
+
                                     {/* To Center Filter */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">To Center</label>
@@ -1148,29 +1151,6 @@ const PackageReport = () => {
                                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                             value={filters.toDate}
                                             onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-                                        />
-                                    </div>
-
-                                    {/* Amount Range */}
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Min Amount (₹)</label>
-                                        <input
-                                            type="number"
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Min amount"
-                                            value={filters.minAmount}
-                                            onChange={(e) => setFilters({ ...filters, minAmount: e.target.value })}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Max Amount (₹)</label>
-                                        <input
-                                            type="number"
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Max amount"
-                                            value={filters.maxAmount}
-                                            onChange={(e) => setFilters({ ...filters, maxAmount: e.target.value })}
                                         />
                                     </div>
                                 </>
@@ -1437,7 +1417,6 @@ const PackageReport = () => {
                                 <div>
                                     <h4 className="font-semibold text-orange-800 mb-2">Delivery Information</h4>
                                     <div className="space-y-1 text-sm">
-                                       
                                         <div className="flex justify-between">
                                             <span className="text-gray-600">Last Updated:</span>
                                             <span className="font-medium">{moment(selectedReport.lastUpdated).format('DD/MM/YYYY HH:mm')}</span>
@@ -1495,64 +1474,6 @@ const PackageReport = () => {
                                 </div>
                             </div>
 
-                            {/* Trip Details */}
-                            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                                    <IconTruck className="w-4 h-4 mr-2 text-purple-500" />
-                                    Trip Details
-                                </h4>
-                                <div className="space-y-3">
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <div className="text-xs text-gray-600 mb-1">Trip Date</div>
-                                            <div className="font-medium">{moment(selectedReport.tripDate).format('DD/MM/YYYY')}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-gray-600 mb-1">Trip Status</div>
-                                            <div className={`px-2 py-1 rounded text-xs font-medium inline-block ${getStatusColor(selectedReport.tripStatus)}`}>
-                                                {selectedReport.tripStatus.toUpperCase()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="bg-yellow-50 p-2 rounded border border-yellow-100">
-                                            <div className="text-xs text-yellow-600 mb-1">Departure Time</div>
-                                            <div className="font-medium">{selectedReport.departureTime}</div>
-                                        </div>
-                                        <div className="bg-green-50 p-2 rounded border border-green-100">
-                                            <div className="text-xs text-green-600 mb-1">Arrival Time</div>
-                                            <div className="font-medium">{selectedReport.arrivalTime}</div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Actual Duration</div>
-                                        <div className="font-medium">{selectedReport.actualDuration || 'In progress'}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Customer Information */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                                    <IconUser className="w-4 h-4 mr-2 text-blue-500" />
-                                    Customer Information
-                                </h4>
-                                <div className="space-y-3">
-                                    <div className="bg-blue-50 p-3 rounded border border-blue-100">
-                                        <div className="text-xs text-blue-600 mb-1">Sender Details</div>
-                                        <div className="font-medium">{selectedReport.senderName}</div>
-                                        <div className="text-sm text-gray-600">{selectedReport.senderMobile}</div>
-                                    </div>
-                                    <div className="bg-green-50 p-3 rounded border border-green-100">
-                                        <div className="text-xs text-green-600 mb-1">Receiver Details</div>
-                                        <div className="font-medium">{selectedReport.receiverName}</div>
-                                        <div className="text-sm text-gray-600">{selectedReport.receiverMobile}</div>
-                                    </div>
-                                </div>
-                            </div>
-
                             {/* Payment Information */}
                             <div className="bg-white p-4 rounded-lg border border-gray-200">
                                 <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
@@ -1602,70 +1523,51 @@ const PackageReport = () => {
                             </div>
                         </div>
 
-                        {/* Vehicle, Driver & Load Man Details */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            {/* Vehicle Details */}
+                        {/* Customer Information */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3">Vehicle Details</h4>
-                                <div className="space-y-2 text-sm">
+                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                                    <IconUser className="w-4 h-4 mr-2 text-blue-500" />
+                                    Customer Information
+                                </h4>
+                                <div className="space-y-3">
+                                    <div className="bg-blue-50 p-3 rounded border border-blue-100">
+                                        <div className="text-xs text-blue-600 mb-1">Sender Details</div>
+                                        <div className="font-medium">{selectedReport.senderName}</div>
+                                        <div className="text-sm text-gray-600">{selectedReport.senderMobile}</div>
+                                    </div>
+                                    <div className="bg-green-50 p-3 rounded border border-green-100">
+                                        <div className="text-xs text-green-600 mb-1">Receiver Details</div>
+                                        <div className="font-medium">{selectedReport.receiverName}</div>
+                                        <div className="text-sm text-gray-600">{selectedReport.receiverMobile}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Vehicle & Driver Details */}
+                            <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                                    <IconTruck className="w-4 h-4 mr-2 text-purple-500" />
+                                    Vehicle & Driver Details
+                                </h4>
+                                <div className="space-y-3">
                                     <div>
                                         <div className="text-xs text-gray-600 mb-1">Vehicle Number</div>
                                         <div className="font-bold text-lg text-purple-700">{selectedReport.vehicleNumber}</div>
                                     </div>
-                                </div>
-                            </div>
-
-                            {/* Driver Details */}
-                            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3">Driver Details</h4>
-                                <div className="space-y-2 text-sm">
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Driver Name</div>
-                                        <div className="font-bold text-lg text-blue-700">{selectedReport.driverName}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Driver Mobile</div>
-                                        <div className="font-medium">{selectedReport.driverMobile}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">License Number</div>
-                                        <div className="font-medium">{selectedReport.driverLicense}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">License Expiry</div>
-                                        <div className="font-medium">{moment(selectedReport.driverExpiry).format('DD/MM/YYYY')}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Load Man Details */}
-                            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3">Load Man Details</h4>
-                                <div className="space-y-2 text-sm">
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Load Man Name</div>
-                                        <div className="font-bold text-lg text-green-700">{selectedReport.loadManName}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Load Man Mobile</div>
-                                        <div className="font-medium">{selectedReport.loadManMobile}</div>
-                                    </div>
-                                    <div className="mt-4">
-                                        <div className="text-xs text-gray-600 mb-1">Package Specifications</div>
-                                        <div className="space-y-1">
-                                            <div className="flex justify-between">
-                                                <span>Total Weight:</span>
-                                                <span className="font-medium">{selectedReport.totalWeight}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span>Dimensions:</span>
-                                                <span className="font-medium">{selectedReport.dimensions}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span>Package Value:</span>
-                                                <span className="font-medium">₹{selectedReport.packageValue}</span>
-                                            </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <div className="text-xs text-gray-600 mb-1">Driver Name</div>
+                                            <div className="font-medium">{selectedReport.driverName}</div>
                                         </div>
+                                        <div>
+                                            <div className="text-xs text-gray-600 mb-1">Driver Mobile</div>
+                                            <div className="font-medium">{selectedReport.driverMobile}</div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-600 mb-1">Load Man</div>
+                                        <div className="font-medium">{selectedReport.loadManName} ({selectedReport.loadManMobile})</div>
                                     </div>
                                 </div>
                             </div>
@@ -1731,175 +1633,6 @@ const PackageReport = () => {
                                             {doc}
                                         </span>
                                     ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </ModelViewBox>
-
-            {/* Trip Details Modal */}
-            <ModelViewBox
-                modal={showTripModal}
-                modelHeader={`Trip Details - ${selectedReport?.tripId || ''}`}
-                setModel={() => setShowTripModal(false)}
-                modelSize="max-w-4xl"
-                submitBtnText="Close"
-                loading={false}
-                hideSubmit={true}
-                saveBtn={false}
-            >
-                {selectedReport && (
-                    <div className="p-4 space-y-4">
-                        {/* Trip Header */}
-                        <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                <div>
-                                    <div className="text-lg font-bold text-gray-800">{selectedReport.tripId}</div>
-                                    <div className="text-sm text-gray-600">
-                                        {selectedReport.fromCenter} → {selectedReport.toCenter}
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedReport.tripStatus)}`}>
-                                        {selectedReport.tripStatus.toUpperCase()}
-                                    </span>
-                                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                                        {selectedReport.distance}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Trip Timeline */}
-                        <div className="bg-white p-4 rounded-lg border border-gray-200">
-                            <h4 className="font-semibold text-gray-800 mb-4">Trip Timeline</h4>
-                            <div className="relative">
-                                {/* Timeline line */}
-                                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-blue-200"></div>
-                                
-                                {/* Timeline items */}
-                                <div className="space-y-6 relative">
-                                    {/* Departure */}
-                                    <div className="flex items-start">
-                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 flex items-center justify-center z-10">
-                                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                            </svg>
-                                        </div>
-                                        <div className="ml-4">
-                                            <div className="text-sm font-medium text-gray-900">Departure</div>
-                                            <div className="text-sm text-gray-600">{selectedReport.departureTime}</div>
-                                            <div className="text-xs text-gray-500 mt-1">{selectedReport.fromCenter}</div>
-                                        </div>
-                                    </div>
-
-                                    {/* Arrival */}
-                                    <div className="flex items-start">
-                                        <div className={`flex-shrink-0 w-8 h-8 rounded-full ${selectedReport.tripStatus === 'completed' ? 'bg-green-500' : 'bg-gray-300'} flex items-center justify-center z-10`}>
-                                            {selectedReport.tripStatus === 'completed' ? (
-                                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                                                </svg>
-                                            ) : (
-                                                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                                </svg>
-                                            )}
-                                        </div>
-                                        <div className="ml-4">
-                                            <div className="text-sm font-medium text-gray-900">Arrival</div>
-                                            <div className="text-sm text-gray-600">{selectedReport.arrivalTime}</div>
-                                            <div className="text-xs text-gray-500 mt-1">{selectedReport.toCenter}</div>
-                                            {selectedReport.tripStatus === 'completed' && selectedReport.deliveryTime && (
-                                                <div className="text-xs text-green-600 mt-1">
-                                                    Delivered at: {selectedReport.deliveryTime}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Crew Information */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Driver Info */}
-                            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                                    <IconUser className="w-4 h-4 mr-2 text-blue-500" />
-                                    Driver Information
-                                </h4>
-                                <div className="space-y-2">
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Name</div>
-                                        <div className="font-medium text-lg">{selectedReport.driverName}</div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <div className="text-xs text-gray-600 mb-1">Mobile</div>
-                                            <div className="font-medium">{selectedReport.driverMobile}</div>
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-gray-600 mb-1">License</div>
-                                            <div className="font-medium">{selectedReport.driverLicense}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Load Man Info */}
-                            <div className="bg-white p-4 rounded-lg border border-gray-200">
-                                <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                                    <IconUser className="w-4 h-4 mr-2 text-green-500" />
-                                    Load Man Information
-                                </h4>
-                                <div className="space-y-2">
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Name</div>
-                                        <div className="font-medium text-lg">{selectedReport.loadManName}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-600 mb-1">Mobile</div>
-                                        <div className="font-medium">{selectedReport.loadManMobile}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Vehicle Information */}
-                        <div className="bg-white p-4 rounded-lg border border-gray-200">
-                            <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                                <IconTruck className="w-4 h-4 mr-2 text-purple-500" />
-                                Vehicle Information
-                            </h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div>
-                                    <div className="text-xs text-gray-600 mb-1">Vehicle No</div>
-                                    <div className="font-bold text-lg text-purple-700">{selectedReport.vehicleNumber}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Package Summary */}
-                        <div className="bg-white p-4 rounded-lg border border-gray-200">
-                            <h4 className="font-semibold text-gray-800 mb-3">Trip Summary</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div className="bg-blue-50 p-3 rounded border border-blue-100">
-                                    <div className="text-xs text-blue-600 mb-1">Packages</div>
-                                    <div className="text-lg font-bold">{selectedReport.packageDetails.length}</div>
-                                </div>
-                                <div className="bg-green-50 p-3 rounded border border-green-100">
-                                    <div className="text-xs text-green-600 mb-1">Total Weight</div>
-                                    <div className="text-lg font-bold">{selectedReport.totalWeight}</div>
-                                </div>
-                                <div className="bg-yellow-50 p-3 rounded border border-yellow-100">
-                                    <div className="text-xs text-yellow-600 mb-1">Total Value</div>
-                                    <div className="text-lg font-bold">₹{selectedReport.packageValue}</div>
-                                </div>
-                                <div className="bg-purple-50 p-3 rounded border border-purple-100">
-                                    <div className="text-xs text-purple-600 mb-1">Shipping Cost</div>
-                                    <div className="text-lg font-bold">₹{selectedReport.totalAmount}</div>
                                 </div>
                             </div>
                         </div>

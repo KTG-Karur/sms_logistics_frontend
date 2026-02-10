@@ -11,12 +11,15 @@ import IconSearch from '../../components/Icon/IconSearch';
 import IconEye from '../../components/Icon/IconEye';
 import IconCheck from '../../components/Icon/IconCheck';
 import IconX from '../../components/Icon/IconX';
+import IconPhone from '../../components/Icon/IconPhone';
+import IconCalendar from '../../components/Icon/IconCalendar';
+import IconCreditCard from '../../components/Icon/IconCreditCard';
 
 const PendingPayments = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    // Dummy shipment data
+    // Dummy shipment data with payment history
     const dummyShipments = [
         {
             id: 1,
@@ -39,6 +42,10 @@ const PendingPayments = () => {
             paymentStatus: 'partial',
             deliveryStatus: 'not_started',
             date: '2024-01-15',
+            paymentHistory: [
+                { date: '2024-01-15', amount: 100, method: 'Cash', reference: 'REF001' },
+                { date: '2024-01-16', amount: 50, method: 'Online', reference: 'REF002' }
+            ]
         },
         {
             id: 2,
@@ -62,6 +69,7 @@ const PendingPayments = () => {
             paymentStatus: 'pending',
             deliveryStatus: 'not_started',
             date: '2024-01-16',
+            paymentHistory: []
         },
         {
             id: 3,
@@ -84,6 +92,10 @@ const PendingPayments = () => {
             paymentStatus: 'partial',
             deliveryStatus: 'in_transit',
             date: '2024-01-17',
+            paymentHistory: [
+                { date: '2024-01-17', amount: 100, method: 'Credit Card', reference: 'REF003' },
+                { date: '2024-01-18', amount: 100, method: 'Cash', reference: 'REF004' }
+            ]
         },
         {
             id: 4,
@@ -106,6 +118,10 @@ const PendingPayments = () => {
             paymentStatus: 'completed',
             deliveryStatus: 'delivered',
             date: '2024-01-18',
+            paymentHistory: [
+                { date: '2024-01-18', amount: 200, method: 'Online', reference: 'REF005' },
+                { date: '2024-01-19', amount: 160, method: 'Cash', reference: 'REF006' }
+            ]
         },
         {
             id: 5,
@@ -128,6 +144,7 @@ const PendingPayments = () => {
             paymentStatus: 'pending',
             deliveryStatus: 'not_started',
             date: '2024-01-19',
+            paymentHistory: []
         },
         {
             id: 6,
@@ -150,6 +167,10 @@ const PendingPayments = () => {
             paymentStatus: 'completed',
             deliveryStatus: 'delivered',
             date: '2024-01-20',
+            paymentHistory: [
+                { date: '2024-01-20', amount: 200, method: 'Credit Card', reference: 'REF007' },
+                { date: '2024-01-20', amount: 240, method: 'Online', reference: 'REF008' }
+            ]
         },
     ];
 
@@ -209,7 +230,10 @@ const PendingPayments = () => {
                     shipmentCount: 0,
                     pendingCount: 0,
                     partialCount: 0,
-                    completedCount: 0
+                    completedCount: 0,
+                    totalPayments: 0,
+                    paymentCount: 0,
+                    paymentMethods: {}
                 });
             }
             
@@ -219,6 +243,18 @@ const PendingPayments = () => {
             customerData.totalAmount += shipment.totalAmount;
             customerData.paidAmount += shipment.paidAmount;
             customerData.shipmentCount += 1;
+            
+            // Calculate payment statistics
+            shipment.paymentHistory.forEach(payment => {
+                customerData.totalPayments += payment.amount;
+                customerData.paymentCount += 1;
+                
+                // Count payment methods
+                if (!customerData.paymentMethods[payment.method]) {
+                    customerData.paymentMethods[payment.method] = 0;
+                }
+                customerData.paymentMethods[payment.method] += payment.amount;
+            });
             
             // Count by status
             if (shipment.paymentStatus === 'pending') customerData.pendingCount += 1;
@@ -275,10 +311,19 @@ const PendingPayments = () => {
         });
     };
 
-    // Handle view shipments
+    // Handle view shipments (for customers with no due amount)
     const handleViewShipments = (customer) => {
         setSelectedCustomer(customer);
         setViewModal(true);
+    };
+
+    // Handle row click - if due amount > 0, record payment, else view
+    const handleRowClick = (customer) => {
+        if (customer.totalDue > 0) {
+            handleRecordPayment(customer);
+        } else {
+            handleViewShipments(customer);
+        }
     };
 
     // Table columns
@@ -287,44 +332,20 @@ const PendingPayments = () => {
             Header: 'CUSTOMER',
             accessor: 'customer',
             Cell: ({ row }) => (
-                <div className="space-y-1">
-                    <div className="font-bold text-gray-900 text-lg">{row.original.name}</div>
-                    <div className="text-sm text-gray-600">📱 {row.original.mobile}</div>
-                    <div className="text-xs">
-                        <span className={`px-2 py-1 rounded-full ${
-                            row.original.paymentBy === 'from' 
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-green-100 text-green-800'
-                        }`}>
-                            {row.original.paymentBy === 'from' ? 'Sender Pays' : 'Receiver Pays'}
-                        </span>
+                <div 
+                    className="space-y-1 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200"
+                    onClick={() => handleRowClick(row.original)}
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="font-bold text-gray-900 text-lg">{row.original.name}</div>
+                        <div className="bg-primary text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                            {row.original.shipmentCount}
+                        </div>
                     </div>
-                </div>
-            ),
-        },
-        {
-            Header: 'STATUS',
-            accessor: 'paymentStatus',
-            Cell: ({ row }) => (
-                <div className="space-y-2">
-                    {row.original.pendingCount > 0 && (
-                        <div className="flex items-center animate-pulse">
-                            <IconX className="w-4 h-4 text-yellow-500 mr-2" />
-                            <span className="text-yellow-600 font-medium">Pending: {row.original.pendingCount}</span>
-                        </div>
-                    )}
-                    {row.original.partialCount > 0 && (
-                        <div className="flex items-center">
-                            <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                            <span className="text-orange-600 font-medium">Partial: {row.original.partialCount}</span>
-                        </div>
-                    )}
-                    {row.original.completedCount > 0 && (
-                        <div className="flex items-center">
-                            <IconCheck className="w-4 h-4 text-green-500 mr-2" />
-                            <span className="text-green-600 font-medium">Completed: {row.original.completedCount}</span>
-                        </div>
-                    )}
+                    <div className="flex items-center text-sm text-gray-600">
+                        <IconPhone className="w-4 h-4 mr-1" />
+                        {row.original.mobile}
+                    </div>
                 </div>
             ),
         },
@@ -332,55 +353,48 @@ const PendingPayments = () => {
             Header: 'FINANCIAL SUMMARY',
             accessor: 'financial',
             Cell: ({ row }) => (
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center bg-gray-50 p-2 rounded">
-                        <span className="text-gray-600">Total:</span>
-                        <span className="font-bold">₹{row.original.totalAmount}</span>
+                <div 
+                    className="space-y-2 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200"
+                    onClick={() => handleRowClick(row.original)}
+                >
+                    <div className="flex justify-between items-center">
+                        <span className={`font-bold text-lg ${row.original.totalDue > 0 ? 'text-red-600 animate-pulse' : 'text-green-600'}`}>
+                            ₹{row.original.totalDue}
+                        </span>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            row.original.totalDue > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                        }`}>
+                            {row.original.totalDue > 0 ? 'Due' : 'Paid'}
+                        </div>
                     </div>
-                    <div className="flex justify-between items-center bg-green-50 p-2 rounded">
-                        <span className="text-gray-600">Paid:</span>
-                        <span className="font-bold text-green-600">₹{row.original.paidAmount}</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-red-50 p-2 rounded">
-                        <span className="text-gray-600">Due:</span>
-                        <span className="font-bold text-red-600 animate-pulse">₹{row.original.totalDue}</span>
+                    <div className="text-sm text-gray-600">
+                        Total: ₹{row.original.totalAmount} • Paid: ₹{row.original.paidAmount}
                     </div>
                 </div>
             ),
-        },
-        {
-            Header: 'SHIPMENTS',
-            accessor: 'shipments',
-            Cell: ({ row }) => (
-                <div className="text-center transform hover:scale-110 transition-transform duration-300">
-                    <div className="text-3xl font-bold text-primary bg-primary/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
-                        {row.original.shipmentCount}
-                    </div>
-                    <div className="text-sm text-gray-500 mt-2">total shipments</div>
-                </div>
-            ),
-            width: 120,
         },
         {
             Header: 'ACTIONS',
             accessor: 'actions',
             Cell: ({ row }) => (
                 <div className="flex space-x-2">
-                    <button
-                        onClick={() => handleViewShipments(row.original)}
-                        className="btn btn-outline-primary btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
-                        title="View All Shipments"
-                    >
-                        <IconEye className="w-4 h-4 mr-1" />
-                        View Details
-                    </button>
-                    {row.original.totalDue > 0 && (
+                    {row.original.totalDue > 0 ? (
                         <button
                             onClick={() => handleRecordPayment(row.original)}
-                            className="btn btn-success btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-bounce"
+                            className="btn btn-success btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
                         >
                             <IconDollarSign className="w-4 h-4 mr-1" />
-                            Record Payment
+                            <span className="hidden md:inline">Record Payment</span>
+                            <span className="md:hidden">Pay</span>
+                        </button>
+                    ) : (
+                        <button
+                            onClick={() => handleViewShipments(row.original)}
+                            className="btn btn-info btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
+                        >
+                            <IconEye className="w-4 h-4 mr-1" />
+                            <span className="hidden md:inline">View Details</span>
+                            <span className="md:hidden">View</span>
                         </button>
                     )}
                 </div>
@@ -428,7 +442,7 @@ const PendingPayments = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Total Customers</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-2 animate-count">{stats.totalCustomers}</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.totalCustomers}</p>
                             </div>
                             <div className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full">
                                 <IconUser className="w-8 h-8 text-white" />
@@ -441,7 +455,7 @@ const PendingPayments = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Pending</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-2 animate-count">{stats.pendingCustomers}</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.pendingCustomers}</p>
                             </div>
                             <div className="p-3 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full">
                                 <span className="text-2xl font-bold text-white">!</span>
@@ -454,7 +468,7 @@ const PendingPayments = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Partial</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-2 animate-count">{stats.partialCustomers}</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.partialCustomers}</p>
                             </div>
                             <div className="p-3 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full">
                                 <span className="text-2xl font-bold text-white">%</span>
@@ -467,7 +481,7 @@ const PendingPayments = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Completed</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-2 animate-count">{stats.completedCustomers}</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.completedCustomers}</p>
                             </div>
                             <div className="p-3 bg-gradient-to-r from-green-500 to-green-600 rounded-full">
                                 <IconCheck className="w-8 h-8 text-white" />
@@ -480,9 +494,9 @@ const PendingPayments = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Total Due</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-2 animate-count">₹{stats.totalDueAmount}</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.totalDueAmount}</p>
                             </div>
-                            <div className="p-3 bg-gradient-to-r from-primary to-purple-600 rounded-full animate-pulse">
+                            <div className="p-3 bg-gradient-to-r from-primary to-purple-600 rounded-full">
                                 <IconDollarSign className="w-8 h-8 text-white" />
                             </div>
                         </div>
@@ -491,7 +505,7 @@ const PendingPayments = () => {
                 </div>
 
                 {/* Filters with Animation */}
-                <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border border-gray-200 p-6 mb-8 transform hover:shadow-xl transition-all duration-500">
+                <div className="bg-gradient-to-r from-white to-gray-50 rounded-xl shadow-lg border border-gray-200 p-6 mb-8">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-3">🔍 Search Customer</label>
@@ -536,7 +550,7 @@ const PendingPayments = () => {
             </div>
 
             {/* Customers Table */}
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200 overflow-hidden transform hover:shadow-2xl transition-all duration-500">
+            <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200 overflow-hidden">
                 <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
@@ -545,7 +559,7 @@ const PendingPayments = () => {
                                 <span className="font-semibold text-primary">{stats.totalShipments}</span> shipments across{' '}
                                 <span className="font-semibold text-primary">{stats.totalCustomers}</span> customers
                                 {stats.totalDueAmount > 0 && (
-                                    <span className="ml-2 text-red-600 font-bold animate-pulse">
+                                    <span className="ml-2 text-red-600 font-bold">
                                         • ₹{stats.totalDueAmount} total due
                                     </span>
                                 )}
@@ -575,7 +589,7 @@ const PendingPayments = () => {
                         isSortable={true}
                         showPageSize={true}
                         responsive={true}
-                        className="border-0 hover:shadow-inner transition-all duration-300"
+                        className="border-0"
                     />
                 </div>
             </div>
@@ -583,20 +597,17 @@ const PendingPayments = () => {
             {/* View Customer Modal */}
             <ModelViewBox
                 modal={viewModal}
-                modelHeader={`📦 Shipment Details - ${selectedCustomer?.name}`}
+                modelHeader={`📦 Payment Details - ${selectedCustomer?.name}`}
                 setModel={() => setViewModal(false)}
                 handleSubmit={null}
                 modelSize="xl"
-                showSubmitBtn={false}
-                showCancelBtn={true}
-                cancelBtnText="Close"
-                submitBtnClass="btn-primary"
+                saveBtn={false}
                 customStyle="max-h-[80vh] overflow-y-auto"
             >
                 {selectedCustomer && (
-                    <div className="space-y-6 animate-fadeIn">
+                    <div className="space-y-6">
                         {/* Customer Header */}
-                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border-2 border-blue-200 transform hover:scale-[1.02] transition-all duration-300">
+                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border-2 border-blue-200">
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center space-x-4">
                                     <div className="w-16 h-16 bg-gradient-to-r from-primary to-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
@@ -604,44 +615,67 @@ const PendingPayments = () => {
                                     </div>
                                     <div>
                                         <div className="text-2xl font-bold text-gray-900">{selectedCustomer.name}</div>
-                                        <div className="text-gray-600 mt-1">📱 {selectedCustomer.mobile}</div>
-                                        <div className="mt-2">
-                                            <span className={`px-4 py-2 rounded-full font-medium ${
-                                                selectedCustomer.paymentBy === 'from' 
-                                                    ? 'bg-blue-100 text-blue-800'
-                                                    : 'bg-green-100 text-green-800'
-                                            }`}>
-                                                {selectedCustomer.paymentBy === 'from' ? '💳 Sender Pays' : '💳 Receiver Pays'}
-                                            </span>
+                                        <div className="flex items-center text-gray-600 mt-1">
+                                            <IconPhone className="w-4 h-4 mr-1" />
+                                            {selectedCustomer.mobile}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-3xl font-bold text-red-600 animate-pulse">₹{selectedCustomer.totalDue}</div>
-                                    <div className="text-gray-600">Total Due Amount</div>
+                                    <div className="text-3xl font-bold text-green-600">₹{selectedCustomer.totalDue}</div>
+                                    <div className="text-gray-600">Remaining Due Amount</div>
                                 </div>
                             </div>
                         </div>
 
                         {/* Financial Summary */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm transform hover:scale-105 transition-all duration-300">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                 <div className="text-center">
                                     <div className="text-sm font-medium text-gray-600 mb-2">Total Shipments</div>
-                                    <div className="text-4xl font-bold text-primary">{selectedCustomer.shipmentCount}</div>
+                                    <div className="text-3xl font-bold text-primary">{selectedCustomer.shipmentCount}</div>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm transform hover:scale-105 transition-all duration-300">
+                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                 <div className="text-center">
                                     <div className="text-sm font-medium text-gray-600 mb-2">Total Amount</div>
-                                    <div className="text-4xl font-bold text-gray-900">₹{selectedCustomer.totalAmount}</div>
+                                    <div className="text-3xl font-bold text-gray-900">₹{selectedCustomer.totalAmount}</div>
                                 </div>
                             </div>
-                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm transform hover:scale-105 transition-all duration-300">
+                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                 <div className="text-center">
-                                    <div className="text-sm font-medium text-gray-600 mb-2">Paid Amount</div>
-                                    <div className="text-4xl font-bold text-green-600">₹{selectedCustomer.paidAmount}</div>
+                                    <div className="text-sm font-medium text-gray-600 mb-2">Total Paid</div>
+                                    <div className="text-3xl font-bold text-green-600">₹{selectedCustomer.paidAmount}</div>
                                 </div>
+                            </div>
+                            <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                                <div className="text-center">
+                                    <div className="text-sm font-medium text-gray-600 mb-2">Payment Count</div>
+                                    <div className="text-3xl font-bold text-blue-600">{selectedCustomer.paymentCount}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Payment Methods Summary */}
+                        <div className="bg-gradient-to-r from-gray-50 to-green-50 rounded-xl p-4 border border-green-200">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">💳 Payment Methods Summary</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                {Object.entries(selectedCustomer.paymentMethods).map(([method, amount], index) => (
+                                    <div key={index} className="flex items-center space-x-3 p-3 bg-white rounded-lg border">
+                                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <IconCreditCard className="w-5 h-5 text-blue-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="font-medium text-gray-900">{method}</div>
+                                            <div className="text-sm text-gray-600">₹{amount}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {Object.keys(selectedCustomer.paymentMethods).length === 0 && (
+                                    <div className="col-span-3 text-center py-4 text-gray-500">
+                                        No payment methods recorded
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -679,39 +713,31 @@ const PendingPayments = () => {
                             </div>
                         </div>
 
-                        {/* Shipments List */}
+                        {/* Shipments List with Payment History */}
                         <div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-4">📋 Shipment Details ({selectedCustomer.shipments.length})</h3>
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">📋 Shipment & Payment Details ({selectedCustomer.shipments.length})</h3>
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                                 {selectedCustomer.shipments.map((shipment, index) => (
                                     <div 
                                         key={shipment.id} 
-                                        className="bg-white rounded-lg p-4 border border-gray-200 hover:border-primary hover:shadow-lg transition-all duration-300"
+                                        className="bg-white rounded-lg p-4 border border-gray-200"
                                     >
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <div className="flex items-center space-x-3">
-                                                    <span className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold">
-                                                        {index + 1}
-                                                    </span>
-                                                    <div>
-                                                        <div className="font-bold text-gray-900">Shipment #{shipment.id}</div>
-                                                        <div className="text-sm text-gray-600 mt-1">
-                                                            📅 {shipment.date} • {shipment.fromCenter} → {shipment.toCenter}
-                                                        </div>
+                                        {/* Shipment Header */}
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center space-x-3">
+                                                <span className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold">
+                                                    {index + 1}
+                                                </span>
+                                                <div>
+                                                    <div className="font-bold text-gray-900">Shipment #{shipment.id}</div>
+                                                    <div className="text-sm text-gray-600 mt-1">
+                                                        📅 {shipment.date} • {shipment.fromCenter} → {shipment.toCenter}
                                                     </div>
-                                                </div>
-                                                <div className="mt-3 flex flex-wrap gap-2">
-                                                    {shipment.packageDetails.map((detail, idx) => (
-                                                        <span key={idx} className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
-                                                            {detail.packageType} × {detail.quantity}
-                                                        </span>
-                                                    ))}
                                                 </div>
                                             </div>
                                             <div className="text-right">
                                                 <div className="text-lg font-bold text-primary">₹{shipment.totalAmount}</div>
-                                                <div className={`mt-2 px-3 py-1 rounded-full text-sm font-medium ${
+                                                <div className={`mt-1 px-3 py-1 rounded-full text-sm font-medium ${
                                                     shipment.paymentStatus === 'pending' 
                                                         ? 'bg-yellow-100 text-yellow-800'
                                                         : shipment.paymentStatus === 'partial'
@@ -721,18 +747,71 @@ const PendingPayments = () => {
                                                     {shipment.paymentStatus === 'pending' ? 'Pending' : 
                                                      shipment.paymentStatus === 'partial' ? 'Partial' : 'Completed'}
                                                 </div>
-                                                <div className="mt-2 text-sm">
-                                                    <span className="text-gray-600">Paid: </span>
-                                                    <span className="font-medium text-green-600">₹{shipment.paidAmount}</span>
-                                                </div>
-                                                {shipment.dueAmount > 0 && (
-                                                    <div className="text-sm">
-                                                        <span className="text-gray-600">Due: </span>
-                                                        <span className="font-bold text-red-600">₹{shipment.dueAmount}</span>
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
+                                        
+                                        {/* Package Details */}
+                                        <div className="mb-3">
+                                            <div className="text-sm font-medium text-gray-700 mb-1">Package Details:</div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {shipment.packageDetails.map((detail, idx) => (
+                                                    <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
+                                                        {detail.packageType} × {detail.quantity} @ ₹{detail.rate}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Payment Summary */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                            <div className="text-center bg-gray-50 p-2 rounded">
+                                                <div className="text-sm text-gray-600">Total</div>
+                                                <div className="font-bold text-gray-900">₹{shipment.totalAmount}</div>
+                                            </div>
+                                            <div className="text-center bg-green-50 p-2 rounded">
+                                                <div className="text-sm text-green-600">Paid</div>
+                                                <div className="font-bold text-green-700">₹{shipment.paidAmount}</div>
+                                            </div>
+                                            <div className="text-center bg-red-50 p-2 rounded">
+                                                <div className="text-sm text-red-600">Due</div>
+                                                <div className="font-bold text-red-700">₹{shipment.dueAmount}</div>
+                                            </div>
+                                            <div className="text-center bg-blue-50 p-2 rounded">
+                                                <div className="text-sm text-blue-600">Payments</div>
+                                                <div className="font-bold text-blue-700">{shipment.paymentHistory.length}</div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Payment History */}
+                                        {shipment.paymentHistory.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-gray-200">
+                                                <div className="text-sm font-medium text-gray-700 mb-2">Payment History:</div>
+                                                <div className="space-y-2">
+                                                    {shipment.paymentHistory.map((payment, pIdx) => (
+                                                        <div key={pIdx} className="flex items-center justify-between text-sm bg-green-50 p-2 rounded">
+                                                            <div className="flex items-center space-x-2">
+                                                                <IconCalendar className="w-4 h-4 text-gray-500" />
+                                                                <span>{payment.date}</span>
+                                                                <span className="px-2 py-0.5 bg-white rounded text-xs">
+                                                                    {payment.method}
+                                                                </span>
+                                                                <span className="text-xs text-gray-500">
+                                                                    Ref: {payment.reference}
+                                                                </span>
+                                                            </div>
+                                                            <div className="font-bold text-green-700">₹{payment.amount}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        
+                                        {/* No Payment History */}
+                                        {shipment.paymentHistory.length === 0 && (
+                                            <div className="text-center py-3 text-gray-500 text-sm border-t border-gray-200 mt-3">
+                                                No payment history recorded for this shipment
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

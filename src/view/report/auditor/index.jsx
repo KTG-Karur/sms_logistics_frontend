@@ -1,1202 +1,1020 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Select from 'react-select';
-import IconSearch from '../../../components/Icon/IconSearch';
+import { useState, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
+import IconDownload from '../../../components/Icon/IconFile';
 import IconPrinter from '../../../components/Icon/IconPrinter';
 import IconCalendar from '../../../components/Icon/IconCalendar';
-import IconEye from '../../../components/Icon/IconEye';
-import IconDownload from '../../../components/Icon/IconFile';
-import IconExternalLink from '../../../components/Icon/IconExternalLink';
-import IconChartBar from '../../../components/Icon/IconBarChart';
-import IconClock from '../../../components/Icon/IconClock';
-import IconUser from '../../../components/Icon/IconUser';
+import IconMoney from '../../../components/Icon/IconCreditCard';
 import IconTrendingUp from '../../../components/Icon/IconTrendingUp';
-import IconAlertCircle from '../../../components/Icon/IconX';
+import IconTrendingDown from '../../../components/Icon/IconTrendingDown';
+import IconPackage from '../../../components/Icon/IconBox';
+import IconTruck from '../../../components/Icon/IconTruck';
+import IconUsers from '../../../components/Icon/IconUsers';
+import IconReceipt from '../../../components/Icon/IconReceipt';
 import IconCheckCircle from '../../../components/Icon/IconCheckCircle';
+import IconClock from '../../../components/Icon/IconClock';
+import Table from '../../../util/Table';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
-import _ from 'lodash';
+import { useNavigate } from 'react-router-dom';
 
-// Static audit data with detailed timeline information
-const staticAuditData = [
-  {
-    id: 1,
-    auditId: 'AUD-001',
-    supplierName: 'Asian Fabric X',
-    supplierType: 'Sub Supplier',
-    auditDate: '2024-01-15',
-    submissionDate: '2024-01-18',
-    startDate: '2024-01-15T08:00:00',
-    endDate: '2024-01-15T17:30:00',
-    lastAuditDate: '2023-07-15',
-    lastAuditScore: 85,
-    currentScore: 97,
-    status: 'Completed',
-    auditorId: 'AUD001',
-    auditorName: 'John Smith',
-    auditorDesignation: 'Senior Auditor',
-    completionTimeHours: 9.5, // hours
-    isReaudit: false,
-    delayInSubmission: 0, // days
-    checklistItems: 150,
-    completedItems: 150,
-    imagesCount: 5,
-    auditType: 'Full Audit',
-  },
-  {
-    id: 2,
-    auditId: 'AUD-002',
-    supplierName: 'Textile Solutions Ltd',
-    supplierType: 'Main Supplier',
-    auditDate: '2024-01-20',
-    submissionDate: '2024-01-20',
-    startDate: '2024-01-20T09:00:00',
-    endDate: '2024-01-20T16:45:00',
-    lastAuditDate: '2023-10-20',
-    lastAuditScore: 78,
-    currentScore: 92,
-    status: 'Completed',
-    auditorId: 'AUD001',
-    auditorName: 'John Smith',
-    auditorDesignation: 'Senior Auditor',
-    completionTimeHours: 7.75,
-    isReaudit: true,
-    delayInSubmission: 0,
-    checklistItems: 145,
-    completedItems: 145,
-    imagesCount: 3,
-    auditType: 'Follow-up Audit',
-  },
-  {
-    id: 3,
-    auditId: 'AUD-003',
-    supplierName: 'Global Fabrics Inc',
-    supplierType: 'Sub Supplier',
-    auditDate: '2024-01-25',
-    submissionDate: '2024-01-28',
-    startDate: '2024-01-25T08:30:00',
-    endDate: '2024-01-25T18:00:00',
-    lastAuditDate: '2023-07-25',
-    lastAuditScore: 65,
-    currentScore: 82,
-    status: 'Completed',
-    auditorId: 'AUD002',
-    auditorName: 'Sarah Johnson',
-    auditorDesignation: 'Lead Auditor',
-    completionTimeHours: 9.5,
-    isReaudit: false,
-    delayInSubmission: 1, // 1 day delay
-    checklistItems: 150,
-    completedItems: 148,
-    imagesCount: 2,
-    auditType: 'Full Audit',
-  },
-  {
-    id: 4,
-    auditId: 'AUD-004',
-    supplierName: 'Quality Textiles Corp',
-    supplierType: 'Main Supplier',
-    auditDate: '2024-02-01',
-    submissionDate: '2024-02-01',
-    startDate: '2024-02-01T08:00:00',
-    endDate: '2024-02-01T15:30:00',
-    lastAuditDate: '2023-11-01',
-    lastAuditScore: 90,
-    currentScore: 95,
-    status: 'Completed',
-    auditorId: 'AUD002',
-    auditorName: 'Sarah Johnson',
-    auditorDesignation: 'Lead Auditor',
-    completionTimeHours: 7.5,
-    isReaudit: true,
-    delayInSubmission: 0,
-    checklistItems: 140,
-    completedItems: 140,
-    imagesCount: 4,
-    auditType: 'Follow-up Audit',
-  },
-  {
-    id: 5,
-    auditId: 'AUD-005',
-    supplierName: 'Eco Fabrics Ltd',
-    supplierType: 'Sub Supplier',
-    auditDate: '2024-02-05',
-    submissionDate: '2024-02-07',
-    startDate: '2024-02-05T09:00:00',
-    endDate: '2024-02-05T17:00:00',
-    lastAuditDate: '2023-08-05',
-    lastAuditScore: 72,
-    currentScore: 88,
-    status: 'Completed',
-    auditorId: 'AUD003',
-    auditorName: 'Mike Wilson',
-    auditorDesignation: 'Junior Auditor',
-    completionTimeHours: 8,
-    isReaudit: false,
-    delayInSubmission: 2, // 2 days delay
-    checklistItems: 150,
-    completedItems: 150,
-    imagesCount: 3,
-    auditType: 'Full Audit',
-  },
-  {
-    id: 6,
-    auditId: 'AUD-006',
-    supplierName: 'Premium Fabrics Co',
-    supplierType: 'Main Supplier',
-    auditDate: '2024-02-10',
-    submissionDate: '2024-02-10',
-    startDate: '2024-02-10T08:00:00',
-    endDate: '2024-02-10T16:00:00',
-    lastAuditDate: '2023-11-10',
-    lastAuditScore: 88,
-    currentScore: 94,
-    status: 'Completed',
-    auditorId: 'AUD001',
-    auditorName: 'John Smith',
-    auditorDesignation: 'Senior Auditor',
-    completionTimeHours: 8,
-    isReaudit: true,
-    delayInSubmission: 0,
-    checklistItems: 135,
-    completedItems: 135,
-    imagesCount: 2,
-    auditType: 'Follow-up Audit',
-  },
-  {
-    id: 7,
-    auditId: 'AUD-007',
-    supplierName: 'Modern Textiles Ltd',
-    supplierType: 'Sub Supplier',
-    auditDate: '2024-02-15',
-    submissionDate: '2024-02-18',
-    startDate: '2024-02-15T09:00:00',
-    endDate: '2024-02-15T18:30:00',
-    lastAuditDate: '2023-08-15',
-    lastAuditScore: 70,
-    currentScore: 85,
-    status: 'In Progress',
-    auditorId: 'AUD002',
-    auditorName: 'Sarah Johnson',
-    auditorDesignation: 'Lead Auditor',
-    completionTimeHours: 9.5,
-    isReaudit: false,
-    delayInSubmission: 3, // 3 days delay (still in progress)
-    checklistItems: 150,
-    completedItems: 120,
-    imagesCount: 1,
-    auditType: 'Full Audit',
-  },
-  {
-    id: 8,
-    auditId: 'AUD-008',
-    supplierName: 'Smart Fabrics Inc',
-    supplierType: 'Main Supplier',
-    auditDate: '2024-02-20',
-    submissionDate: '2024-02-20',
-    startDate: '2024-02-20T08:30:00',
-    endDate: '2024-02-20T16:15:00',
-    lastAuditDate: '2023-11-20',
-    lastAuditScore: 92,
-    currentScore: 96,
-    status: 'Completed',
-    auditorId: 'AUD003',
-    auditorName: 'Mike Wilson',
-    auditorDesignation: 'Junior Auditor',
-    completionTimeHours: 7.75,
-    isReaudit: true,
-    delayInSubmission: 0,
-    checklistItems: 130,
-    completedItems: 130,
-    imagesCount: 2,
-    auditType: 'Follow-up Audit',
-  },
-];
+const ProfitLossReport = () => {
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
 
-const Index = () => {
-  const navigate = useNavigate();
-  const [auditData, setAuditData] = useState([]);
-  const [filteredData, setFilteredData] = useState([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
-  
-  // Filters
-  const [filters, setFilters] = useState({
-    searchQuery: '',
-    selectedAuditor: null,
-    selectedYear: { value: '2024', label: '2024' },
-    selectedMonth: null,
-    selectedStatus: null,
-    startDate: '',
-    toDate: '',
-  });
-  
-  const [appliedFilters, setAppliedFilters] = useState(null);
-  const [showSearch, setShowSearch] = useState(true);
-  const [showDateFilter, setShowDateFilter] = useState(false);
-  
-  // Auditor summary data
-  const [auditorSummary, setAuditorSummary] = useState([]);
-  const [comparativeData, setComparativeData] = useState([]);
-
-  // Get unique values for filters
-  const auditorOptions = useMemo(() => {
-    const auditors = [...new Set(staticAuditData.map(item => item.auditorName))];
-    return [
-      { value: 'all', label: 'All Auditors' },
-      ...auditors.map(auditor => ({
-        value: auditor,
-        label: auditor
-      }))
-    ];
-  }, []);
-
-  const yearOptions = [
-    { value: '2024', label: '2024' },
-    { value: '2023', label: '2023' },
-    { value: '2022', label: '2022' },
-  ];
-
-  const monthOptions = [
-    { value: 'all', label: 'All Months' },
-    { value: '1', label: 'January' },
-    { value: '2', label: 'February' },
-    { value: '3', label: 'March' },
-    { value: '4', label: 'April' },
-    { value: '5', label: 'May' },
-    { value: '6', label: 'June' },
-    { value: '7', label: 'July' },
-    { value: '8', label: 'August' },
-    { value: '9', label: 'September' },
-    { value: '10', label: 'October' },
-    { value: '11', label: 'November' },
-    { value: '12', label: 'December' },
-  ];
-
-  const statusOptions = [
-    { value: 'all', label: 'All Status' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'In Progress', label: 'In Progress' },
-    { value: 'Pending Review', label: 'Pending Review' },
-  ];
-
-  useEffect(() => {
-    setAuditData(staticAuditData);
-    setFilteredData(staticAuditData);
-    calculateAuditorSummary(staticAuditData);
-  }, []);
-
-  const calculateAuditorSummary = (data) => {
-    const auditorMap = new Map();
-    
-    data.forEach(audit => {
-      if (!auditorMap.has(audit.auditorId)) {
-        auditorMap.set(audit.auditorId, {
-          auditorId: audit.auditorId,
-          auditorName: audit.auditorName,
-          auditorDesignation: audit.auditorDesignation,
-          totalAudits: 0,
-          monthlyAudits: 0,
-          yearlyAudits: 0,
-          totalCompletionTime: 0,
-          averageCompletionTime: 0,
-          totalDelayDays: 0,
-          averageDelay: 0,
-          onTimeSubmissions: 0,
-          delayedSubmissions: 0,
-          reauditCount: 0,
-          totalScore: 0,
-          averageScore: 0,
-          checklistItems: 0,
-          completedItems: 0,
-          completionRate: 0,
-          imagesCount: 0,
-          auditTypes: new Set(),
-          monthsActive: new Set(),
-        });
-      }
-      
-      const summary = auditorMap.get(audit.auditorId);
-      summary.totalAudits++;
-      summary.totalCompletionTime += audit.completionTimeHours || 0;
-      summary.totalDelayDays += audit.delayInSubmission || 0;
-      summary.totalScore += audit.currentScore || 0;
-      summary.checklistItems += audit.checklistItems || 0;
-      summary.completedItems += audit.completedItems || 0;
-      summary.imagesCount += audit.imagesCount || 0;
-      
-      if (audit.isReaudit) {
-        summary.reauditCount++;
-      }
-      
-      if (audit.delayInSubmission === 0) {
-        summary.onTimeSubmissions++;
-      } else if (audit.delayInSubmission > 0) {
-        summary.delayedSubmissions++;
-      }
-      
-      if (audit.auditType) {
-        summary.auditTypes.add(audit.auditType);
-      }
-      
-      // Add month to active months
-      const month = moment(audit.auditDate).format('MMM');
-      summary.monthsActive.add(month);
-      
-      // Calculate monthly/yearly based on current year filter
-      const auditYear = moment(audit.auditDate).format('YYYY');
-      if (auditYear === filters.selectedYear?.value) {
-        summary.yearlyAudits++;
+    // Generate separate packages and expenses data
+    const generateDataForDate = (selectedDate) => {
+        // Generate Packages Data
+        const packages = generatePackagesData(selectedDate);
         
-        // Check if it's current month
-        const currentMonth = moment().format('M');
-        const auditMonth = moment(audit.auditDate).format('M');
-        if (auditMonth === currentMonth) {
-          summary.monthlyAudits++;
+        // Generate Expenses Data (separate from packages)
+        const expenses = generateExpensesData(selectedDate);
+        
+        // Calculate totals
+        const totalRevenue = packages.reduce((sum, pkg) => sum + pkg.packageValue, 0);
+        const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const totalProfit = totalRevenue - totalExpenses;
+        const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : 0;
+        
+        return {
+            date: selectedDate,
+            dayOfWeek: moment(selectedDate).format('dddd'),
+            packages,
+            expenses, // Separate expenses array
+            dailyExpenses: expenses.filter(e => e.type === 'daily'), // Daily operational expenses
+            monthlyExpenses: expenses.filter(e => e.type === 'monthly'), // Monthly recurring expenses
+            otherExpenses: expenses.filter(e => e.type === 'other'), // Other one-time expenses
+            
+            // Summary
+            totalPackages: packages.length,
+            totalRevenue,
+            totalExpenses,
+            totalProfit,
+            profitMargin: parseFloat(profitMargin),
+            
+            // Expense Breakdown
+            totalVehicleExpense: expenses.filter(e => e.category === 'vehicle').reduce((sum, e) => sum + e.amount, 0),
+            totalStaffExpense: expenses.filter(e => e.category === 'staff').reduce((sum, e) => sum + e.amount, 0),
+            totalFuelExpense: expenses.filter(e => e.subCategory === 'fuel').reduce((sum, e) => sum + e.amount, 0),
+            totalMaintenanceExpense: expenses.filter(e => e.subCategory === 'maintenance').reduce((sum, e) => sum + e.amount, 0),
+            totalSalaryExpense: expenses.filter(e => e.subCategory === 'salary').reduce((sum, e) => sum + e.amount, 0),
+            totalOtherExpense: expenses.filter(e => e.category === 'other').reduce((sum, e) => sum + e.amount, 0),
+            
+            // Stats
+            profitablePackages: packages.filter(p => p.packageProfit > 0).length,
+            lossPackages: packages.filter(p => p.packageProfit <= 0).length,
+            isProfitDay: totalProfit > 0,
+            status: totalProfit > 0 ? 'profit' : 'loss'
+        };
+    };
+
+    const generatePackagesData = (selectedDate) => {
+        const packages = [];
+        const packageTypes = ['Small Package', 'Medium Package', 'Large Package', 'XL Package', 'Document'];
+        
+        // Generate 10-20 packages for the day
+        const packageCount = Math.floor(Math.random() * 10) + 10;
+        
+        for (let i = 1; i <= packageCount; i++) {
+            const packageType = packageTypes[Math.floor(Math.random() * packageTypes.length)];
+            
+            // Package revenue only (no expenses included)
+            let packageValue = 0;
+            switch(packageType) {
+                case 'Small Package': packageValue = Math.floor(Math.random() * 500) + 200; break;
+                case 'Medium Package': packageValue = Math.floor(Math.random() * 1000) + 500; break;
+                case 'Large Package': packageValue = Math.floor(Math.random() * 2000) + 1000; break;
+                case 'XL Package': packageValue = Math.floor(Math.random() * 5000) + 2000; break;
+                case 'Document': packageValue = Math.floor(Math.random() * 200) + 50; break;
+            }
+            
+            packages.push({
+                id: i,
+                packageId: `PKG-${moment(selectedDate).format('DDMM')}-${i.toString().padStart(3, '0')}`,
+                packageType,
+                weight: `${Math.floor(Math.random() * 50) + 5} kg`,
+                dimensions: `${Math.floor(Math.random() * 50) + 20}x${Math.floor(Math.random() * 50) + 20}x${Math.floor(Math.random() * 50) + 20} cm`,
+                fromLocation: ['Chennai', 'Bangalore', 'Mumbai', 'Delhi', 'Hyderabad'][Math.floor(Math.random() * 5)],
+                toLocation: ['Chennai', 'Bangalore', 'Mumbai', 'Delhi', 'Hyderabad'][Math.floor(Math.random() * 5)],
+                packageValue,
+                status: ['Delivered', 'In Transit', 'Pending'][Math.floor(Math.random() * 3)],
+                deliveryTime: moment(selectedDate).add(Math.floor(Math.random() * 8), 'hours').format('HH:mm'),
+                
+                // Vehicle & Staff Assignment (for reference only, expenses are separate)
+                vehicleType: ['Tata Ace', 'Eicher Truck', 'Ashok Leyland', 'Mahindra Bolero', 'Tata 407'][Math.floor(Math.random() * 5)],
+                driverName: ['Rajesh Kumar', 'Vikram Singh', 'Sanjay Verma', 'Arun Mehta', 'Mohan Reddy'][Math.floor(Math.random() * 5)],
+                staffName: ['Suresh Patel', 'Ajay Sharma', 'Ramesh Gupta', 'Prakash Joshi', 'Kumar Swamy'][Math.floor(Math.random() * 5)],
+            });
         }
-      }
-    });
-    
-    // Calculate averages and finalize
-    const summaries = Array.from(auditorMap.values()).map(summary => {
-      summary.averageCompletionTime = summary.totalAudits > 0 
-        ? (summary.totalCompletionTime / summary.totalAudits).toFixed(1)
-        : 0;
-      
-      summary.averageScore = summary.totalAudits > 0 
-        ? (summary.totalScore / summary.totalAudits).toFixed(1)
-        : 0;
-      
-      summary.averageDelay = summary.totalAudits > 0 
-        ? (summary.totalDelayDays / summary.totalAudits).toFixed(1)
-        : 0;
-      
-      summary.completionRate = summary.checklistItems > 0 
-        ? ((summary.completedItems / summary.checklistItems) * 100).toFixed(1)
-        : 0;
-      
-      summary.reauditFrequency = summary.totalAudits > 0 
-        ? ((summary.reauditCount / summary.totalAudits) * 100).toFixed(1)
-        : 0;
-      
-      summary.timelinessRate = summary.totalAudits > 0 
-        ? ((summary.onTimeSubmissions / summary.totalAudits) * 100).toFixed(1)
-        : 0;
-      
-      summary.auditTypes = Array.from(summary.auditTypes);
-      summary.monthsActive = Array.from(summary.monthsActive);
-      
-      return summary;
-    });
-    
-    setAuditorSummary(summaries);
-    calculateComparativeAnalysis(summaries);
-  };
-
-  const calculateComparativeAnalysis = (summaries) => {
-    if (summaries.length === 0) return;
-    
-    const metrics = [
-      'averageScore',
-      'averageCompletionTime',
-      'timelinessRate',
-      'reauditCount',
-      'totalAudits',
-      'completionRate'
-    ];
-    
-    const comparative = metrics.map(metric => {
-      const values = summaries.map(s => parseFloat(s[metric]));
-      const max = Math.max(...values);
-      const min = Math.min(...values);
-      const avg = values.reduce((a, b) => a + b, 0) / values.length;
-      
-      return {
-        metric,
-        label: getMetricLabel(metric),
-        unit: getMetricUnit(metric),
-        max: { value: max, auditor: summaries.find(s => parseFloat(s[metric]) === max)?.auditorName },
-        min: { value: min, auditor: summaries.find(s => parseFloat(s[metric]) === min)?.auditorName },
-        average: avg.toFixed(1)
-      };
-    });
-    
-    setComparativeData(comparative);
-  };
-
-  const getMetricLabel = (metric) => {
-    const labels = {
-      averageScore: 'Average Score',
-      averageCompletionTime: 'Avg Completion Time',
-      timelinessRate: 'Timeliness Rate',
-      reauditCount: 'Re-audit Count',
-      totalAudits: 'Total Audits',
-      completionRate: 'Completion Rate'
+        
+        return packages;
     };
-    return labels[metric] || metric;
-  };
 
-  const getMetricUnit = (metric) => {
-    const units = {
-      averageScore: '%',
-      averageCompletionTime: 'hrs',
-      timelinessRate: '%',
-      reauditCount: '',
-      totalAudits: '',
-      completionRate: '%'
+    const generateExpensesData = (selectedDate) => {
+        const expenses = [];
+        
+        // Vehicle Expenses (Daily operational expenses)
+        const vehicleExpenses = [
+            { id: 1, name: 'Diesel for Truck TN-1234', category: 'vehicle', subCategory: 'fuel', amount: Math.floor(Math.random() * 5000) + 2000, type: 'daily', description: 'Fuel purchase for daily operations', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 5000) + 2000, balance: 0 },
+            { id: 2, name: 'Truck Maintenance', category: 'vehicle', subCategory: 'maintenance', amount: Math.floor(Math.random() * 3000) + 1000, type: 'daily', description: 'Regular service and repairs', date: selectedDate, status: 'partially_paid', paidAmount: Math.floor(Math.random() * 2000) + 500, balance: Math.floor(Math.random() * 1000) + 500 },
+            { id: 3, name: 'Toll Charges', category: 'vehicle', subCategory: 'toll', amount: Math.floor(Math.random() * 1000) + 300, type: 'daily', description: 'Highway toll payments', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 1000) + 300, balance: 0 },
+            { id: 4, name: 'Parking Fees', category: 'vehicle', subCategory: 'parking', amount: Math.floor(Math.random() * 500) + 100, type: 'daily', description: 'Daily parking charges', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 500) + 100, balance: 0 },
+        ];
+        
+        // Staff Expenses
+        const staffExpenses = [
+            { id: 5, name: 'Rajesh Kumar - Driver Salary', category: 'staff', subCategory: 'salary', amount: 2000, type: 'daily', description: 'Daily driver payment', date: selectedDate, status: 'unpaid', paidAmount: 0, balance: 2000 },
+            { id: 6, name: 'Suresh Patel - Loadman Salary', category: 'staff', subCategory: 'salary', amount: 1200, type: 'daily', description: 'Daily loadman payment', date: selectedDate, status: 'unpaid', paidAmount: 0, balance: 1200 },
+            { id: 7, name: 'Vikram Singh - Overtime', category: 'staff', subCategory: 'overtime', amount: 800, type: 'daily', description: 'Overtime payment for extra hours', date: selectedDate, status: 'paid', paidAmount: 800, balance: 0 },
+            { id: 8, name: 'Ajay Sharma - Helper', category: 'staff', subCategory: 'salary', amount: 900, type: 'daily', description: 'Daily helper payment', date: selectedDate, status: 'partially_paid', paidAmount: 500, balance: 400 },
+        ];
+        
+        // Monthly Expenses (allocated daily)
+        const monthlyExpenses = [
+            { id: 9, name: 'Office Rent (Monthly)', category: 'overhead', subCategory: 'rent', amount: 20000/30, type: 'monthly', description: 'Daily allocation of office rent', date: selectedDate, status: 'paid', paidAmount: 20000/30, balance: 0 },
+            { id: 10, name: 'Vehicle Insurance (Monthly)', category: 'vehicle', subCategory: 'insurance', amount: 15000/30, type: 'monthly', description: 'Daily allocation of insurance', date: selectedDate, status: 'unpaid', paidAmount: 0, balance: 15000/30 },
+            { id: 11, name: 'Employee Benefits (Monthly)', category: 'staff', subCategory: 'benefits', amount: 10000/30, type: 'monthly', description: 'Daily allocation of benefits', date: selectedDate, status: 'paid', paidAmount: 10000/30, balance: 0 },
+        ];
+        
+        // Other Expenses
+        const otherExpenses = [
+            { id: 12, name: 'Office Supplies', category: 'other', subCategory: 'supplies', amount: Math.floor(Math.random() * 500) + 100, type: 'other', description: 'Purchase of office stationery', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 500) + 100, balance: 0 },
+            { id: 13, name: 'Miscellaneous Expenses', category: 'other', subCategory: 'misc', amount: Math.floor(Math.random() * 300) + 50, type: 'other', description: 'Other miscellaneous expenses', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 300) + 50, balance: 0 },
+        ];
+        
+        return [...vehicleExpenses, ...staffExpenses, ...monthlyExpenses, ...otherExpenses];
     };
-    return units[metric] || '';
-  };
 
-  const getScoreColor = (score) => {
-    if (score >= 90) return 'bg-green-100 text-green-800';
-    if (score >= 80) return 'bg-blue-100 text-blue-800';
-    if (score >= 70) return 'bg-yellow-100 text-yellow-800';
-    if (score >= 60) return 'bg-orange-100 text-orange-800';
-    return 'bg-red-100 text-red-800';
-  };
+    // States
+    const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
+    const [dateData, setDateData] = useState(null);
+    const [viewMode, setViewMode] = useState('packages'); // 'packages' or 'expenses'
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Completed':
-        return 'bg-green-100 text-green-800';
-      case 'In Progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'Pending Review':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+    useEffect(() => {
+        dispatch(setPageTitle('Daily Profit & Loss'));
+        // Load today's data initially
+        const data = generateDataForDate(selectedDate);
+        setDateData(data);
+    }, []);
 
-  const getTimelinessColor = (delay) => {
-    if (delay === 0) return 'bg-green-100 text-green-800';
-    if (delay <= 1) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
-  };
+    useEffect(() => {
+        if (selectedDate) {
+            const data = generateDataForDate(selectedDate);
+            setDateData(data);
+        }
+    }, [selectedDate]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSearchLoading(true);
+    const handleDateChange = (e) => {
+        setSelectedDate(e.target.value);
+    };
 
-    let filtered = [...staticAuditData];
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
 
-    // Apply search filter
-    if (filters.searchQuery) {
-      const query = filters.searchQuery.toLowerCase();
-      filtered = filtered.filter((audit) => 
-        audit.supplierName.toLowerCase().includes(query) || 
-        audit.auditId.toLowerCase().includes(query) || 
-        audit.auditorName.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply auditor filter
-    if (filters.selectedAuditor && filters.selectedAuditor.value !== 'all') {
-      filtered = filtered.filter((audit) => audit.auditorName === filters.selectedAuditor.value);
-    }
-
-    // Apply year filter
-    if (filters.selectedYear && filters.selectedYear.value !== 'all') {
-      filtered = filtered.filter((audit) => 
-        moment(audit.auditDate).format('YYYY') === filters.selectedYear.value
-      );
-    }
-
-    // Apply month filter
-    if (filters.selectedMonth && filters.selectedMonth.value !== 'all') {
-      filtered = filtered.filter((audit) => 
-        moment(audit.auditDate).format('M') === filters.selectedMonth.value
-      );
-    }
-
-    // Apply status filter
-    if (filters.selectedStatus && filters.selectedStatus.value !== 'all') {
-      filtered = filtered.filter((audit) => audit.status === filters.selectedStatus.value);
-    }
-
-    // Apply date filter
-    if (showDateFilter && filters.startDate && filters.toDate) {
-      filtered = filtered.filter((audit) => {
-        const auditDate = moment(audit.auditDate);
-        const start = moment(filters.startDate);
-        const end = moment(filters.toDate);
-        return auditDate.isBetween(start, end, null, '[]');
-      });
-    }
-
-    setTimeout(() => {
-      setFilteredData(filtered);
-      calculateAuditorSummary(filtered);
-      setAppliedFilters({ ...filters });
-      setCurrentPage(0);
-      setSearchLoading(false);
-    }, 500);
-  };
-
-  const handleClear = () => {
-    setFilters({
-      searchQuery: '',
-      selectedAuditor: null,
-      selectedYear: { value: '2024', label: '2024' },
-      selectedMonth: null,
-      selectedStatus: null,
-      startDate: '',
-      toDate: '',
-    });
-    setAppliedFilters(null);
-    setShowDateFilter(false);
-    setSearchLoading(false);
-    setCurrentPage(0);
-    setFilteredData(staticAuditData);
-    calculateAuditorSummary(staticAuditData);
-  };
-
-  const toggleDateFilter = () => {
-    setShowDateFilter(!showDateFilter);
-    if (!showDateFilter) {
-      setFilters((prev) => ({
-        ...prev,
-        startDate: moment().subtract(30, 'days').format('YYYY-MM-DD'),
-        toDate: moment().format('YYYY-MM-DD'),
-      }));
-    } else {
-      setFilters((prev) => ({
-        ...prev,
-        startDate: '',
-        toDate: '',
-      }));
-    }
-  };
-
-  const onDownloadExcel = () => {
-    const wb = XLSX.utils.book_new();
-    
-    // Auditor Summary Sheet
-    const summaryHeader = [
-      ['AUDITOR PERFORMANCE REPORT'],
-      [`Report Period: ${filters.selectedYear?.label || 'All Time'} ${filters.selectedMonth?.label ? `- ${filters.selectedMonth.label}` : ''}`],
-      [`Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
-      [],
-      [
-        'Auditor Name',
-        'Designation',
-        'Total Audits',
-        'Monthly Audits',
-        'Yearly Audits',
-        'Avg Completion Time (hrs)',
-        'Avg Score (%)',
-        'Re-audit Count',
-        'Re-audit Frequency (%)',
-        'On-time Submissions',
-        'Delayed Submissions',
-        'Timeliness Rate (%)',
-        'Avg Delay (days)',
-        'Completion Rate (%)',
-        'Total Images',
-        'Audit Types'
-      ]
+    // Package Columns
+    const packageColumns = [
+        {
+            Header: 'Package ID',
+            accessor: 'packageId',
+            width: 120,
+            Cell: ({ value }) => <span className="font-bold text-blue-600">{value}</span>,
+        },
+        {
+            Header: 'Package Details',
+            accessor: 'packageDetails',
+            Cell: ({ row }) => (
+                <div>
+                    <div className="font-medium">{row.original.packageType}</div>
+                    <div className="text-xs text-gray-500">
+                        {row.original.weight} | {row.original.dimensions}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                        {row.original.fromLocation} → {row.original.toLocation}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Revenue',
+            accessor: 'packageValue',
+            Cell: ({ value }) => (
+                <div className="font-bold text-green-700">{formatCurrency(value)}</div>
+            ),
+        },
+        {
+            Header: 'Vehicle & Staff',
+            accessor: 'vehicleStaff',
+            Cell: ({ row }) => (
+                <div className="text-sm">
+                    <div className="font-medium">{row.original.vehicleType}</div>
+                    <div className="text-xs text-gray-500">{row.original.driverName}</div>
+                    <div className="text-xs text-gray-500 mt-1">{row.original.staffName}</div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Status',
+            accessor: 'status',
+            Cell: ({ value }) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    value === 'Delivered' ? 'bg-green-100 text-green-800' : 
+                    value === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
+                    'bg-yellow-100 text-yellow-800'
+                }`}>
+                    {value}
+                </span>
+            ),
+        },
+        {
+            Header: 'Delivery Time',
+            accessor: 'deliveryTime',
+            Cell: ({ value }) => (
+                <span className="text-sm text-gray-600">{value}</span>
+            ),
+        },
     ];
 
-    const summaryData = auditorSummary.map(auditor => [
-      auditor.auditorName,
-      auditor.auditorDesignation,
-      auditor.totalAudits,
-      auditor.monthlyAudits,
-      auditor.yearlyAudits,
-      auditor.averageCompletionTime,
-      auditor.averageScore,
-      auditor.reauditCount,
-      auditor.reauditFrequency,
-      auditor.onTimeSubmissions,
-      auditor.delayedSubmissions,
-      auditor.timelinessRate,
-      auditor.averageDelay,
-      auditor.completionRate,
-      auditor.imagesCount,
-      auditor.auditTypes.join(', ')
-    ]);
-
-    const summarySheet = XLSX.utils.aoa_to_sheet([...summaryHeader, ...summaryData]);
-    summarySheet['!cols'] = [
-      { wch: 20 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-      { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 },
-      { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
-      { wch: 30 }
-    ];
-
-    // Detailed Audit Data Sheet
-    const detailHeader = [
-      ['DETAILED AUDIT DATA'],
-      [],
-      [
-        'Audit ID',
-        'Supplier',
-        'Auditor',
-        'Audit Date',
-        'Status',
-        'Score',
-        'Completion Time (hrs)',
-        'Delay (days)',
-        'Is Re-audit',
-        'Audit Type',
-        'Checklist Items',
-        'Completed Items',
-        'Images',
-        'Submission Date'
-      ]
-    ];
-
-    const detailData = filteredData.map(audit => [
-      audit.auditId,
-      audit.supplierName,
-      audit.auditorName,
-      moment(audit.auditDate).format('DD/MM/YYYY'),
-      audit.status,
-      audit.currentScore,
-      audit.completionTimeHours,
-      audit.delayInSubmission,
-      audit.isReaudit ? 'Yes' : 'No',
-      audit.auditType,
-      audit.checklistItems,
-      audit.completedItems,
-      audit.imagesCount,
-      moment(audit.submissionDate).format('DD/MM/YYYY')
-    ]);
-
-    const detailSheet = XLSX.utils.aoa_to_sheet([...detailHeader, ...detailData]);
-    detailSheet['!cols'] = [
-      { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
-      { wch: 8 }, { wch: 15 }, { wch: 10 }, { wch: 10 }, { wch: 15 },
-      { wch: 15 }, { wch: 15 }, { wch: 8 }, { wch: 12 }
-    ];
-
-    XLSX.utils.book_append_sheet(wb, summarySheet, 'Auditor Summary');
-    XLSX.utils.book_append_sheet(wb, detailSheet, 'Detailed Data');
-
-    const fileName = `Auditor-Performance-Report-${moment().format('DD-MM-YYYY')}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-  };
-
-  const handlePaginationChange = (pageIndex, newPageSize) => {
-    setCurrentPage(pageIndex);
-    setPageSize(newPageSize);
-  };
-
-  const getPaginatedData = () => {
-    const startIndex = currentPage * pageSize;
-    const endIndex = startIndex + pageSize;
-    return filteredData.slice(startIndex, endIndex);
-  };
-
-  const customStyles = {
-    control: (provided) => ({
-      ...provided,
-      border: '1px solid #d1d5db',
-      borderRadius: '0.375rem',
-      minHeight: '42px',
-      '&:hover': {
-        borderColor: '#d1d5db',
-      },
-    }),
-  };
-
-  const renderMetricCard = (title, value, unit, icon, color, subtitle = '') => (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 ${color}`}>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <h3 className="text-2xl font-bold text-gray-900 mt-1">
-            {value}{unit && <span className="text-lg font-normal"> {unit}</span>}
-          </h3>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-        </div>
-        <div className="p-3 rounded-full bg-opacity-20 bg-current">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="p-6">
-      <div className="p-6 text-center">
-        <h1 className="text-3xl font-extrabold text-gray-800">Auditor Performance Report</h1>
-        <p className="text-gray-600 mt-2">Comprehensive auditor analytics and performance metrics</p>
-      </div>
-
-      {showSearch && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Search & Filter</h2>
-            <button onClick={() => setShowSearch(false)} className="text-gray-500 hover:text-gray-700 transition-colors">
-              ▲ Hide
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-              {/* Date Filter Toggle */}
-              <div className="md:col-span-2 lg:col-span-4">
-                <button
-                  type="button"
-                  onClick={toggleDateFilter}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg border transition-all duration-200 ${
-                    showDateFilter ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm' : 'bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <IconCalendar className="w-4 h-4" />
-                  <span className="font-medium">{showDateFilter ? 'Hide Date Filter' : 'Add Date Filter'}</span>
-                </button>
-              </div>
-
-              {/* Date Filters */}
-              {showDateFilter && (
-                <>
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <label className="block text-sm font-medium text-blue-800 mb-1">From Date</label>
-                    <input
-                      type="date"
-                      className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                      value={filters.startDate}
-                      onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                    />
-                  </div>
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <label className="block text-sm font-medium text-blue-800 mb-1">To Date</label>
-                    <input
-                      type="date"
-                      className="w-full border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                      value={filters.toDate}
-                      onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Auditor Filter */}
-              <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Auditor</label>
-                <Select
-                  options={auditorOptions}
-                  value={filters.selectedAuditor}
-                  onChange={(selectedOption) => setFilters({ ...filters, selectedAuditor: selectedOption })}
-                  placeholder="Select Auditor"
-                  isSearchable
-                  isClearable
-                  styles={customStyles}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                />
-              </div>
-
-              {/* Year Filter */}
-              <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <Select
-                  options={yearOptions}
-                  value={filters.selectedYear}
-                  onChange={(selectedOption) => setFilters({ ...filters, selectedYear: selectedOption })}
-                  styles={customStyles}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                />
-              </div>
-
-              {/* Month Filter */}
-              <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                <Select
-                  options={monthOptions}
-                  value={filters.selectedMonth}
-                  onChange={(selectedOption) => setFilters({ ...filters, selectedMonth: selectedOption })}
-                  placeholder="Select Month"
-                  isSearchable
-                  isClearable
-                  styles={customStyles}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                />
-              </div>
-
-              {/* Status Filter */}
-              <div className="bg-white p-3 rounded-lg border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <Select
-                  options={statusOptions}
-                  value={filters.selectedStatus}
-                  onChange={(selectedOption) => setFilters({ ...filters, selectedStatus: selectedOption })}
-                  placeholder="Select Status"
-                  isSearchable
-                  isClearable
-                  styles={customStyles}
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                />
-              </div>
-
-              {/* Search Input */}
-              <div className="md:col-span-2 bg-white p-3 rounded-lg border border-gray-200">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <IconSearch className="inline w-4 h-4 mr-1" />
-                  Search
-                </label>
-                <input
-                  type="text"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Search by supplier, audit ID, or auditor..."
-                  value={filters.searchQuery}
-                  onChange={(e) => setFilters({ ...filters, searchQuery: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-              <button type="button" onClick={handleClear} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-all duration-200 font-medium">
-                Clear All
-              </button>
-              <button
-                type="submit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-sm flex items-center justify-center min-w-[120px]"
-                disabled={searchLoading || (showDateFilter && (!filters.startDate || !filters.toDate))}
-              >
-                {searchLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Searching...
-                  </>
-                ) : (
-                  'Search'
-                )}
-              </button>
-              {appliedFilters && filteredData.length > 0 && (
-                <button
-                  type="button"
-                  onClick={onDownloadExcel}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium shadow-sm flex items-center"
-                >
-                  <IconPrinter className="mr-2 w-4 h-4" />
-                  Export Report
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-      )}
-
-      {!showSearch && (
-        <div className="flex justify-center mb-6">
-          <button onClick={() => setShowSearch(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium flex items-center">
-            <IconSearch className="mr-2 w-4 h-4" />
-            Show Search Panel
-          </button>
-        </div>
-      )}
-
-      {/* Auditor Summary Cards */}
-      {!searchLoading && auditorSummary.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Auditor Performance Summary</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {auditorSummary.map((auditor, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h4 className="font-bold text-lg text-gray-900">{auditor.auditorName}</h4>
-                    <p className="text-sm text-gray-600">{auditor.auditorDesignation}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getScoreColor(auditor.averageScore)}`}>
-                      {auditor.averageScore}%
+    // Expense Columns
+    const expenseColumns = [
+        {
+            Header: 'Expense ID',
+            accessor: 'id',
+            width: 80,
+            Cell: ({ value }) => <span className="font-bold text-red-600">EXP-{value}</span>,
+        },
+        {
+            Header: 'Expense Details',
+            accessor: 'name',
+            Cell: ({ row }) => (
+                <div>
+                    <div className="font-medium">{row.original.name}</div>
+                    <div className="text-xs text-gray-500">{row.original.description}</div>
+                    <div className="text-xs">
+                        <span className={`px-1 rounded ${
+                            row.original.category === 'vehicle' ? 'bg-blue-100 text-blue-800' :
+                            row.original.category === 'staff' ? 'bg-green-100 text-green-800' :
+                            row.original.category === 'overhead' ? 'bg-purple-100 text-purple-800' :
+                            'bg-gray-100 text-gray-800'
+                        }`}>
+                            {row.original.category}
+                        </span>
+                        <span className="mx-1">•</span>
+                        <span className="text-gray-500">{row.original.type}</span>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            Cell: ({ value }) => (
+                <div className="font-bold text-red-700">{formatCurrency(value)}</div>
+            ),
+        },
+        {
+            Header: 'Payment Status',
+            accessor: 'paymentStatus',
+            Cell: ({ row }) => (
+                <div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        row.original.status === 'paid' ? 'bg-green-100 text-green-800' : 
+                        row.original.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' : 
+                        'bg-red-100 text-red-800'
+                    }`}>
+                        {row.original.status.replace('_', ' ').toUpperCase()}
                     </span>
-                  </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                        Paid: {formatCurrency(row.original.paidAmount)} | 
+                        Due: {formatCurrency(row.original.balance)}
+                    </div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Category',
+            accessor: 'category',
+            Cell: ({ value, row }) => (
+                <div className="text-sm">
+                    <div className="font-medium capitalize">{value}</div>
+                    <div className="text-xs text-gray-500 capitalize">{row.original.subCategory}</div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Date',
+            accessor: 'date',
+            Cell: ({ value }) => (
+                <span className="text-sm text-gray-600">
+                    {moment(value).format('DD/MM/YYYY')}
+                </span>
+            ),
+        },
+    ];
+
+    const onDownloadExcel = () => {
+        if (!dateData) return;
+
+        const wb = XLSX.utils.book_new();
+
+        // Packages Sheet
+        const packageHeader = [
+            ['DAILY PACKAGES REPORT'],
+            [`Date: ${moment(dateData.date).format('DD/MM/YYYY')} - ${dateData.dayOfWeek}`],
+            [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
+            [],
+            ['PACKAGE DETAILS'],
+            [
+                'Package ID',
+                'Package Type',
+                'Weight',
+                'Dimensions',
+                'From',
+                'To',
+                'Package Value (₹)',
+                'Vehicle Type',
+                'Driver',
+                'Staff',
+                'Status',
+                'Delivery Time'
+            ],
+        ];
+
+        const packageData = dateData.packages.map((pkg) => [
+            pkg.packageId,
+            pkg.packageType,
+            pkg.weight,
+            pkg.dimensions,
+            pkg.fromLocation,
+            pkg.toLocation,
+            pkg.packageValue,
+            pkg.vehicleType,
+            pkg.driverName,
+            pkg.staffName,
+            pkg.status,
+            pkg.deliveryTime,
+        ]);
+
+        const packageSummary = [
+            [],
+            ['PACKAGES SUMMARY'],
+            ['Total Packages', dateData.totalPackages],
+            ['Total Revenue', dateData.totalRevenue],
+            ['Profitable Packages', dateData.profitablePackages],
+            ['Loss Packages', dateData.lossPackages],
+        ];
+
+        const packageRows = [...packageHeader, ...packageData, ...packageSummary];
+        const packageWs = XLSX.utils.aoa_to_sheet(packageRows);
+        packageWs['!cols'] = [
+            { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
+            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 }
+        ];
+
+        // Expenses Sheet
+        const expenseHeader = [
+            ['DAILY EXPENSES REPORT'],
+            [`Date: ${moment(dateData.date).format('DD/MM/YYYY')} - ${dateData.dayOfWeek}`],
+            [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
+            [],
+            ['EXPENSE DETAILS'],
+            [
+                'Expense ID',
+                'Name',
+                'Description',
+                'Category',
+                'Sub-Category',
+                'Type',
+                'Amount (₹)',
+                'Status',
+                'Paid Amount (₹)',
+                'Balance (₹)',
+                'Date'
+            ],
+        ];
+
+        const expenseData = dateData.expenses.map((exp) => [
+            `EXP-${exp.id}`,
+            exp.name,
+            exp.description,
+            exp.category,
+            exp.subCategory,
+            exp.type,
+            exp.amount,
+            exp.status.toUpperCase(),
+            exp.paidAmount,
+            exp.balance,
+            moment(exp.date).format('DD/MM/YYYY'),
+        ]);
+
+        const expenseSummary = [
+            [],
+            ['EXPENSES SUMMARY'],
+            ['Total Expenses', dateData.totalExpenses],
+            ['Vehicle Expenses', dateData.totalVehicleExpense],
+            ['Staff Expenses', dateData.totalStaffExpense],
+            ['Fuel Expenses', dateData.totalFuelExpense],
+            ['Maintenance Expenses', dateData.totalMaintenanceExpense],
+            ['Salary Expenses', dateData.totalSalaryExpense],
+            ['Other Expenses', dateData.totalOtherExpense],
+        ];
+
+        const expenseRows = [...expenseHeader, ...expenseData, ...expenseSummary];
+        const expenseWs = XLSX.utils.aoa_to_sheet(expenseRows);
+        expenseWs['!cols'] = [
+            { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 10 },
+            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }
+        ];
+
+        // Profit & Loss Summary Sheet
+        const plHeader = [
+            ['DAILY PROFIT & LOSS SUMMARY'],
+            [`Date: ${moment(dateData.date).format('DD/MM/YYYY')} - ${dateData.dayOfWeek}`],
+            [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
+            [],
+            ['FINANCIAL SUMMARY'],
+        ];
+
+        const plData = [
+            ['Revenue', 'Amount (₹)', 'Percentage'],
+            ['Total Revenue', dateData.totalRevenue, '100%'],
+            [],
+            ['Expenses Breakdown', '', ''],
+            ['Vehicle Expenses', dateData.totalVehicleExpense, `${((dateData.totalVehicleExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
+            ['Staff Expenses', dateData.totalStaffExpense, `${((dateData.totalStaffExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
+            ['Fuel Expenses', dateData.totalFuelExpense, `${((dateData.totalFuelExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
+            ['Maintenance Expenses', dateData.totalMaintenanceExpense, `${((dateData.totalMaintenanceExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
+            ['Salary Expenses', dateData.totalSalaryExpense, `${((dateData.totalSalaryExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
+            ['Other Expenses', dateData.totalOtherExpense, `${((dateData.totalOtherExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
+            ['Total Expenses', dateData.totalExpenses, '100%'],
+            [],
+            ['Profit & Loss', '', ''],
+            ['Net Profit/Loss', dateData.totalProfit, `${dateData.profitMargin}%`],
+            ['Day Status', dateData.status.toUpperCase(), dateData.isProfitDay ? 'PROFIT DAY' : 'LOSS DAY'],
+        ];
+
+        const plRows = [...plHeader, ...plData];
+        const plWs = XLSX.utils.aoa_to_sheet(plRows);
+        plWs['!cols'] = [
+            { wch: 25 }, { wch: 15 }, { wch: 15 }
+        ];
+
+        XLSX.utils.book_append_sheet(wb, packageWs, 'Packages');
+        XLSX.utils.book_append_sheet(wb, expenseWs, 'Expenses');
+        XLSX.utils.book_append_sheet(wb, plWs, 'P&L Summary');
+
+        const fileName = `Daily-PL-Report-${moment(dateData.date).format('DD-MM-YYYY')}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    };
+
+    const onGeneratePDF = async () => {
+        if (!dateData) return;
+
+        const pdfData = {
+            dateData: dateData,
+            generatedDate: moment().format('DD/MM/YYYY HH:mm'),
+            date: moment(dateData.date).format('DD/MM/YYYY'),
+            dayOfWeek: dateData.dayOfWeek,
+            viewMode: viewMode
+        };
+
+        navigate('/documents/audit-report-pdf', { state: pdfData });
+    };
+
+    const getStatusBadge = (status) => {
+        const statusConfig = {
+            'paid': { color: 'bg-green-100 text-green-800', icon: <IconCheckCircle className="w-3 h-3 mr-1" /> },
+            'partially_paid': { color: 'bg-yellow-100 text-yellow-800', icon: <IconClock className="w-3 h-3 mr-1" /> },
+            'unpaid': { color: 'bg-red-100 text-red-800', icon: <IconClock className="w-3 h-3 mr-1" /> }
+        };
+        
+        const config = statusConfig[status] || statusConfig['unpaid'];
+        return (
+            <span className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center ${config.color}`}>
+                {config.icon}
+                {status.replace('_', ' ').toUpperCase()}
+            </span>
+        );
+    };
+
+    if (!dateData) {
+        return (
+            <div className="p-4 sm:p-6">
+                <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-4 sm:p-6">
+            <div className="text-center mb-6">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Daily Profit & Loss Report</h1>
+                <p className="text-gray-600 mt-1 sm:mt-2">Separate package revenue and expense tracking</p>
+            </div>
+
+            {/* Date Selection and Export */}
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6 border border-gray-200">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <IconCalendar className="inline w-4 h-4 mr-1" />
+                            Select Date
+                        </label>
+                        <input
+                            type="date"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            value={selectedDate}
+                            onChange={handleDateChange}
+                            max={moment().format('YYYY-MM-DD')}
+                        />
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setSelectedDate(moment().format('YYYY-MM-DD'))}
+                            className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium"
+                        >
+                            Today
+                        </button>
+                        <button
+                            onClick={() => setSelectedDate(moment().subtract(1, 'day').format('YYYY-MM-DD'))}
+                            className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium"
+                        >
+                            Yesterday
+                        </button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={onDownloadExcel}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
+                        >
+                            <IconDownload className="mr-2 w-4 h-4" />
+                            Export Excel
+                        </button>
+                        <button
+                            onClick={onGeneratePDF}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
+                        >
+                            <IconPrinter className="mr-2 w-4 h-4" />
+                            Generate PDF
+                        </button>
+                    </div>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Audits:</span>
-                    <span className="font-semibold">{auditor.totalAudits}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Avg Time:</span>
-                    <span className="font-semibold">{auditor.averageCompletionTime} hrs</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Timeliness:</span>
-                    <span className={`font-semibold ${parseFloat(auditor.timelinessRate) >= 90 ? 'text-green-600' : parseFloat(auditor.timelinessRate) >= 80 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {auditor.timelinessRate}%
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Re-audits:</span>
-                    <span className="font-semibold">{auditor.reauditCount} ({auditor.reauditFrequency}%)</span>
-                  </div>
+                <div className="text-center">
+                    <h3 className="text-lg font-semibold text-gray-800">
+                        {moment(dateData.date).format('DD MMMM YYYY')} - {dateData.dayOfWeek}
+                    </h3>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Key Metrics Section */}
-      {!searchLoading && appliedFilters && (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Key Performance Metrics</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {renderMetricCard(
-              'Total Audits Completed',
-              filteredData.length,
-              '',
-              <IconCheckCircle className="w-6 h-6 text-blue-500" />,
-              ''
-            )}
-            {renderMetricCard(
-              'Average Audit Score',
-              (filteredData.reduce((sum, audit) => sum + audit.currentScore, 0) / filteredData.length).toFixed(1),
-              '%',
-              <IconTrendingUp className="w-6 h-6 text-green-500" />,
-              ''
-            )}
-            {renderMetricCard(
-              'Average Completion Time',
-              (filteredData.reduce((sum, audit) => sum + (audit.completionTimeHours || 0), 0) / filteredData.length).toFixed(1),
-              'hrs',
-              <IconClock className="w-6 h-6 text-purple-500" />,
-              ''
-            )}
-            {renderMetricCard(
-              'On-time Submission Rate',
-              ((filteredData.filter(audit => audit.delayInSubmission === 0).length / filteredData.length) * 100).toFixed(1),
-              '%',
-              <IconAlertCircle className="w-6 h-6 text-yellow-500" />,
-              ''
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Comparative Analysis Section */}
-      {!searchLoading && comparativeData.length > 0 && (
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Auditor Comparative Analysis</h3>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Best Performer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lowest Performer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Average</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {comparativeData.map((item, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.label}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.max.auditor}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(item.max.value)}`}>
-                          {item.max.value}{item.unit}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.min.auditor}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(item.min.value)}`}>
-                          {item.min.value}{item.unit}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                        {item.average}{item.unit}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Detailed Audit Table */}
-      {!searchLoading && appliedFilters && filteredData.length > 0 ? (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-          <div className="p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-1">Detailed Audit Records</h3>
-                <p className="text-gray-600">
-                  Showing {filteredData.length} audit records
-                  {filters.selectedAuditor?.value !== 'all' ? ` for ${filters.selectedAuditor?.label}` : ''}
-                  {filters.selectedYear?.value ? ` in ${filters.selectedYear.label}` : ''}
-                  {filters.selectedMonth?.value !== 'all' ? ` - ${filters.selectedMonth?.label}` : ''}
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 text-sm">
-                <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-                  <span className="text-gray-600">Total Auditors: </span>
-                  <span className="font-semibold text-blue-600">{auditorSummary.length}</span>
+            {/* View Mode Toggle */}
+            <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setViewMode('packages')}
+                            className={`px-4 py-2 rounded-lg flex items-center ${
+                                viewMode === 'packages' 
+                                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            <IconPackage className="w-4 h-4 mr-2" />
+                            Packages ({dateData.packages.length})
+                        </button>
+                        <button
+                            onClick={() => setViewMode('expenses')}
+                            className={`px-4 py-2 rounded-lg flex items-center ${
+                                viewMode === 'expenses' 
+                                    ? 'bg-red-100 text-red-700 border border-red-300' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            <IconReceipt className="w-4 h-4 mr-2" />
+                            Expenses ({dateData.expenses.length})
+                        </button>
+                        <button
+                            onClick={() => setViewMode('summary')}
+                            className={`px-4 py-2 rounded-lg flex items-center ${
+                                viewMode === 'summary' 
+                                    ? 'bg-green-100 text-green-700 border border-green-300' 
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                        >
+                            <IconMoney className="w-4 h-4 mr-2" />
+                            P&L Summary
+                        </button>
+                    </div>
+                    
+                    <div className="text-sm text-gray-600">
+                        Showing {viewMode === 'packages' ? 'Packages' : viewMode === 'expenses' ? 'Expenses' : 'Summary'} for {moment(dateData.date).format('DD MMM YYYY')}
+                    </div>
                 </div>
-                <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-                  <span className="text-gray-600">Avg Score: </span>
-                  <span className="font-semibold text-green-600">
-                    {(filteredData.reduce((sum, audit) => sum + audit.currentScore, 0) / filteredData.length).toFixed(1)}%
-                  </span>
-                </div>
-                <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-                  <span className="text-gray-600">On-time Rate: </span>
-                  <span className="font-semibold text-yellow-600">
-                    {((filteredData.filter(audit => audit.delayInSubmission === 0).length / filteredData.length) * 100).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
             </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Audit ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Auditor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Audit Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timeliness</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Re-audit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {getPaginatedData().map((audit, index) => (
-                  <tr key={audit.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                      {currentPage * pageSize + index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                      {audit.auditId}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{audit.supplierName}</div>
-                      <div className="text-xs text-gray-500">{audit.supplierType}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <IconUser className="w-4 h-4 text-blue-600" />
+            {/* Status Cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {/* Revenue Card */}
+                <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-800">Total Revenue</h3>
+                        <div className="p-2 bg-blue-100 rounded-full">
+                            <IconMoney className="w-5 h-5 text-blue-600" />
                         </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{audit.auditorName}</div>
-                          <div className="text-xs text-gray-500">{audit.auditorDesignation}</div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-700 mb-2">
+                            {formatCurrency(dateData.totalRevenue)}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {moment(audit.auditDate).format('DD/MM/YYYY')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(audit.currentScore)}`}>
-                        {audit.currentScore}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {audit.completionTimeHours} hrs
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTimelinessColor(audit.delayInSubmission)}`}>
-                        {audit.delayInSubmission === 0 ? 'On Time' : `${audit.delayInSubmission} days delay`}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${audit.isReaudit ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {audit.isReaudit ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(audit.status)}`}>
-                        {audit.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        <div className="text-sm text-gray-600">
+                            {dateData.totalPackages} Packages
+                        </div>
+                    </div>
+                </div>
 
-          {/* Pagination */}
-          <div className="px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing <span className="font-medium">{(currentPage * pageSize) + 1}</span> to{' '}
-                <span className="font-medium">{Math.min((currentPage + 1) * pageSize, filteredData.length)}</span> of{' '}
-                <span className="font-medium">{filteredData.length}</span> results
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handlePaginationChange(currentPage - 1, pageSize)}
-                  disabled={currentPage === 0}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => handlePaginationChange(currentPage + 1, pageSize)}
-                  disabled={(currentPage + 1) * pageSize >= filteredData.length}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  Next
-                </button>
-              </div>
+                {/* Expenses Card */}
+                <div className="bg-white rounded-lg shadow-sm p-4 border border-red-200">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-800">Total Expenses</h3>
+                        <div className="p-2 bg-red-100 rounded-full">
+                            <IconReceipt className="w-5 h-5 text-red-600" />
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-red-700 mb-2">
+                            {formatCurrency(dateData.totalExpenses)}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            {dateData.expenses.length} Expense Items
+                        </div>
+                    </div>
+                </div>
+
+                {/* Profit/Loss Card */}
+                <div className={`bg-white rounded-lg shadow-sm p-4 border ${dateData.isProfitDay ? 'border-green-200' : 'border-red-200'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-800">Net Profit/Loss</h3>
+                        <div className={`p-2 rounded-full ${dateData.isProfitDay ? 'bg-green-100' : 'bg-red-100'}`}>
+                            {dateData.isProfitDay ? (
+                                <IconTrendingUp className="w-5 h-5 text-green-600" />
+                            ) : (
+                                <IconTrendingDown className="w-5 h-5 text-red-600" />
+                            )}
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className={`text-2xl font-bold mb-2 ${dateData.isProfitDay ? 'text-green-700' : 'text-red-700'}`}>
+                            {formatCurrency(dateData.totalProfit)}
+                        </div>
+                        <div className={`text-sm ${dateData.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}% Margin
+                        </div>
+                    </div>
+                </div>
+
+                {/* Expense Status Card */}
+                <div className="bg-white rounded-lg shadow-sm p-4 border border-purple-200">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-800">Expense Status</h3>
+                        <div className="p-2 bg-purple-100 rounded-full">
+                            <IconCheckCircle className="w-5 h-5 text-purple-600" />
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-700 mb-2">
+                            {dateData.expenses.length} Items
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 text-xs">
+                            <div className="bg-green-50 p-1 rounded">
+                                <div className="text-green-700 font-bold">
+                                    {dateData.expenses.filter(e => e.status === 'paid').length}
+                                </div>
+                                <div className="text-xs text-gray-600">Paid</div>
+                            </div>
+                            <div className="bg-yellow-50 p-1 rounded">
+                                <div className="text-yellow-700 font-bold">
+                                    {dateData.expenses.filter(e => e.status === 'partially_paid').length}
+                                </div>
+                                <div className="text-xs text-gray-600">Partial</div>
+                            </div>
+                            <div className="bg-red-50 p-1 rounded">
+                                <div className="text-red-700 font-bold">
+                                    {dateData.expenses.filter(e => e.status === 'unpaid').length}
+                                </div>
+                                <div className="text-xs text-gray-600">Unpaid</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-        </div>
-      ) : searchLoading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200">
-          <div className="flex flex-col items-center justify-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-6"></div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Loading Auditor Data</h3>
-            <p className="text-gray-500">Please wait while we fetch the auditor performance data</p>
-          </div>
-        </div>
-      ) : appliedFilters && filteredData.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200">
-          <div className="flex flex-col items-center justify-center">
-            <div className="w-24 h-24 bg-yellow-100 rounded-full flex items-center justify-center mb-6">
-              <IconSearch className="w-12 h-12 text-yellow-500" />
+
+            {/* Content based on view mode */}
+            {viewMode === 'packages' && (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div>
+                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
+                                    Package Revenue Details
+                                </h3>
+                                <p className="text-gray-600 text-sm">
+                                    {dateData.totalPackages} packages delivered on {moment(dateData.date).format('DD MMM YYYY')}
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 text-sm">
+                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                    <span className="text-gray-600">Total Revenue: </span>
+                                    <span className="font-semibold text-green-600">{formatCurrency(dateData.totalRevenue)}</span>
+                                </div>
+                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                    <span className="text-gray-600">Avg per Package: </span>
+                                    <span className="font-semibold text-blue-600">
+                                        {formatCurrency(dateData.totalRevenue / dateData.totalPackages)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-2 sm:p-4">
+                        <Table
+                            columns={packageColumns}
+                            data={dateData.packages}
+                            Title=""
+                            pageSize={10}
+                            pageIndex={0}
+                            totalCount={dateData.packages.length}
+                            totalPages={Math.ceil(dateData.packages.length / 10)}
+                            onPaginationChange={(page, size) => {}}
+                            isSortable={true}
+                            pagination={true}
+                            isSearchable={false}
+                            tableClass="min-w-full rounded-lg overflow-hidden"
+                            theadClass="bg-gray-50"
+                            responsive={true}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {viewMode === 'expenses' && (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                            <div>
+                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
+                                    Expense Details
+                                </h3>
+                                <p className="text-gray-600 text-sm">
+                                    {dateData.expenses.length} expense items on {moment(dateData.date).format('DD MMM YYYY')}
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 text-sm">
+                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                    <span className="text-gray-600">Total Expenses: </span>
+                                    <span className="font-semibold text-red-600">{formatCurrency(dateData.totalExpenses)}</span>
+                                </div>
+                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                    <span className="text-gray-600">Avg per Item: </span>
+                                    <span className="font-semibold text-orange-600">
+                                        {formatCurrency(dateData.totalExpenses / dateData.expenses.length)}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-2 sm:p-4">
+                        <Table
+                            columns={expenseColumns}
+                            data={dateData.expenses}
+                            Title=""
+                            pageSize={10}
+                            pageIndex={0}
+                            totalCount={dateData.expenses.length}
+                            totalPages={Math.ceil(dateData.expenses.length / 10)}
+                            onPaginationChange={(page, size) => {}}
+                            isSortable={true}
+                            pagination={true}
+                            isSearchable={false}
+                            tableClass="min-w-full rounded-lg overflow-hidden"
+                            theadClass="bg-gray-50"
+                            responsive={true}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {viewMode === 'summary' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    {/* Expense Breakdown Summary */}
+                    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Expense Breakdown</h3>
+                        <div className="space-y-4">
+                            {/* Vehicle Expenses */}
+                            <div className="border-l-4 border-blue-500 pl-4">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <div className="font-semibold text-gray-800">Vehicle Expenses</div>
+                                        <div className="text-sm text-gray-600">Fuel, Maintenance, Toll, Parking</div>
+                                    </div>
+                                    <div className="text-red-700 font-bold">
+                                        {formatCurrency(dateData.totalVehicleExpense)}
+                                    </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div 
+                                        className="bg-blue-600 h-2 rounded-full" 
+                                        style={{ width: `${(dateData.totalVehicleExpense / dateData.totalExpenses) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                    {((dateData.totalVehicleExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
+                                </div>
+                            </div>
+
+                            {/* Staff Expenses */}
+                            <div className="border-l-4 border-green-500 pl-4">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <div className="font-semibold text-gray-800">Staff Expenses</div>
+                                        <div className="text-sm text-gray-600">Salaries, Overtime, Benefits</div>
+                                    </div>
+                                    <div className="text-red-700 font-bold">
+                                        {formatCurrency(dateData.totalStaffExpense)}
+                                    </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div 
+                                        className="bg-green-600 h-2 rounded-full" 
+                                        style={{ width: `${(dateData.totalStaffExpense / dateData.totalExpenses) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                    {((dateData.totalStaffExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
+                                </div>
+                            </div>
+
+                            {/* Other Expenses */}
+                            <div className="border-l-4 border-purple-500 pl-4">
+                                <div className="flex justify-between items-center">
+                                    <div>
+                                        <div className="font-semibold text-gray-800">Other Expenses</div>
+                                        <div className="text-sm text-gray-600">Supplies, Miscellaneous</div>
+                                    </div>
+                                    <div className="text-red-700 font-bold">
+                                        {formatCurrency(dateData.totalOtherExpense)}
+                                    </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div 
+                                        className="bg-purple-600 h-2 rounded-full" 
+                                        style={{ width: `${(dateData.totalOtherExpense / dateData.totalExpenses) * 100}%` }}
+                                    ></div>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                    {((dateData.totalOtherExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Profit & Loss Summary */}
+                    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Profit & Loss Summary</h3>
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center pb-3 border-b">
+                                <span className="text-gray-700">Total Revenue</span>
+                                <span className="text-green-700 font-bold">{formatCurrency(dateData.totalRevenue)}</span>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <div className="text-sm font-medium text-gray-600">Expenses:</div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600 text-sm">• Vehicle Expenses</span>
+                                    <span className="text-red-600">-{formatCurrency(dateData.totalVehicleExpense)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600 text-sm">• Staff Expenses</span>
+                                    <span className="text-red-600">-{formatCurrency(dateData.totalStaffExpense)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600 text-sm">• Other Expenses</span>
+                                    <span className="text-red-600">-{formatCurrency(dateData.totalOtherExpense)}</span>
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center pt-3 border-t">
+                                <span className="text-gray-700">Total Expenses</span>
+                                <span className="text-red-700 font-bold">-{formatCurrency(dateData.totalExpenses)}</span>
+                            </div>
+                            
+                            <div className={`flex justify-between items-center pt-3 border-t ${dateData.isProfitDay ? 'bg-green-50 p-3 rounded-lg' : 'bg-red-50 p-3 rounded-lg'}`}>
+                                <span className={`font-bold ${dateData.isProfitDay ? 'text-green-800' : 'text-red-800'}`}>
+                                    {dateData.isProfitDay ? 'Net Profit' : 'Net Loss'}
+                                </span>
+                                <span className={`text-2xl font-bold ${dateData.isProfitDay ? 'text-green-700' : 'text-red-700'}`}>
+                                    {dateData.isProfitDay ? '+' : ''}{formatCurrency(dateData.totalProfit)}
+                                </span>
+                            </div>
+                            
+                            <div className={`text-center py-2 rounded-lg ${dateData.isProfitDay ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                <div className="font-semibold">
+                                    {dateData.isProfitDay ? 'Profit Day' : 'Loss Day'} • {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}% Margin
+                                </div>
+                                <div className="text-sm">
+                                    {dateData.profitablePackages} packages made profit • {dateData.lossPackages} packages made loss
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Detailed Expense Breakdown */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                {/* Vehicle Expenses Detail */}
+                <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-800">Vehicle Expenses</h3>
+                        <IconTruck className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div className="space-y-2">
+                        <div className="text-2xl font-bold text-blue-700">
+                            {formatCurrency(dateData.totalVehicleExpense)}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            {((dateData.totalVehicleExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs mt-2">
+                            <div className="bg-blue-50 p-2 rounded">
+                                <div className="text-blue-700 font-bold">
+                                    {formatCurrency(dateData.totalFuelExpense)}
+                                </div>
+                                <div className="text-gray-600">Fuel</div>
+                            </div>
+                            <div className="bg-blue-50 p-2 rounded">
+                                <div className="text-blue-700 font-bold">
+                                    {formatCurrency(dateData.totalMaintenanceExpense)}
+                                </div>
+                                <div className="text-gray-600">Maintenance</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Staff Expenses Detail */}
+                <div className="bg-white rounded-lg shadow-sm p-4 border border-green-200">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-800">Staff Expenses</h3>
+                        <IconUsers className="w-5 h-5 text-green-500" />
+                    </div>
+                    <div className="space-y-2">
+                        <div className="text-2xl font-bold text-green-700">
+                            {formatCurrency(dateData.totalStaffExpense)}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            {((dateData.totalStaffExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                            Salary: {formatCurrency(dateData.totalSalaryExpense)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Day Performance */}
+                <div className={`bg-white rounded-lg shadow-sm p-4 border ${dateData.isProfitDay ? 'border-green-200' : 'border-red-200'}`}>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-bold text-gray-800">Day Performance</h3>
+                        {dateData.isProfitDay ? (
+                            <IconTrendingUp className="w-5 h-5 text-green-500" />
+                        ) : (
+                            <IconTrendingDown className="w-5 h-5 text-red-500" />
+                        )}
+                    </div>
+                    <div className="space-y-2">
+                        <div className={`text-2xl font-bold ${dateData.isProfitDay ? 'text-green-700' : 'text-red-700'}`}>
+                            {dateData.isProfitDay ? 'Profit Day' : 'Loss Day'}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            {dateData.profitablePackages} packages made profit
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                            Net margin: {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}%
+                        </div>
+                    </div>
+                </div>
             </div>
-            <h3 className="text-2xl font-semibold text-gray-800 mb-3">No Data Found</h3>
-            <p className="text-gray-600 text-lg max-w-md mb-6">No audit records match your current search criteria.</p>
-            <button onClick={handleClear} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-semibold">
-              Clear Filters
-            </button>
-          </div>
         </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200">
-          <div className="flex flex-col items-center justify-center">
-            <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-              <IconChartBar className="w-12 h-12 text-blue-500" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-3">Auditor Performance Dashboard</h3>
-            <p className="text-gray-600 text-lg max-w-md mb-6">
-              Ready to analyze auditor performance metrics. Use the search filters above to generate detailed reports.
-            </p>
-            <button
-              onClick={() => setShowSearch(true)}
-              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-semibold text-lg shadow-lg"
-            >
-              Start Analysis
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
 };
 
-export default Index;
+export default ProfitLossReport;
