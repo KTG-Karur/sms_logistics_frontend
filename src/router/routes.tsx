@@ -268,11 +268,11 @@ const routes = [
         element: <ChecklistSupplier />,
     },
     {
-        path: '/reports/audit-report',
+        path: '/reports/package-report',
         element: <PackageReport />,
     },
     {
-        path: '/reports/auditor-report',
+        path: '/reports/daily-profit-loss-report',
         element: <DailyProfitLossReport />,
     },
     //old
@@ -296,7 +296,7 @@ const routes = [
         path: '/package/payment',
         element: <PakagePayment />,
     },
-     {
+    {
         path: '/master/attendance',
         element: <Attendance />,
     },
@@ -304,13 +304,13 @@ const routes = [
         path: '/package/intake',
         element: <PackageIntake />,
     },
-      {
+    {
         path: '/package/assign-trip',
         element: <AssignTrip />,
     },
     {
-     path: '/report/profit-loss',
-     element : <ProfitLossReport />,
+        path: '/report/profit-loss',
+        element: <ProfitLossReport />,
     },
     //old
     {
@@ -486,6 +486,10 @@ const dontCkeckRouts = [
     {
         path: '/audit/report-pdf',
         element: <PackageReportPrint />,
+    },
+    {
+        path: '/expenses/settlement/details',
+        element: <ExpenseSettlementDetails />,
     },
 ];
 

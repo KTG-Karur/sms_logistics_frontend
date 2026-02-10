@@ -86,7 +86,7 @@ const Employees = () => {
     ];
     
     useEffect(() => {
-        dispatch(setPageTitle('Employee Management'));
+        dispatch(setPageTitle('Staff Management'));
         fetchInitialData();
         // Apply existing filters on mount
         if (Object.values(filters).some(val => val !== null && val !== '')) {
@@ -149,31 +149,31 @@ const Employees = () => {
     
     useEffect(() => {
         if (createEmployeeSuccess) {
-            showMessage('success', 'Employee created successfully');
+            showMessage('success', 'Staff created successfully');
             onFormClear();
             dispatch(resetEmployeeStatus());
             fetchInitialData();
         } else if (createEmployeeFailed) {
-            showMessage('error', error || 'Create employee failed');
+            showMessage('error', error || 'Create Staff failed');
             dispatch(resetEmployeeStatus());
         }
     }, [createEmployeeSuccess, createEmployeeFailed]);
     
     useEffect(() => {
         if (updateEmployeeSuccess) {
-            showMessage('success', 'Employee updated successfully');
+            showMessage('success', 'Staff updated successfully');
             onFormClear();
             dispatch(resetEmployeeStatus());
             fetchInitialData();
         } else if (updateEmployeeFailed) {
-            showMessage('error', error || 'Update employee failed');
+            showMessage('error', error || 'Update Staff failed');
             dispatch(resetEmployeeStatus());
         }
     }, [updateEmployeeSuccess, updateEmployeeFailed]);
     
     useEffect(() => {
         if (deleteEmployeeSuccess) {
-            showMessage('success', 'Employee deleted successfully');
+            showMessage('success', 'Staff deleted successfully');
             dispatch(resetEmployeeStatus());
             fetchInitialData();
         }
@@ -311,7 +311,7 @@ const Employees = () => {
     
     const validateForm = () => {
         const newErrors = {};
-        if (!state.employeeName) newErrors.employeeName = 'Employee name is required';
+        if (!state.employeeName) newErrors.employeeName = 'Staff name is required';
         if (!state.mobileNo) newErrors.mobileNo = 'Mobile number is required';
         
         // Mobile number validation
@@ -404,14 +404,14 @@ const Employees = () => {
             }
         } catch (error) {
             console.error('Form submission error:', error);
-            showMessage('error', 'Failed to save employee data');
+            showMessage('error', 'Failed to save Staff data');
         }
     };
     
     const handleDeleteEmployee = (employee) => {
         showMessage(
             'warning',
-            'Are you sure you want to delete this employee?',
+            'Are you sure you want to delete this Staff?',
             () => {
                 dispatch(
                     deleteEmployee({
@@ -563,7 +563,7 @@ const Employees = () => {
                 <div className="panel mb-6">
                     <div className="flex items-center justify-between mb-5">
                         <h5 className="font-semibold text-lg dark:text-white-light">
-                            Filter Employees
+                            Filter Staff
                         </h5>
                         <button
                             type="button"
@@ -660,7 +660,7 @@ const Employees = () => {
                 <div className="panel mb-6">
                     <div className="flex items-center justify-between mb-5">
                         <h5 className="font-semibold text-lg dark:text-white-light">
-                            {isEdit ? 'Edit Employee' : 'Add New Employee'}
+                            {isEdit ? 'Edit Staff' : 'Add New Staff'}
                         </h5>
                         <button
                             type="button"
@@ -681,7 +681,7 @@ const Employees = () => {
                                     name="employeeName" 
                                     value={state.employeeName} 
                                     onChange={handleChange} 
-                                    placeholder="Enter Employee Name" 
+                                    placeholder="Enter Staff Name" 
                                     className="form-input" 
                                 />
                                 {errors.employeeName && <div className="text-danger text-sm mt-1">{errors.employeeName}</div>}
@@ -946,7 +946,7 @@ const Employees = () => {
                                         Processing...
                                     </span>
                                 ) : (
-                                    isEdit ? 'Update Employee' : 'Add Employee'
+                                    isEdit ? 'Update Staff' : 'Add Staff'
                                 )}
                             </button>
                         </div>
@@ -957,7 +957,7 @@ const Employees = () => {
             {/* Employees Table */}
             <div className="panel">
                 <div className="flex justify-between items-center mb-6">
-                    <h5 className="font-semibold text-lg dark:text-white-light">Employee List</h5>
+                    <h5 className="font-semibold text-lg dark:text-white-light">Staff List</h5>
                     <div className="flex space-x-2">
                         {/* Filter Button */}
                         <button
@@ -977,7 +977,7 @@ const Employees = () => {
                                 className="btn btn-primary"
                                 disabled={loading}
                             >
-                                Add Employee
+                                Add Staff
                             </button>
                         )}
                     </div>
