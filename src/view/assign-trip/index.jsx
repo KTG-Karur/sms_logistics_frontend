@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
-import Table from '../../util/Table';
 import Tippy from '@tippyjs/react';
 import { showMessage } from '../../util/AllFunction';
 import Select from 'react-select';
@@ -23,6 +22,250 @@ import IconChevronDown from '../../components/Icon/IconChevronDown';
 import IconChevronUp from '../../components/Icon/IconChevronUp';
 import IconInfoCircle from '../../components/Icon/IconInfoCircle';
 import IconFlag from '../../components/Icon/IconAt';
+import IconSearch from '../../components/Icon/IconSearch';
+
+// Custom responsive table component
+const ResponsiveTable = ({ 
+    columns, 
+    data, 
+    pageSize = 10,
+    pageIndex = 0,
+    totalCount,
+    totalPages,
+    onPaginationChange,
+    onSearchChange,
+    pagination = true,
+    isSearchable = true,
+    searchPlaceholder = "Search...",
+    showPageSize = true
+}) => {
+    const [currentPage, setCurrentPage] = useState(pageIndex);
+    const [rowsPerPage, setRowsPerPage] = useState(pageSize);
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    // Handle search
+    const handleSearch = useCallback((term) => {
+        setSearchTerm(term);
+        setCurrentPage(0);
+        if (onSearchChange) onSearchChange(term);
+    }, [onSearchChange]);
+    
+    // Handle page change
+    const handlePageChange = useCallback((page) => {
+        setCurrentPage(page);
+        if (onPaginationChange) onPaginationChange(page, rowsPerPage);
+    }, [onPaginationChange, rowsPerPage]);
+    
+    // Handle rows per page change
+    const handleRowsPerPageChange = useCallback((e) => {
+        const newRowsPerPage = parseInt(e.target.value);
+        setRowsPerPage(newRowsPerPage);
+        setCurrentPage(0);
+        if (onPaginationChange) onPaginationChange(0, newRowsPerPage);
+    }, [onPaginationChange]);
+    
+    // Filter data based on search term
+    const filteredData = useMemo(() => {
+        if (!searchTerm) return data;
+        return data.filter(row => 
+            columns.some(col => {
+                if (col.accessor && row[col.accessor]) {
+                    return String(row[col.accessor]).toLowerCase().includes(searchTerm.toLowerCase());
+                }
+                return false;
+            })
+        );
+    }, [data, searchTerm, columns]);
+    
+    // Calculate paginated data
+    const paginatedData = useMemo(() => {
+        const startIndex = currentPage * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+        return filteredData.slice(startIndex, endIndex);
+    }, [filteredData, currentPage, rowsPerPage]);
+
+    // Calculate actual total pages
+    const actualTotalPages = useMemo(() => {
+        return Math.ceil(filteredData.length / rowsPerPage);
+    }, [filteredData.length, rowsPerPage]);
+    
+    return (
+        <div className="w-full">
+            {/* Search Bar */}
+            {isSearchable && (
+                <div className="mb-4">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            className="w-full p-2 pl-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                            placeholder={searchPlaceholder}
+                            value={searchTerm}
+                            onChange={(e) => handleSearch(e.target.value)}
+                        />
+                        <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                            <IconSearch className="w-4 h-4 text-gray-400" />
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
+                <div className="inline-block min-w-full align-middle">
+                    <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-300">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    {columns.map((column, index) => (
+                                        <th
+                                            key={index}
+                                            scope="col"
+                                            className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
+                                            style={{ width: column.width }}
+                                        >
+                                            {column.Header}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {paginatedData.length > 0 ? (
+                                    paginatedData.map((row, rowIndex) => (
+                                        <tr key={rowIndex} className="hover:bg-gray-50 transition-colors">
+                                            {columns.map((column, colIndex) => (
+                                                <td
+                                                    key={colIndex}
+                                                    className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap"
+                                                >
+                                                    {column.Cell ? column.Cell({ value: row[column.accessor], row: { original: row } }) : row[column.accessor]}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={columns.length} className="px-3 py-8 text-center text-sm text-gray-500">
+                                            No data found
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+                {paginatedData.length > 0 ? (
+                    paginatedData.map((row, rowIndex) => (
+                        <div key={rowIndex} className="bg-white rounded-lg shadow border border-gray-200 p-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                {columns.map((column, colIndex) => (
+                                    <div key={colIndex} className={`${column.mobileFull ? 'col-span-2' : ''}`}>
+                                        <div className="text-xs font-medium text-gray-500 uppercase mb-1">
+                                            {column.Header}
+                                        </div>
+                                        <div className="text-sm text-gray-900">
+                                            {column.Cell ? column.Cell({ value: row[column.accessor], row: { original: row } }) : row[column.accessor]}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="bg-white rounded-lg shadow border border-gray-200 p-8 text-center">
+                        <div className="text-gray-500 text-sm">No data found</div>
+                    </div>
+                )}
+            </div>
+            
+            {/* Pagination */}
+            {pagination && filteredData.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-4 space-y-4 sm:space-y-0 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{currentPage * rowsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">
+                            {Math.min((currentPage + 1) * rowsPerPage, filteredData.length)}
+                        </span>{' '}
+                        of <span className="font-medium">{filteredData.length}</span> results
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                        {showPageSize && (
+                            <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-700">Show:</span>
+                                <select
+                                    value={rowsPerPage}
+                                    onChange={handleRowsPerPageChange}
+                                    className="border border-gray-300 rounded px-2 py-1 text-sm bg-white"
+                                >
+                                    {[5, 10, 20, 50].map(size => (
+                                        <option key={size} value={size}>{size}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                        
+                        <div className="flex items-center space-x-1">
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage === 0}
+                                className={`px-3 py-1.5 rounded border text-sm ${
+                                    currentPage === 0
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                                }`}
+                            >
+                                Previous
+                            </button>
+                            
+                            {Array.from({ length: Math.min(5, actualTotalPages) }).map((_, i) => {
+                                let pageNum;
+                                if (actualTotalPages <= 5) {
+                                    pageNum = i;
+                                } else if (currentPage <= 2) {
+                                    pageNum = i;
+                                } else if (currentPage >= actualTotalPages - 3) {
+                                    pageNum = actualTotalPages - 5 + i;
+                                } else {
+                                    pageNum = currentPage - 2 + i;
+                                }
+                                
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        onClick={() => handlePageChange(pageNum)}
+                                        className={`px-3 py-1.5 rounded border text-sm ${
+                                            currentPage === pageNum
+                                                ? 'bg-primary text-white border-primary'
+                                                : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                                        }`}
+                                    >
+                                        {pageNum + 1}
+                                    </button>
+                                );
+                            })}
+                            
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage >= actualTotalPages - 1}
+                                className={`px-3 py-1.5 rounded border text-sm ${
+                                    currentPage >= actualTotalPages - 1
+                                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                        : 'bg-white text-gray-700 hover:bg-gray-50 border-gray-300'
+                                }`}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const AssignTrip = () => {
     const dispatch = useDispatch();
@@ -355,8 +598,8 @@ const AssignTrip = () => {
             totalPackages: 2,
             totalAmount: 365,
             tripType: 'primary',
-            addonStages: [], // Array to hold multiple add-on stages
-            currentStage: 0, // 0 = main trip, 1 = first add-on, 2 = second add-on, etc.
+            addonStages: [],
+            currentStage: 0,
             expanded: false,
         }
     ]);
@@ -369,7 +612,7 @@ const AssignTrip = () => {
     const [selectedBookings, setSelectedBookings] = useState([]);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [selectedDriver, setSelectedDriver] = useState(null);
-    const [packageLoadmen, setPackageLoadmen] = useState({}); // { bookingId_packageId: [loadmen] }
+    const [packageLoadmen, setPackageLoadmen] = useState({});
     const [tripDate, setTripDate] = useState(new Date().toISOString().split('T')[0]);
     const [estimatedDeparture, setEstimatedDeparture] = useState('08:00');
     const [estimatedArrival, setEstimatedArrival] = useState('18:00');
@@ -429,7 +672,6 @@ const AssignTrip = () => {
     // Update available addon bookings when parent trip changes
     useEffect(() => {
         if (selectedParentTrip && tripMode === 'addon') {
-            // Get the last destination from the trip
             const allStages = [selectedParentTrip.bookings, ...selectedParentTrip.addonStages.map(stage => stage.bookings)].flat();
             const lastDestination = allStages[allStages.length - 1]?.toCenter;
             
@@ -529,10 +771,7 @@ const AssignTrip = () => {
 
     // Calculate if all stages are completed
     const areAllStagesCompleted = useCallback((trip) => {
-        // Check if main bookings are completed
         const mainCompleted = trip.bookings.every(b => b.deliveryStatus === 'delivered');
-        
-        // Check if all add-on stages are completed
         const addonsCompleted = trip.addonStages.every(stage => 
             stage.status === 'completed' && 
             stage.bookings.every(b => b.deliveryStatus === 'delivered')
@@ -549,13 +788,11 @@ const AssignTrip = () => {
                     const updatedTrip = { ...trip };
                     
                     if (stageIndex === 0) {
-                        // Update main bookings
                         updatedTrip.bookings = updatedTrip.bookings.map(booking => ({
                             ...booking,
                             deliveryStatus: newStatus
                         }));
                     } else {
-                        // Update add-on stage
                         const addonStageIndex = stageIndex - 1;
                         if (updatedTrip.addonStages[addonStageIndex]) {
                             updatedTrip.addonStages[addonStageIndex] = {
@@ -569,7 +806,6 @@ const AssignTrip = () => {
                         }
                     }
                     
-                    // Check if all stages are completed
                     if (areAllStagesCompleted(updatedTrip)) {
                         updatedTrip.status = 'completed';
                         updatedTrip.actualArrival = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
@@ -597,13 +833,11 @@ const AssignTrip = () => {
                     const updatedTrip = { ...trip };
                     
                     if (stageIndex === 0) {
-                        // Complete main stage
                         updatedTrip.bookings = updatedTrip.bookings.map(booking => ({
                             ...booking,
                             deliveryStatus: 'delivered'
                         }));
                     } else {
-                        // Complete add-on stage
                         const addonStageIndex = stageIndex - 1;
                         if (updatedTrip.addonStages[addonStageIndex]) {
                             updatedTrip.addonStages[addonStageIndex] = {
@@ -618,13 +852,12 @@ const AssignTrip = () => {
                         }
                     }
                     
-                    // Check if all stages are completed
                     if (areAllStagesCompleted(updatedTrip)) {
                         updatedTrip.status = 'completed';
                         updatedTrip.actualArrival = currentTime;
                     } else {
                         updatedTrip.status = 'multi_stop';
-                        updatedTrip.currentStage = stageIndex + 1; // Move to next stage
+                        updatedTrip.currentStage = stageIndex + 1;
                     }
                     
                     return updatedTrip;
@@ -647,7 +880,6 @@ const AssignTrip = () => {
         if (!selectedVehicle) newErrors.selectedVehicle = 'Vehicle is required';
         if (!selectedDriver) newErrors.selectedDriver = 'Driver is required';
         
-        // Validate loadmen assignment for each package
         bookings.forEach(booking => {
             const bookingId = booking.data.id;
             const packages = booking.data.packageDetails || [];
@@ -763,7 +995,7 @@ const AssignTrip = () => {
                 id: tripId,
                 tripNo: `TRIP${String(tripId).padStart(4, '0')}`,
                 bookings: bookingsWithLoadmen,
-                addonStages: [], // Initialize empty addon stages
+                addonStages: [],
                 vehicle: selectedVehicle.data,
                 driver: selectedDriver.data,
                 tripDate: tripDate,
@@ -868,6 +1100,45 @@ const AssignTrip = () => {
         setAddonRemarks('');
     };
 
+    // Get filtered data for table
+    const getFilteredData = useCallback(() => {
+        let filteredData = trips;
+        if (searchTerm) {
+            filteredData = filteredData.filter(
+                (trip) =>
+                    trip.tripNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    trip.vehicle?.vehicleNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    trip.driver?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    trip.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    trip.bookings.some(b => 
+                        b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
+                    ) ||
+                    (trip.addonStages && trip.addonStages.some(stage => 
+                        stage.bookings.some(b => 
+                            b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
+                        )
+                    ))
+            );
+        }
+        return filteredData;
+    }, [trips, searchTerm]);
+
+    const filteredData = getFilteredData();
+
+    // Handle pagination change
+    const handlePaginationChange = (pageIndex, newPageSize) => {
+        setCurrentPage(pageIndex);
+        setPageSize(newPageSize);
+    };
+
+    // Handle search change
+    const handleSearch = (term) => {
+        setSearchTerm(term);
+        setCurrentPage(0);
+    };
+
     // Component for view details
     const TripDetails = ({ trip }) => {
         if (!trip.expanded) return null;
@@ -877,7 +1148,6 @@ const AssignTrip = () => {
             ...(trip.addonStages || []).map(stage => ({ ...stage, stageName: `Add-on Stage ${stage.stageNumber}` }))
         ];
 
-        // Get all unique loadmen
         const allLoadmen = new Set();
         allStages.forEach(stage => {
             stage.bookings?.forEach(booking => {
@@ -892,7 +1162,6 @@ const AssignTrip = () => {
         return (
             <div className="bg-gray-50 rounded-lg mt-4 p-6 border border-gray-200 animate-fadeIn">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    {/* Trip Information */}
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
                             <IconInfoCircle className="w-5 h-5 mr-2 text-blue-500" />
@@ -926,7 +1195,6 @@ const AssignTrip = () => {
                         </div>
                     </div>
 
-                    {/* Vehicle & Driver */}
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
                             <IconTruck className="w-5 h-5 mr-2 text-blue-500" />
@@ -952,7 +1220,6 @@ const AssignTrip = () => {
                         </div>
                     </div>
 
-                    {/* Load Summary */}
                     <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
                             <IconPackage className="w-5 h-5 mr-2 text-blue-500" />
@@ -986,13 +1253,11 @@ const AssignTrip = () => {
                         Trip Stages Timeline
                     </h4>
                     <div className="relative">
-                        {/* Timeline line */}
                         <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-blue-200"></div>
                         
                         <div className="space-y-6">
                             {allStages.map((stage, index) => (
                                 <div key={index} className="relative pl-12">
-                                    {/* Stage dot */}
                                     <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center z-10 ${
                                         stage.status === 'completed' ? 'bg-green-500' :
                                         stage.status === 'in_progress' ? 'bg-yellow-500' :
@@ -1006,7 +1271,6 @@ const AssignTrip = () => {
                                         )}
                                     </div>
                                     
-                                    {/* Stage card */}
                                     <div className={`p-4 rounded-lg border ${
                                         index === trip.currentStage ? 'border-blue-300 bg-blue-50' :
                                         stage.status === 'completed' ? 'border-green-200 bg-green-50' :
@@ -1042,7 +1306,6 @@ const AssignTrip = () => {
                                                     </span>
                                                 </div>
                                                 
-                                                {/* Stage Actions */}
                                                 <div className="flex gap-2">
                                                     {index === trip.currentStage && stage.status !== 'completed' && (
                                                         <>
@@ -1084,7 +1347,6 @@ const AssignTrip = () => {
                                             </div>
                                         </div>
                                         
-                                        {/* Stage details */}
                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                                             <div>
                                                 <span className="text-gray-600">From:</span>
@@ -1105,7 +1367,6 @@ const AssignTrip = () => {
                                             </div>
                                         </div>
                                         
-                                        {/* Stage Remarks */}
                                         {stage.remarks && (
                                             <div className="mt-3 pt-3 border-t border-gray-200">
                                                 <div className="text-sm text-gray-700">
@@ -1120,7 +1381,6 @@ const AssignTrip = () => {
                     </div>
                 </div>
 
-                {/* Bookings Details */}
                 <div className="mb-6">
                     <h4 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-2">All Bookings</h4>
                     <div className="space-y-4">
@@ -1160,7 +1420,6 @@ const AssignTrip = () => {
                                                 </div>
                                             </div>
                                             
-                                            {/* Packages in this booking */}
                                             <div className="mt-4 pt-4 border-t border-gray-100">
                                                 <div className="text-sm font-medium text-gray-700 mb-3">Packages ({booking.packageDetails?.length || 0}):</div>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1198,7 +1457,6 @@ const AssignTrip = () => {
                     </div>
                 </div>
 
-                {/* Trip Status Summary */}
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <div className="flex flex-col md:flex-row md:items-center justify-between">
                         <div>
@@ -1253,6 +1511,7 @@ const AssignTrip = () => {
                 );
             },
             width: 100,
+            mobileFull: false,
         },
         {
             Header: 'Route & Bookings',
@@ -1290,6 +1549,8 @@ const AssignTrip = () => {
                     </div>
                 );
             },
+            width: 200,
+            mobileFull: true,
         },
         {
             Header: 'Vehicle & Team',
@@ -1301,7 +1562,6 @@ const AssignTrip = () => {
                     ...(trip.addonStages || []).map(stage => ({ bookings: stage.bookings }))
                 ];
                 
-                // Get all unique loadmen
                 const allLoadmen = new Set();
                 allStages.forEach(stage => {
                     stage.bookings?.forEach(booking => {
@@ -1329,6 +1589,8 @@ const AssignTrip = () => {
                     </div>
                 );
             },
+            width: 150,
+            mobileFull: false,
         },
         {
             Header: 'Load Summary',
@@ -1349,6 +1611,8 @@ const AssignTrip = () => {
                     </div>
                 );
             },
+            width: 120,
+            mobileFull: false,
         },
         {
             Header: 'Status',
@@ -1377,6 +1641,8 @@ const AssignTrip = () => {
                     </div>
                 );
             },
+            width: 120,
+            mobileFull: false,
         },
         {
             Header: 'Actions',
@@ -1384,7 +1650,7 @@ const AssignTrip = () => {
             Cell: ({ row }) => {
                 const trip = row.original;
                 return (
-                    <div className="flex flex-wrap gap-1 sm:gap-0 sm:space-x-1">
+                    <div className="flex flex-wrap gap-1">
                         <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
                             <button 
                                 onClick={() => toggleTripDetails(trip.id)} 
@@ -1428,70 +1694,10 @@ const AssignTrip = () => {
                     </div>
                 );
             },
-            width: 180,
+            width: 140,
+            mobileFull: false,
         },
     ], [handleAssignAddonTrip, toggleTripDetails]);
-
-    // Pagination functions
-    const handlePaginationChange = (pageIndex, newPageSize) => {
-        setCurrentPage(pageIndex);
-        setPageSize(newPageSize);
-    };
-
-    const getPaginatedData = () => {
-        let filteredData = trips;
-        if (searchTerm) {
-            filteredData = filteredData.filter(
-                (trip) =>
-                    trip.tripNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.vehicle?.vehicleNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.driver?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.bookings.some(b => 
-                        b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
-                    ) ||
-                    (trip.addonStages && trip.addonStages.some(stage => 
-                        stage.bookings.some(b => 
-                            b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
-                        )
-                    ))
-            );
-        }
-        const startIndex = currentPage * pageSize;
-        const endIndex = startIndex + pageSize;
-        return filteredData.slice(startIndex, endIndex);
-    };
-
-    const getTotalCount = () => {
-        let filteredData = trips;
-        if (searchTerm) {
-            filteredData = filteredData.filter(
-                (trip) =>
-                    trip.tripNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.vehicle?.vehicleNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.driver?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.bookings.some(b => 
-                        b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
-                    ) ||
-                    (trip.addonStages && trip.addonStages.some(stage => 
-                        stage.bookings.some(b => 
-                            b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
-                        )
-                    ))
-            );
-        }
-        return filteredData.length;
-    };
-
-    const handleSearch = (term) => {
-        setSearchTerm(term);
-        setCurrentPage(0);
-    };
 
     // Get stats
     const stats = {
@@ -1605,21 +1811,6 @@ const AssignTrip = () => {
                         <IconPlus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         {showAssignForm && tripMode === 'new' ? 'Close Form' : 'Assign New Trip'}
                     </button>
-                    
-                    {activeTrips.length > 0 && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (activeTrips.length > 0) {
-                                    handleAssignAddonTrip(activeTrips[0]);
-                                }
-                            }}
-                            className="btn btn-purple shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center text-xs sm:text-sm lg:text-base py-2 sm:py-3 px-4 sm:px-6 w-full sm:w-auto"
-                        >
-                            <IconRoute className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                            Add Stage to Trip
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -1771,7 +1962,6 @@ const AssignTrip = () => {
                                                         </div>
                                                     </div>
                                                     
-                                                    {/* Packages List */}
                                                     <div className="space-y-3 sm:space-y-4">
                                                         {booking.data.packageDetails.map((pkg, pkgIndex) => (
                                                             <div key={pkg.id} className="bg-white rounded p-3 sm:p-4 border border-gray-200">
@@ -1799,7 +1989,6 @@ const AssignTrip = () => {
                                                                     </div>
                                                                 </div>
                                                                 
-                                                                {/* Loadmen Selection for this Package */}
                                                                 <div>
                                                                     <Select
                                                                         isMulti
@@ -2079,33 +2268,25 @@ const AssignTrip = () => {
                             </p>
                         </div>
                         <div className="text-xs sm:text-sm text-gray-500">
-                            Showing {getPaginatedData().length} of {getTotalCount()} trips
+                            Showing {Math.min((currentPage + 1) * pageSize, filteredData.length)} of {filteredData.length} trips
                         </div>
                     </div>
                 </div>
-                <div className="p-1 sm:p-2 lg:p-3">
-                    <div className="overflow-x-auto">
-                        <Table
-                            columns={columns}
-                            Title={''}
-                            description=""
-                            toggle={false}
-                            data={getPaginatedData()}
-                            pageSize={pageSize}
-                            pageIndex={currentPage}
-                            totalCount={getTotalCount()}
-                            totalPages={Math.ceil(getTotalCount() / pageSize)}
-                            onPaginationChange={handlePaginationChange}
-                            onSearchChange={handleSearch}
-                            pagination={true}
-                            isSearchable={true}
-                            isSortable={true}
-                            searchPlaceholder="Search trips..."
-                            showPageSize={true}
-                            responsive={true}
-                            className="min-w-full"
-                        />
-                    </div>
+                <div className="p-3 sm:p-4">
+                    <ResponsiveTable
+                        columns={columns}
+                        data={filteredData}
+                        pageSize={pageSize}
+                        pageIndex={currentPage}
+                        totalCount={filteredData.length}
+                        totalPages={Math.ceil(filteredData.length / pageSize)}
+                        onPaginationChange={handlePaginationChange}
+                        onSearchChange={handleSearch}
+                        pagination={true}
+                        isSearchable={true}
+                        searchPlaceholder="Search trips by trip number, vehicle, driver, or destination..."
+                        showPageSize={true}
+                    />
                     
                     {/* Render Trip Details for expanded rows */}
                     {trips.filter(trip => trip.expanded).map(trip => (
