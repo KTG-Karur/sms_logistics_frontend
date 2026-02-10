@@ -31,6 +31,9 @@ import Navigation from './navigation';
 import IconDollarSign from '../Icon/IconDollarSign';
 import IconNotes from '../Icon/IconNotes';
 import IconTruck from '../Icon/IconTruck';
+import IconCarMoving from '../Icon/IconCarMoving';
+import IconBox from '../Icon/IconBox';
+import IconCalendar from '../Icon/Menu/IconMenuCalendar';
 
 const getIcon = (name?: string) => {
     switch (name) {
@@ -72,6 +75,12 @@ const getIcon = (name?: string) => {
             return IconDatabase;
         case 'fe-truck':
             return IconTruck;
+        case 'fe-car':            
+            return IconCarMoving;
+        case 'fe-box':
+            return IconBox;
+        case 'fe-calendar':
+            return IconCalendar;
         default:
             return IconMinus; // fallback
     }

@@ -307,6 +307,10 @@ const routes = [
     {
         path: '/package/assign-trip',
         element: <AssignTrip />,
+},
+      {
+        path: '/package/delivery',
+        element: <AssignTrip />,
     },
     {
         path: '/report/profit-loss',

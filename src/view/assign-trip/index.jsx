@@ -16,7 +16,7 @@ import IconCalendar from '../../components/Icon/IconCalendar';
 import IconClock from '../../components/Icon/IconClock';
 import IconCheckCircle from '../../components/Icon/IconCheckCircle';
 import IconXCircle from '../../components/Icon/IconXCircle';
-import IconRoute from '../../components/Icon/IconRoute';
+import IconRoute from '../../components/Icon/Menu/IconMenuWidgets';
 import IconLayers from '../../components/Icon/IconLayers';
 import IconChevronDown from '../../components/Icon/IconChevronDown';
 import IconChevronUp from '../../components/Icon/IconChevronUp';
