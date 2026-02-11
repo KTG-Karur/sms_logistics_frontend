@@ -5,7 +5,6 @@ import IconUsersGroup from '../Icon/IconUsersGroup';
 import IconLayerGroup from '../Icon/IconLayerGroup';
 import IconUserFriends from '../Icon/IconUserFriends';
 import IconDatabase from '../Icon/IconDatabase';
-import IconMenuDashboards from '../Icon/IconMenuDashboard';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
@@ -15,7 +14,7 @@ import { IRootState } from '../../redux/themeStore';
 import { useState, useEffect } from 'react';
 import IconCaretsDown from '../Icon/IconCaretsDown';
 import IconMinus from '../Icon/IconMinus';
-import IconMenuDashboard from '../Icon/Menu/IconMenuDashboard';
+import IconMenuDashboards from '../Icon/Menu/IconMenuDashboard';
 import IconShield from '../Icon/IconShield';
 import IconUsers from '../Icon/IconUsers';
 import IconBuilding from '../Icon/IconBuilding';
@@ -37,6 +36,8 @@ import IconCalendar from '../Icon/Menu/IconMenuCalendar';
 
 const getIcon = (name?: string) => {
     switch (name) {
+        case 'fe-dashboard':
+            return IconMenuDashboards;
         case 'fe-document':
             return IconMenuDocumentation;
         case 'fe-grid':
