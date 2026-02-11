@@ -45,6 +45,7 @@ import {
     ExpensesSettlement,
     ProfitLossReport,
     PackageDelivery,
+    TripReport,
 } from './Route_Menu';
 import path from 'path';
 
@@ -407,6 +408,10 @@ const routes = [
     {
         path: '/assign-trip',
         element: <AuditReSchedule />,
+    },
+    {
+        path: '/report/trip-report',
+        element: <TripReport />,
     },
 ];
 
