@@ -1,974 +1,918 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { setPageTitle } from '../redux/themeStore/themeConfigSlice';
 import { showMessage } from '../util/AllFunction';
+import { getEmployee } from '../redux/employeeSlice';
+import { Link, useNavigate } from 'react-router-dom';
+import moment from 'moment';
+import Select from 'react-select';
+
+// Icons
 import IconUsers from '../components/Icon/IconUsers';
-import IconFactory from '../components/Icon/IconBuilding';
-import IconShield from '../components/Icon/IconShield';
-import IconTrendingUp from '../components/Icon/IconTrendingUp';
-import IconEye from '../components/Icon/IconEye';
+import IconTruck from '../components/Icon/IconTruck';
+import IconPackage from '../components/Icon/IconBox';
+import IconMoney from '../components/Icon/IconCreditCard';
+import IconCalendar from '../components/Icon/IconCalendar';
 import IconCheckCircle from '../components/Icon/IconCheckCircle';
 import IconXCircle from '../components/Icon/IconXCircle';
-import IconClipboard from '../components/Icon/IconClipboardText';
-import IconCalendar from '../components/Icon/IconCalendar';
-import IconGlobe from '../components/Icon/IconGlobe';
-import IconStar from '../components/Icon/IconStar';
-import IconAlertTriangle from '../components/Icon/IconTrashLines';
 import IconClock from '../components/Icon/IconClock';
+import IconSun from '../components/Icon/IconSun';
+import IconChartBar from '../components/Icon/IconChartBar';
+import IconTrendingUp from '../components/Icon/IconTrendingUp';
+import IconTrendingDown from '../components/Icon/IconTrendingDown';
+import IconReceipt from '../components/Icon/IconReceipt';
+import IconEye from '../components/Icon/IconEye';
 import IconPlus from '../components/Icon/IconPlus';
-import IconFileText from '../components/Icon/IconFile';
-import IconMapPin from '../components/Icon/IconMapPin';
-import IconDollarSign from '../components/Icon/IconDollarSign';
-import { findArrObj } from '../util/AllFunction';
+// import IconFileText from '../components/Icon/IconFileText';
+import IconPrinter from '../components/Icon/IconPrinter';
+import IconDownload from '../components/Icon/IconDownload';
+// import IconFilter from '../components/Icon/IconFilter';
+import IconSearch from '../components/Icon/IconSearch';
+import IconEdit from '../components/Icon/IconEdit';
+import IconCheck from '../components/Icon/IconCheck';
 
 const Dashboard = () => {
-    const loginInfo = localStorage.getItem('loginInfo');
-    const localData = JSON.parse(loginInfo || '{}');
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Dashboard') || 
-                         findArrObj(localData?.pagePermission, 'label', 'Home') || [{}];
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { employeeData } = useSelector((state) => state.EmployeeSlice);
+
+  // States
+  const [loading, setLoading] = useState(true);
+  const [employeeList, setEmployeeList] = useState([]);
+  const [attendanceData, setAttendanceData] = useState({});
+  const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [showAttendanceSummary, setShowAttendanceSummary] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [attendanceStatus, setAttendanceStatus] = useState('present');
+  const [holidays, setHolidays] = useState([
+    { id: 1, holidayName: 'New Year', holidayDate: '2024-01-01', description: 'New Year Celebration' },
+    { id: 2, holidayName: 'Republic Day', holidayDate: '2024-01-26', description: 'Republic Day Celebration' },
+  ]);
+
+  // Dashboard stats
+  const [dashboardStats, setDashboardStats] = useState({
+    totalEmployees: 0,
+    totalDrivers: 0,
+    totalLoadmen: 0,
+    presentToday: 0,
+    absentToday: 0,
+    onLeaveToday: 0,
+    totalTrips: 0,
+    activeTrips: 0,
+    completedTrips: 0,
+    pendingPackages: 0,
+    deliveredPackages: 0,
+    todayRevenue: 0,
+    totalRevenue: 0,
+    monthlyExpenses: 0,
+    monthlyProfit: 0,
+  });
+
+  // Recent activities
+  const [recentActivities, setRecentActivities] = useState([
+    { id: 1, type: 'trip', title: 'New Trip Assigned', description: 'Trip #TRP-001 assigned to Rajesh Kumar', time: '2 hours ago', icon: '🚚', color: 'blue' },
+    { id: 2, type: 'payment', title: 'Payment Received', description: '₹25,000 received from John Doe', time: '3 hours ago', icon: '💰', color: 'green' },
+    { id: 3, type: 'package', title: 'Package Delivered', description: 'Package #PKG-001 delivered successfully', time: '4 hours ago', icon: '📦', color: 'purple' },
+    { id: 4, type: 'employee', title: 'New Employee Joined', description: 'Mike Johnson joined as Driver', time: '1 day ago', icon: '👤', color: 'orange' },
+    { id: 5, type: 'expense', title: 'Vehicle Expense', description: '₹5,000 spent on vehicle maintenance', time: '2 days ago', icon: '💸', color: 'red' },
+  ]);
+
+  // Quick stats cards
+  const quickStats = [
+    {
+      title: 'Today\'s Attendance',
+      value: `${dashboardStats.presentToday}/${dashboardStats.totalEmployees}`,
+      percentage: dashboardStats.totalEmployees > 0 ? ((dashboardStats.presentToday / dashboardStats.totalEmployees) * 100).toFixed(0) : 0,
+      icon: <IconUsers className="w-6 h-6 text-blue-600" />,
+      color: 'blue',
+      link: '/attendance',
+      bgColor: 'bg-blue-50'
+    },
+    {
+      title: 'Active Trips',
+      value: dashboardStats.activeTrips,
+      subValue: `of ${dashboardStats.totalTrips} total`,
+      icon: <IconTruck className="w-6 h-6 text-green-600" />,
+      color: 'green',
+      link: '/assign-trip',
+      bgColor: 'bg-green-50'
+    },
+    {
+      title: 'Pending Packages',
+      value: dashboardStats.pendingPackages,
+      subValue: `${dashboardStats.deliveredPackages} delivered`,
+      icon: <IconPackage className="w-6 h-6 text-orange-600" />,
+      color: 'orange',
+      link: '/delivery',
+      bgColor: 'bg-orange-50'
+    },
+    {
+      title: 'Today\'s Revenue',
+      value: `₹${dashboardStats.todayRevenue.toLocaleString('en-IN')}`,
+      subValue: `Profit: ₹${dashboardStats.monthlyProfit.toLocaleString('en-IN')}`,
+      icon: <IconMoney className="w-6 h-6 text-purple-600" />,
+      color: 'purple',
+      link: '/reports/profit-loss',
+      bgColor: 'bg-purple-50'
+    }
+  ];
+
+  // Report cards
+  const reportCards = [
+    {
+      title: 'Attendance Report',
+      description: 'View employee attendance records',
+      icon: <IconCalendar className="w-8 h-8 text-blue-600" />,
+      link: '/reports/attendance',
+      color: 'blue'
+    },
+    {
+      title: 'Package Report',
+      description: 'Track all package deliveries',
+      icon: <IconPackage className="w-8 h-8 text-green-600" />,
+      link: '/reports/package',
+      color: 'green'
+    },
+    {
+      title: 'Profit & Loss',
+      description: 'Financial analysis report',
+      icon: <IconMoney className="w-8 h-8 text-purple-600" />,
+      link: '/reports/profit-loss',
+      color: 'purple'
+    },
+    {
+      title: 'Trip Report',
+      description: 'Trip assignments and status',
+      icon: <IconTruck className="w-8 h-8 text-orange-600" />,
+      link: '/reports/trip',
+      color: 'orange'
+    }
+  ];
+
+  useEffect(() => {
+    dispatch(setPageTitle('Dashboard'));
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch employees
+      await dispatch(getEmployee());
+      
+      // Load attendance data from localStorage
+      const savedAttendance = localStorage.getItem('attendanceData');
+      if (savedAttendance) {
+        setAttendanceData(JSON.parse(savedAttendance));
+      }
+
+      // Load holidays from localStorage
+      const savedHolidays = localStorage.getItem('holidays');
+      if (savedHolidays) {
+        setHolidays(JSON.parse(savedHolidays));
+      }
+
+      // Simulate API delay
+      setTimeout(() => {
+        // Calculate dashboard stats
+        calculateDashboardStats();
+        setLoading(false);
+      }, 1000);
+
+    } catch (error) {
+      showMessage('error', 'Failed to load dashboard data');
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (employeeData) {
+      const employees = employeeData.filter(emp => emp.designationName?.toLowerCase() !== 'loadman');
+      setEmployeeList(employees);
+      calculateAttendanceStats();
+    }
+  }, [employeeData, attendanceData, selectedDate]);
+
+  const calculateAttendanceStats = () => {
+    if (!employeeList.length) return;
+
+    const today = selectedDate;
+    const isHoliday = holidays.some(h => h.holidayDate === today);
     
-    const navigate = useNavigate();
+    if (isHoliday) return;
 
-    // Audit System Brand Colors
-    const brandColors = {
-        primary: '#2e3092', // Dark Blue - Compliance
-        secondary: '#f16521', // Orange - Action Required
-        success: '#10b981', // Green - Approved/Passed
-        warning: '#f59e0b', // Yellow - Pending
-        danger: '#ef4444', // Red - Failed/Rejected
-        info: '#3b82f6', // Blue - In Progress
-    };
+    let presentCount = 0;
+    let absentCount = 0;
+    let leaveCount = 0;
 
-    // Static Audit Dashboard Data
-    const staticAuditData = {
-        statistics: {
-            totalAudits: 145,
-            completedAudits: 112,
-            pendingAudits: 18,
-            inProgressAudits: 15,
-            suppliersAudited: 89,
-            nonCompliances: 27,
-            capaItems: 42,
-            criticalFindings: 8,
-        },
-        recentAudits: [
-            {
-                id: 1,
-                auditId: 'AUD-2024-001',
-                supplierName: 'Asian Fabrics Private Limited',
-                supplierType: 'Textile Manufacturer',
-                auditDate: '2024-01-15',
-                status: 'Completed',
-                score: 85,
-                auditor: 'Rajesh Kumar',
-                findings: 2,
-                critical: 0,
-            },
-            {
-                id: 2,
-                auditId: 'AUD-2024-002',
-                supplierName: 'Precision Engineering Works',
-                supplierType: 'Machining & Fabrication',
-                auditDate: '2024-01-12',
-                status: 'In Progress',
-                score: null,
-                auditor: 'Priya Sharma',
-                findings: 3,
-                critical: 1,
-            },
-            {
-                id: 3,
-                auditId: 'AUD-2024-003',
-                supplierName: 'Global Textile Mills',
-                supplierType: 'Fabric Producer',
-                auditDate: '2024-01-10',
-                status: 'Completed',
-                score: 92,
-                auditor: 'Amit Patel',
-                findings: 1,
-                critical: 0,
-            },
-            {
-                id: 4,
-                auditId: 'AUD-2024-004',
-                supplierName: 'Tech Components Corp.',
-                supplierType: 'Electronic Components',
-                auditDate: '2024-01-08',
-                status: 'Pending',
-                score: null,
-                auditor: 'Sanjay Verma',
-                findings: 0,
-                critical: 0,
-            },
-            {
-                id: 5,
-                auditId: 'AUD-2024-005',
-                supplierName: 'Quality Garments Ltd',
-                supplierType: 'Apparel Manufacturer',
-                auditDate: '2024-01-05',
-                status: 'Completed',
-                score: 78,
-                auditor: 'Meera Nair',
-                findings: 5,
-                critical: 2,
-            },
-        ],
-        topSuppliers: [
-            {
-                id: 1,
-                name: 'Asian Fabrics Private Limited',
-                category: 'Textile Manufacturer',
-                auditCount: 12,
-                avgScore: 88,
-                lastAudit: '2024-01-15',
-                status: 'Active',
-            },
-            {
-                id: 2,
-                name: 'Global Textile Mills',
-                category: 'Fabric Producer',
-                auditCount: 8,
-                avgScore: 92,
-                lastAudit: '2024-01-10',
-                status: 'Active',
-            },
-            {
-                id: 3,
-                name: 'Precision Engineering Works',
-                category: 'Machining',
-                auditCount: 6,
-                avgScore: 85,
-                lastAudit: '2024-01-12',
-                status: 'Active',
-            },
-            {
-                id: 4,
-                name: 'Tech Components Corp.',
-                category: 'Electronics',
-                auditCount: 5,
-                avgScore: 90,
-                lastAudit: '2024-01-08',
-                status: 'Suspended',
-            },
-            {
-                id: 5,
-                name: 'Quality Garments Ltd',
-                category: 'Apparel',
-                auditCount: 4,
-                avgScore: 78,
-                lastAudit: '2024-01-05',
-                status: 'Active',
-            },
-        ],
-        criticalFindings: [
-            {
-                id: 1,
-                title: 'Fire Safety Non-Compliance',
-                severity: 'Critical',
-                supplier: 'Precision Engineering Works',
-                auditId: 'AUD-2024-002',
-                dueDate: '2024-02-15',
-                status: 'Open',
-            },
-            {
-                id: 2,
-                title: 'Child Labor Violation',
-                severity: 'Critical',
-                supplier: 'Quality Garments Ltd',
-                auditId: 'AUD-2024-005',
-                dueDate: '2024-02-10',
-                status: 'In Progress',
-            },
-            {
-                id: 3,
-                title: 'Environmental Hazard',
-                severity: 'Major',
-                supplier: 'Tech Components Corp.',
-                auditId: 'AUD-2024-004',
-                dueDate: '2024-02-20',
-                status: 'Open',
-            },
-            {
-                id: 4,
-                title: 'Safety Equipment Missing',
-                severity: 'Major',
-                supplier: 'Asian Fabrics Private Limited',
-                auditId: 'AUD-2024-001',
-                dueDate: '2024-02-05',
-                status: 'Resolved',
-            },
-        ],
-        capaStatus: [
-            {
-                category: 'Safety',
-                open: 12,
-                inProgress: 8,
-                completed: 15,
-                overdue: 2,
-            },
-            {
-                category: 'Environmental',
-                open: 5,
-                inProgress: 3,
-                completed: 10,
-                overdue: 1,
-            },
-            {
-                category: 'Quality',
-                open: 8,
-                inProgress: 6,
-                completed: 12,
-                overdue: 0,
-            },
-            {
-                category: 'Social Compliance',
-                open: 2,
-                inProgress: 1,
-                completed: 5,
-                overdue: 1,
-            },
-        ],
-        complianceStandards: [
-            {
-                standard: 'IWAY 6.0',
-                compliantSuppliers: 45,
-                nonCompliantSuppliers: 8,
-                complianceRate: 85,
-            },
-            {
-                standard: 'BSCI Code',
-                compliantSuppliers: 52,
-                nonCompliantSuppliers: 5,
-                complianceRate: 91,
-            },
-            {
-                standard: 'ISO 9001:2015',
-                compliantSuppliers: 48,
-                nonCompliantSuppliers: 7,
-                complianceRate: 87,
-            },
-            {
-                standard: 'ISO 14001:2015',
-                compliantSuppliers: 42,
-                nonCompliantSuppliers: 11,
-                complianceRate: 79,
-            },
-        ],
-        upcomingAudits: [
-            {
-                id: 1,
-                supplierName: 'Modern Packaging Inc.',
-                auditType: 'Factory Audit',
-                scheduledDate: '2024-02-01',
-                auditor: 'Rajesh Kumar',
-                priority: 'High',
-            },
-            {
-                id: 2,
-                supplierName: 'Food Processing Unit',
-                auditType: 'Environmental Audit',
-                scheduledDate: '2024-02-05',
-                auditor: 'Priya Sharma',
-                priority: 'Medium',
-            },
-            {
-                id: 3,
-                supplierName: 'Textile Processing Ltd',
-                auditType: 'Re-audit',
-                scheduledDate: '2024-02-08',
-                auditor: 'Amit Patel',
-                priority: 'Critical',
-            },
-            {
-                id: 4,
-                supplierName: 'Metal Works Corp.',
-                auditType: 'Safety Audit',
-                scheduledDate: '2024-02-12',
-                auditor: 'Sanjay Verma',
-                priority: 'High',
-            },
-        ],
-    };
+    employeeList.forEach(emp => {
+      const empAttendance = attendanceData[emp.employeeId]?.[today];
+      if (empAttendance) {
+        if (empAttendance.status === 'present') presentCount++;
+        else if (empAttendance.status === 'absent') absentCount++;
+        else if (empAttendance.status === 'leave') leaveCount++;
+      } else {
+        absentCount++; // Not marked yet
+      }
+    });
 
-    // Calculate metrics from static data
-    const calculateMetrics = useMemo(() => {
-        const stats = staticAuditData.statistics;
-        
-        return {
-            totalAudits: {
-                value: stats.totalAudits.toLocaleString(),
-                percentage: Math.min((stats.totalAudits / 200) * 100, 100),
-                description: 'Total audits conducted',
-            },
-            complianceRate: {
-                value: `${Math.round(((stats.completedAudits - stats.nonCompliances) / stats.completedAudits) * 100)}%`,
-                percentage: Math.round(((stats.completedAudits - stats.nonCompliances) / stats.completedAudits) * 100),
-                description: 'Overall compliance rate',
-            },
-            suppliersAudited: {
-                value: stats.suppliersAudited.toLocaleString(),
-                percentage: Math.min((stats.suppliersAudited / 150) * 100, 100),
-                description: 'Unique suppliers audited',
-            },
-            criticalFindings: {
-                value: stats.criticalFindings.toLocaleString(),
-                percentage: Math.min((stats.criticalFindings / 20) * 100, 100),
-                description: 'Critical findings identified',
-            },
-        };
-    }, []);
+    setDashboardStats(prev => ({
+      ...prev,
+      totalEmployees: employeeList.length,
+      presentToday: presentCount,
+      absentToday: absentCount,
+      onLeaveToday: leaveCount
+    }));
+  };
 
-    // Calculate KPI metrics
-    const calculateKPIs = useMemo(() => {
-        const stats = staticAuditData.statistics;
-        const recentAudits = staticAuditData.recentAudits.filter(a => a.score);
-        
-        const avgScore = recentAudits.length > 0 
-            ? Math.round(recentAudits.reduce((sum, audit) => sum + audit.score, 0) / recentAudits.length)
-            : 0;
-            
-        return {
-            avgAuditScore: avgScore,
-            auditCompletionRate: Math.round((stats.completedAudits / stats.totalAudits) * 100),
-            capaResolutionRate: stats.capaItems > 0 ? Math.round(((stats.capaItems - 27) / stats.capaItems) * 100) : 0,
-            onTimeCompletion: 92, // Static for demo
-        };
-    }, []);
+  const calculateDashboardStats = () => {
+    // Mock data for dashboard stats
+    setDashboardStats({
+      totalEmployees: 45,
+      totalDrivers: 15,
+      totalLoadmen: 20,
+      presentToday: 38,
+      absentToday: 5,
+      onLeaveToday: 2,
+      totalTrips: 125,
+      activeTrips: 18,
+      completedTrips: 107,
+      pendingPackages: 45,
+      deliveredPackages: 320,
+      todayRevenue: 125000,
+      totalRevenue: 2850000,
+      monthlyExpenses: 850000,
+      monthlyProfit: 2000000,
+    });
+  };
 
-    // Get severity badge
-    const getSeverityBadge = (severity) => {
-        const config = {
-            Critical: { color: 'bg-red-100 text-red-800 border-red-200', icon: '🚨' },
-            Major: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: '⚠️' },
-            Minor: { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: 'ℹ️' },
-        };
-        const configItem = config[severity] || config.Minor;
-        
-        return (
-            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${configItem.color}`}>
-                <span className="text-xs">{configItem.icon}</span>
-                {severity}
-            </span>
-        );
-    };
+  const isHoliday = (date) => {
+    return holidays.some(holiday => holiday.holidayDate === date);
+  };
 
-    // Get status badge
-    const getStatusBadge = (status) => {
-        const config = {
-            Completed: { color: 'bg-green-100 text-green-800 border-green-200', icon: <IconCheckCircle className="w-3 h-3" /> },
-            'In Progress': { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: <IconClock className="w-3 h-3" /> },
-            Pending: { color: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: <IconClock className="w-3 h-3" /> },
-            Open: { color: 'bg-red-100 text-red-800 border-red-200', icon: <IconAlertTriangle className="w-3 h-3" /> },
-            Resolved: { color: 'bg-green-100 text-green-800 border-green-200', icon: <IconCheckCircle className="w-3 h-3" /> },
-            'In Progress': { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: <IconClock className="w-3 h-3" /> },
-        };
-        const configItem = config[status] || config.Pending;
-        
-        return (
-            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${configItem.color}`}>
-                {configItem.icon}
-                {status}
-            </span>
-        );
-    };
+  const getHolidayName = (date) => {
+    const holiday = holidays.find(h => h.holidayDate === date);
+    return holiday ? holiday.holidayName : null;
+  };
 
-    // Get priority badge
-    const getPriorityBadge = (priority) => {
-        const config = {
-            Critical: { color: 'bg-red-100 text-red-800', icon: '🔴' },
-            High: { color: 'bg-orange-100 text-orange-800', icon: '🟠' },
-            Medium: { color: 'bg-yellow-100 text-yellow-800', icon: '🟡' },
-            Low: { color: 'bg-blue-100 text-blue-800', icon: '🔵' },
-        };
-        const configItem = config[priority] || config.Medium;
-        
-        return (
-            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${configItem.color}`}>
-                <span className="text-xs">{configItem.icon}</span>
-                {priority}
-            </span>
-        );
-    };
+  const handleAttendanceChange = (employeeId, status) => {
+    if (isHoliday(selectedDate)) {
+      showMessage('info', `Cannot mark attendance on ${getHolidayName(selectedDate)} holiday`);
+      return;
+    }
 
-    // Main Stats Cards
-    const MainStatCard = ({ title, value, percentage, description, icon: Icon, delay, onClick, color = 'primary' }) => {
-        const colorMap = {
-            primary: brandColors.primary,
-            secondary: brandColors.secondary,
-            success: brandColors.success,
-            warning: brandColors.warning,
-            danger: brandColors.danger,
-            info: brandColors.info,
-        };
-        
-        const bgColor = colorMap[color];
-        
-        return (
-            <div
-                className="relative bg-white rounded-2xl p-6 shadow-lg border border-gray-100 overflow-hidden group transform transition-all duration-300 hover:scale-105 hover:shadow-xl cursor-pointer"
-                style={{ animationDelay: `${delay}ms` }}
-                onClick={onClick}
-            >
-                <div className="absolute inset-0 opacity-5" style={{ backgroundColor: bgColor }}></div>
+    setAttendanceData(prev => ({
+      ...prev,
+      [employeeId]: {
+        ...prev[employeeId],
+        [selectedDate]: {
+          status: status,
+          markedAt: new Date().toISOString(),
+          markedDate: selectedDate,
+          markedBy: 'Admin'
+        }
+      }
+    }));
 
-                <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 rounded-xl transition-all duration-300 group-hover:scale-110" style={{ backgroundColor: `${bgColor}15` }}>
-                            <Icon style={{ color: bgColor }} className="w-6 h-6" />
-                        </div>
-                        <div className="text-right">
-                            <div className="flex items-center space-x-2 justify-end">
-                                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: bgColor }}></div>
-                                <span className="text-sm font-semibold" style={{ color: bgColor }}>
-                                    Live
-                                </span>
-                            </div>
-                        </div>
-                    </div>
+    // Save to localStorage
+    localStorage.setItem('attendanceData', JSON.stringify({
+      ...attendanceData,
+      [employeeId]: {
+        ...attendanceData[employeeId],
+        [selectedDate]: {
+          status: status,
+          markedAt: new Date().toISOString(),
+          markedDate: selectedDate,
+          markedBy: 'Admin'
+        }
+      }
+    }));
 
-                    <h3 className="text-gray-600 text-sm font-medium uppercase tracking-wider mb-2">{title}</h3>
-                    <p className="text-3xl font-bold text-gray-900 mb-2">{value}</p>
+    showMessage('success', `Marked ${status} for employee`);
+    setShowAttendanceModal(false);
+  };
 
-                    <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                        <div
-                            className="h-2 rounded-full transition-all duration-1000 ease-out"
-                            style={{
-                                width: `${percentage}%`,
-                                backgroundColor: bgColor,
-                            }}
-                        ></div>
-                    </div>
+  const markAllAttendance = (status) => {
+    if (isHoliday(selectedDate)) {
+      showMessage('info', `Cannot mark attendance on ${getHolidayName(selectedDate)} holiday`);
+      return;
+    }
 
-                    <p className="text-xs text-gray-500">{description}</p>
-                </div>
-            </div>
-        );
-    };
+    const updatedAttendance = { ...attendanceData };
+    employeeList.forEach(emp => {
+      if (!updatedAttendance[emp.employeeId]) {
+        updatedAttendance[emp.employeeId] = {};
+      }
+      updatedAttendance[emp.employeeId][selectedDate] = {
+        status: status,
+        markedAt: new Date().toISOString(),
+        markedDate: selectedDate,
+        markedBy: 'Admin'
+      };
+    });
 
-    // KPI Card
-    const KPICard = ({ title, value, target, status, icon: Icon }) => {
-        const isPositive = value >= target;
-        
-        return (
-            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transform transition-all duration-300 hover:scale-105 hover:shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 rounded-xl" style={{ backgroundColor: `${brandColors.primary}15` }}>
-                        <Icon style={{ color: brandColors.primary }} className="w-5 h-5" />
-                    </div>
-                    <span className={`text-sm font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {isPositive ? '✓ On Target' : '⚠️ Below Target'}
-                    </span>
-                </div>
-                
-                <h3 className="text-gray-600 text-sm font-medium uppercase tracking-wider mb-2">{title}</h3>
-                <p className="text-2xl font-bold text-gray-900 mb-1">{value}{title.includes('Score') ? '' : '%'}</p>
-                
-                <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Target: {target}%</span>
-                    <span className={`font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {isPositive ? '+' : ''}{Math.abs(value - target)}%
-                    </span>
-                </div>
-            </div>
-        );
-    };
+    setAttendanceData(updatedAttendance);
+    localStorage.setItem('attendanceData', JSON.stringify(updatedAttendance));
+    showMessage('success', `Marked all employees as ${status}`);
+  };
 
-    // Mini Metric Card
-    const MiniMetricCard = ({ title, value, change, icon: Icon, color }) => {
-        const isPositive = change >= 0;
-        
-        return (
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-gray-600 text-xs font-medium uppercase tracking-wider">{title}</p>
-                        <p className="text-xl font-bold mt-1" style={{ color: color || brandColors.primary }}>
-                            {value}
-                        </p>
-                        <div className="flex items-center space-x-1 mt-1">
-                            <span className={`text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                                {isPositive ? '↗' : '↘'} {Math.abs(change)}%
-                            </span>
-                            <span className="text-xs text-gray-500">vs last month</span>
-                        </div>
-                    </div>
-                    <div className="p-2 rounded-lg" style={{ backgroundColor: `${color || brandColors.primary}15` }}>
-                        <Icon style={{ color: color || brandColors.primary }} className="w-4 h-4" />
-                    </div>
-                </div>
-            </div>
-        );
-    };
+  const getAttendanceStatus = (employeeId) => {
+    if (isHoliday(selectedDate)) {
+      return 'holiday';
+    }
+    const empAttendance = attendanceData[employeeId]?.[selectedDate];
+    if (!empAttendance) return 'pending';
+    return empAttendance.status || 'pending';
+  };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'present': return 'bg-green-100 text-green-800';
+      case 'absent': return 'bg-red-100 text-red-800';
+      case 'leave': return 'bg-yellow-100 text-yellow-800';
+      case 'holiday': return 'bg-purple-100 text-purple-800';
+      case 'pending': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'present': return <IconCheckCircle className="w-4 h-4 text-green-600" />;
+      case 'absent': return <IconXCircle className="w-4 h-4 text-red-600" />;
+      case 'leave': return <IconClock className="w-4 h-4 text-yellow-600" />;
+      case 'holiday': return <IconSun className="w-4 h-4 text-purple-600" />;
+      default: return null;
+    }
+  };
+
+  const openAttendanceModal = (employee) => {
+    setSelectedEmployee(employee);
+    setAttendanceStatus(getAttendanceStatus(employee.employeeId));
+    setShowAttendanceModal(true);
+  };
+
+  const handleDateChange = (date) => {
+    setSelectedDate(date);
+  };
+
+  if (loading) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 md:p-6">
-            {/* Animated Background Elements */}
-            <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute top-10 left-10 w-20 h-20 rounded-full opacity-5 animate-pulse" style={{ backgroundColor: brandColors.primary }}></div>
-                <div className="absolute top-40 right-20 w-16 h-16 rounded-full opacity-5 animate-bounce" style={{ backgroundColor: brandColors.secondary }}></div>
-            </div>
-
-            <div className="relative z-10 max-w-7xl mx-auto">
-                {/* Header */}
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold mb-2" style={{ color: brandColors.primary }}>
-                            Supplier Compliance Audit Dashboard
-                        </h1>
-                        <p className="text-gray-600">Monitor compliance, track CAPA, and manage supplier audits</p>
-                    </div>
-                    <div className="flex flex-wrap gap-3 mt-4 lg:mt-0">
-                        <button
-                            onClick={() => navigate('/audit/external-provider')}
-                            className="px-6 py-2.5 rounded-xl font-medium border transition-all duration-200 hover:scale-105"
-                            style={{ 
-                                backgroundColor: 'white',
-                                borderColor: brandColors.primary,
-                                color: brandColors.primary 
-                            }}
-                        >
-                            View All Audits
-                        </button>
-                        <button
-                            onClick={() => navigate('/audit/external-provider/form')}
-                            className="px-6 py-2.5 rounded-xl font-medium flex items-center space-x-2 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
-                            style={{ backgroundColor: brandColors.secondary, color: 'white' }}
-                        >
-                            <IconPlus className="w-5 h-5" />
-                            <span>New Audit</span>
-                        </button>
-                    </div>
-                </div>
-
-                {/* Main Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-                    <MainStatCard
-                        onClick={() => navigate('/audit/external-provider')}
-                        title="TOTAL AUDITS"
-                        value={calculateMetrics.totalAudits.value}
-                        percentage={calculateMetrics.totalAudits.percentage}
-                        description={calculateMetrics.totalAudits.description}
-                        icon={IconClipboard}
-                        delay={0}
-                        color="primary"
-                    />
-                    <MainStatCard
-                        onClick={() => navigate('/compliance/standards')}
-                        title="COMPLIANCE RATE"
-                        value={calculateMetrics.complianceRate.value}
-                        percentage={calculateMetrics.complianceRate.percentage}
-                        description={calculateMetrics.complianceRate.description}
-                        icon={IconShield}
-                        delay={200}
-                        color="success"
-                    />
-                    <MainStatCard
-                        onClick={() => navigate('/compliance/suppliers')}
-                        title="SUPPLIERS AUDITED"
-                        value={calculateMetrics.suppliersAudited.value}
-                        percentage={calculateMetrics.suppliersAudited.percentage}
-                        description={calculateMetrics.suppliersAudited.description}
-                        icon={IconFactory}
-                        delay={400}
-                        color="info"
-                    />
-                    <MainStatCard
-                        onClick={() => navigate('/compliance/capa')}
-                        title="CRITICAL FINDINGS"
-                        value={calculateMetrics.criticalFindings.value}
-                        percentage={calculateMetrics.criticalFindings.percentage}
-                        description={calculateMetrics.criticalFindings.description}
-                        icon={IconAlertTriangle}
-                        delay={600}
-                        color="danger"
-                    />
-                </div>
-
-                {/* KPI Metrics */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <KPICard
-                        title="AVG AUDIT SCORE"
-                        value={calculateKPIs.avgAuditScore}
-                        target={85}
-                        status={calculateKPIs.avgAuditScore >= 85 ? 'positive' : 'negative'}
-                        icon={IconStar}
-                    />
-                    <KPICard
-                        title="AUDIT COMPLETION"
-                        value={calculateKPIs.auditCompletionRate}
-                        target={90}
-                        status={calculateKPIs.auditCompletionRate >= 90 ? 'positive' : 'negative'}
-                        icon={IconCheckCircle}
-                    />
-                    <KPICard
-                        title="CAPA RESOLUTION"
-                        value={calculateKPIs.capaResolutionRate}
-                        target={80}
-                        status={calculateKPIs.capaResolutionRate >= 80 ? 'positive' : 'negative'}
-                        icon={IconClipboard}
-                    />
-                    <KPICard
-                        title="ON-TIME COMPLETION"
-                        value={calculateKPIs.onTimeCompletion}
-                        target={90}
-                        status={calculateKPIs.onTimeCompletion >= 90 ? 'positive' : 'negative'}
-                        icon={IconCalendar}
-                    />
-                </div>
-
-                {/* Detailed Metrics Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                    <MiniMetricCard
-                        title="PENDING AUDITS"
-                        value={staticAuditData.statistics.pendingAudits}
-                        change={-5}
-                        icon={IconClock}
-                        color={brandColors.warning}
-                    />
-                    <MiniMetricCard
-                        title="IN PROGRESS"
-                        value={staticAuditData.statistics.inProgressAudits}
-                        change={12}
-                        icon={IconTrendingUp}
-                        color={brandColors.info}
-                    />
-                    <MiniMetricCard
-                        title="NON-COMPLIANCES"
-                        value={staticAuditData.statistics.nonCompliances}
-                        change={-8}
-                        icon={IconXCircle}
-                        color={brandColors.danger}
-                    />
-                    <MiniMetricCard
-                        title="CAPA ITEMS"
-                        value={staticAuditData.statistics.capaItems}
-                        change={15}
-                        icon={IconClipboard}
-                        color={brandColors.secondary}
-                    />
-                </div>
-
-                {/* Two Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                    {/* Left Column - Recent Audits */}
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Recent Audits</h3>
-                            <button
-                                onClick={() => navigate('/audit/external-provider')}
-                                className="text-sm font-medium"
-                                style={{ color: brandColors.primary }}
-                            >
-                                View All →
-                            </button>
-                        </div>
-                        <div className="space-y-4">
-                            {staticAuditData.recentAudits.map((audit) => (
-                                <div
-                                    key={audit.id}
-                                    className="p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50/50 transition-all duration-200 cursor-pointer"
-                                    onClick={() => navigate(`/audit/report/${audit.auditId}`)}
-                                >
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center space-x-2">
-                                            <span className="font-mono text-sm font-medium text-gray-700">{audit.auditId}</span>
-                                            {getStatusBadge(audit.status)}
-                                        </div>
-                                        {audit.score && (
-                                            <div className={`px-3 py-1 rounded-full text-sm font-bold ${
-                                                audit.score >= 90 ? 'bg-green-100 text-green-800' :
-                                                audit.score >= 80 ? 'bg-blue-100 text-blue-800' :
-                                                audit.score >= 70 ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-red-100 text-red-800'
-                                            }`}>
-                                                {audit.score}%
-                                            </div>
-                                        )}
-                                    </div>
-                                    <h4 className="font-medium text-gray-900 mb-1">{audit.supplierName}</h4>
-                                    <div className="flex items-center justify-between text-sm text-gray-600">
-                                        <span>{audit.supplierType}</span>
-                                        <div className="flex items-center space-x-3">
-                                            <span className="flex items-center">
-                                                <IconEye className="w-3 h-3 mr-1" />
-                                                {audit.findings} findings
-                                            </span>
-                                            <span className="flex items-center">
-                                                <IconAlertTriangle className="w-3 h-3 mr-1" />
-                                                {audit.critical} critical
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-                                        <span>Auditor: {audit.auditor}</span>
-                                        <span>Date: {audit.auditDate}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Right Column - Critical Findings */}
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Critical Findings</h3>
-                            <button
-                                onClick={() => navigate('/compliance/capa')}
-                                className="text-sm font-medium"
-                                style={{ color: brandColors.primary }}
-                            >
-                                Manage CAPA →
-                            </button>
-                        </div>
-                        <div className="space-y-4">
-                            {staticAuditData.criticalFindings.map((finding) => (
-                                <div key={finding.id} className="p-4 border border-gray-200 rounded-xl">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <h4 className="font-medium text-gray-900 flex-1 mr-4">{finding.title}</h4>
-                                        {getSeverityBadge(finding.severity)}
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                                        <span className="flex items-center">
-                                            <IconFactory className="w-3 h-3 mr-1" />
-                                            {finding.supplier}
-                                        </span>
-                                        <span className="font-mono">{finding.auditId}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-4">
-                                            {getStatusBadge(finding.status)}
-                                            <span className="text-sm text-gray-500">
-                                                Due: {finding.dueDate}
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={() => navigate(`/compliance/capa/${finding.auditId}`)}
-                                            className="text-sm font-medium px-3 py-1 rounded-lg hover:bg-gray-100 transition-colors"
-                                            style={{ color: brandColors.primary }}
-                                        >
-                                            Take Action
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Second Row - Two Columns */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left Column - Upcoming Audits */}
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Upcoming Audits</h3>
-                            <button
-                                onClick={() => navigate('/audit/schedule')}
-                                className="text-sm font-medium"
-                                style={{ color: brandColors.primary }}
-                            >
-                                View Schedule →
-                            </button>
-                        </div>
-                        <div className="space-y-4">
-                            {staticAuditData.upcomingAudits.map((audit) => (
-                                <div key={audit.id} className="p-4 border border-gray-200 rounded-xl">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <h4 className="font-medium text-gray-900">{audit.supplierName}</h4>
-                                        {getPriorityBadge(audit.priority)}
-                                    </div>
-                                    <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                                        <span>{audit.auditType}</span>
-                                        <span className="flex items-center">
-                                            <IconCalendar className="w-3 h-3 mr-1" />
-                                            {audit.scheduledDate}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm text-gray-500">Auditor: {audit.auditor}</span>
-                                        <button
-                                            onClick={() => navigate(`/audit/schedule/${audit.id}`)}
-                                            className="text-sm font-medium px-3 py-1 rounded-lg hover:bg-gray-100 transition-colors"
-                                            style={{ color: brandColors.primary }}
-                                        >
-                                            Prepare
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Right Column - Compliance Standards */}
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800">Compliance Standards</h3>
-                            <button
-                                onClick={() => navigate('/compliance/standards')}
-                                className="text-sm font-medium"
-                                style={{ color: brandColors.primary }}
-                            >
-                                Manage Standards →
-                            </button>
-                        </div>
-                        <div className="space-y-6">
-                            {staticAuditData.complianceStandards.map((standard, index) => (
-                                <div key={index}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="font-medium text-gray-700">{standard.standard}</span>
-                                        <span className="text-lg font-bold" style={{ color: brandColors.primary }}>
-                                            {standard.complianceRate}%
-                                        </span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div
-                                            className="h-2 rounded-full transition-all duration-1000 ease-out"
-                                            style={{
-                                                width: `${standard.complianceRate}%`,
-                                                backgroundColor: 
-                                                    standard.complianceRate >= 90 ? brandColors.success :
-                                                    standard.complianceRate >= 80 ? brandColors.info :
-                                                    standard.complianceRate >= 70 ? brandColors.warning :
-                                                    brandColors.danger,
-                                            }}
-                                        ></div>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                        <span>Compliant: {standard.compliantSuppliers}</span>
-                                        <span>Non-compliant: {standard.nonCompliantSuppliers}</span>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                {/* CAPA Status Grid */}
-                <div className="mt-8">
-                    <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-lg font-semibold text-gray-800">CAPA Status by Category</h3>
-                            <button
-                                onClick={() => navigate('/compliance/capa')}
-                                className="text-sm font-medium"
-                                style={{ color: brandColors.primary }}
-                            >
-                                View All CAPA →
-                            </button>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {staticAuditData.capaStatus.map((category, index) => (
-                                <div key={index} className="p-4 border border-gray-200 rounded-xl">
-                                    <h4 className="font-medium text-gray-900 mb-4">{category.category}</h4>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-gray-600">Open</span>
-                                            <span className="font-medium text-gray-900">{category.open}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-gray-600">In Progress</span>
-                                            <span className="font-medium" style={{ color: brandColors.info }}>{category.inProgress}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-sm text-gray-600">Completed</span>
-                                            <span className="font-medium" style={{ color: brandColors.success }}>{category.completed}</span></div> <div className="flex justify-between items-center"> <span className="text-sm text-gray-600">Overdue</span> <span className="font-medium" style={{ color: brandColors.danger }}>{category.overdue}</span> </div> </div> </div> ))} </div> </div> </div>            {/* Top Suppliers Table */}
-            <div className="mt-8">
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-semibold text-gray-800">Top Performing Suppliers</h3>
-                        <button
-                            onClick={() => navigate('/compliance/suppliers')}
-                            className="text-sm font-medium"
-                            style={{ color: brandColors.primary }}
-                        >
-                            View All Suppliers →
-                        </button>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-gray-200">
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Supplier</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Category</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Audits</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Avg Score</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Last Audit</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Status</th>
-                                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {staticAuditData.topSuppliers.map((supplier) => (
-                                    <tr key={supplier.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                                        <td className="py-3 px-4">
-                                            <div className="font-medium text-gray-900">{supplier.name}</div>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <span className="text-sm text-gray-600">{supplier.category}</span>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <span className="font-medium">{supplier.auditCount}</span>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <div className="flex items-center">
-                                                <div className={`w-16 h-2 rounded-full mr-2 ${
-                                                    supplier.avgScore >= 90 ? 'bg-green-200' :
-                                                    supplier.avgScore >= 80 ? 'bg-blue-200' :
-                                                    supplier.avgScore >= 70 ? 'bg-yellow-200' :
-                                                    'bg-red-200'
-                                                }`}>
-                                                    <div
-                                                        className="h-2 rounded-full"
-                                                        style={{
-                                                            width: `${supplier.avgScore}%`,
-                                                            backgroundColor: 
-                                                                supplier.avgScore >= 90 ? brandColors.success :
-                                                                supplier.avgScore >= 80 ? brandColors.info :
-                                                                supplier.avgScore >= 70 ? brandColors.warning :
-                                                                brandColors.danger,
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                                <span className="font-bold">{supplier.avgScore}%</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <span className="text-sm text-gray-600">{supplier.lastAudit}</span>
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            {getStatusBadge(supplier.status)}
-                                        </td>
-                                        <td className="py-3 px-4">
-                                            <button
-                                                onClick={() => navigate(`/compliance/supplier/${supplier.id}`)}
-                                                className="text-sm font-medium px-3 py-1 rounded-lg hover:bg-gray-100 transition-colors"
-                                                style={{ color: brandColors.primary }}
-                                            >
-                                                View Details
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            {/* Footer Note */}
-            <div className="mt-8 text-center text-gray-500 text-sm">
-                <p>Data updated on {new Date().toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                })} at {new Date().toLocaleTimeString('en-US', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                })}</p>
-            </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading dashboard data...</p>
         </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-2 sm:px-3 lg:px-4 py-3 sm:py-4 lg:py-6">
+      {/* Header */}
+      <div className="mb-4 sm:mb-6 lg:mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 sm:mb-6">
+          <div className="w-full lg:w-auto">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Dashboard Overview</h1>
+            <p className="text-gray-600 mt-1 text-xs sm:text-sm lg:text-base">
+              Welcome back! Here's what's happening today.
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="bg-white border border-gray-300 rounded-lg p-2">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="bg-transparent border-0 focus:ring-0 text-sm"
+              />
+            </div>
+            {isHoliday(selectedDate) && (
+              <div className="bg-purple-100 text-purple-800 px-3 py-2 rounded-lg text-sm font-medium">
+                <IconSun className="w-4 h-4 inline mr-1" />
+                {getHolidayName(selectedDate)} - Holiday
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6 lg:mb-8">
+        {quickStats.map((stat, index) => (
+          <div key={index} className={`${stat.bgColor} rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300`}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm sm:text-base font-medium text-gray-600">{stat.title}</p>
+                <div className="flex items-baseline mt-2">
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">{stat.value}</p>
+                  {stat.percentage && (
+                    <span className="ml-2 text-sm text-green-600 font-medium">
+                      {stat.percentage}%
+                    </span>
+                  )}
+                </div>
+                {stat.subValue && (
+                  <p className="text-xs sm:text-sm text-gray-500 mt-1">{stat.subValue}</p>
+                )}
+              </div>
+              <div className={`p-2 sm:p-3 rounded-full ${stat.bgColor.replace('bg-', 'bg-').replace('-50', '-100')}`}>
+                {stat.icon}
+              </div>
+            </div>
+            <Link 
+              to={stat.link}
+              className="block text-center mt-4 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+            >
+              View Details →
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-6">
+        {/* Left Column - Attendance Summary */}
+        <div className="lg:col-span-2">
+          {/* Attendance Summary Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-4 sm:mb-6">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
+                    <IconUsers className="w-5 h-5 mr-2 text-blue-600" />
+                    Today's Attendance
+                  </h2>
+                  <p className="text-gray-600 text-sm mt-1">
+                    {moment(selectedDate).format('dddd, DD MMMM YYYY')}
+                    {isHoliday(selectedDate) && (
+                      <span className="ml-2 text-purple-600">
+                        ({getHolidayName(selectedDate)} - Holiday)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => markAllAttendance('present')}
+                    disabled={isHoliday(selectedDate)}
+                    className={`px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors ${isHoliday(selectedDate) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <IconCheck className="w-4 h-4 inline mr-1" />
+                    Mark All Present
+                  </button>
+                  <button
+                    onClick={() => setShowAttendanceSummary(true)}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <IconEye className="w-4 h-4 inline mr-1" />
+                    View Summary
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6">
+              {/* Attendance Stats */}
+              <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="bg-green-50 p-3 sm:p-4 rounded-lg text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-green-700">{dashboardStats.presentToday}</div>
+                  <div className="text-sm text-green-600 font-medium">Present</div>
+                </div>
+                <div className="bg-red-50 p-3 sm:p-4 rounded-lg text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-red-700">{dashboardStats.absentToday}</div>
+                  <div className="text-sm text-red-600 font-medium">Absent</div>
+                </div>
+                <div className="bg-yellow-50 p-3 sm:p-4 rounded-lg text-center">
+                  <div className="text-2xl sm:text-3xl font-bold text-yellow-700">{dashboardStats.onLeaveToday}</div>
+                  <div className="text-sm text-yellow-600 font-medium">On Leave</div>
+                </div>
+              </div>
+
+              {/* Quick Attendance Actions */}
+              <div className="mb-4">
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Quick Actions</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => markAllAttendance('present')}
+                    disabled={isHoliday(selectedDate)}
+                    className={`px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors ${isHoliday(selectedDate) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Mark All Present
+                  </button>
+                  <button
+                    onClick={() => markAllAttendance('absent')}
+                    disabled={isHoliday(selectedDate)}
+                    className={`px-3 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors ${isHoliday(selectedDate) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    Mark All Absent
+                  </button>
+                  <Link
+                    to="/attendance"
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors"
+                  >
+                    View Full Report
+                  </Link>
+                </div>
+              </div>
+
+              {/* Recent Attendance Updates */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Recent Updates</h3>
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {employeeList.slice(0, 5).map((emp) => {
+                    const status = getAttendanceStatus(emp.employeeId);
+                    return (
+                      <div key={emp.employeeId} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <IconUsers className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-gray-800 text-sm">{emp.employeeName}</div>
+                            <div className="text-xs text-gray-500">{emp.designationName}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}`}>
+                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                          </span>
+                          <button
+                            onClick={() => openAttendanceModal(emp)}
+                            disabled={isHoliday(selectedDate)}
+                            className={`p-1 rounded ${isHoliday(selectedDate) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+                          >
+                            <IconEdit className="w-3 h-3 text-gray-500" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Report Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            {reportCards.map((report, index) => (
+              <Link
+                key={index}
+                to={report.link}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow duration-300 group"
+              >
+                <div className="flex items-start space-x-4">
+                  <div className={`p-3 rounded-lg bg-${report.color}-50 group-hover:bg-${report.color}-100 transition-colors`}>
+                    {report.icon}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-gray-800 group-hover:text-gray-900 transition-colors">
+                      {report.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm mt-1">{report.description}</p>
+                    <div className="mt-3 text-sm font-medium text-blue-600 group-hover:text-blue-700 transition-colors">
+                      Generate Report →
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Column - Recent Activities & Quick Actions */}
+        <div className="space-y-4 sm:space-y-6">
+          {/* Recent Activities */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
+                <IconClock className="w-5 h-5 mr-2 text-blue-600" />
+                Recent Activities
+              </h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div className="space-y-4">
+                {recentActivities.map((activity) => (
+                  <div key={activity.id} className="flex items-start space-x-3">
+                    <div className={`w-8 h-8 rounded-full bg-${activity.color}-100 flex items-center justify-center flex-shrink-0`}>
+                      <span className="text-lg">{activity.icon}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-gray-800 text-sm">{activity.title}</h4>
+                      <p className="text-gray-600 text-xs mt-1">{activity.description}</p>
+                      <p className="text-gray-400 text-xs mt-2">{activity.time}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Link
+                to="/activities"
+                className="block text-center mt-4 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                View All Activities →
+              </Link>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
+                <IconPlus className="w-5 h-5 mr-2 text-green-600" />
+                Quick Actions
+              </h2>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div className="space-y-3">
+                <Link
+                  to="/assign-trip"
+                  className="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <IconTruck className="w-5 h-5 text-blue-600" />
+                    <span className="font-medium text-gray-800">Assign New Trip</span>
+                  </div>
+                  <IconPlus className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
+                </Link>
+                <Link
+                  to="/delivery"
+                  className="flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <IconPackage className="w-5 h-5 text-green-600" />
+                    <span className="font-medium text-gray-800">Update Delivery Status</span>
+                  </div>
+                  <IconEdit className="w-4 h-4 text-green-600 group-hover:text-green-700" />
+                </Link>
+                <Link
+                  to="/reports/profit-loss"
+                  className="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <IconMoney className="w-5 h-5 text-purple-600" />
+                    <span className="font-medium text-gray-800">Generate P&L Report</span>
+                  </div>
+                  <IconDownload className="w-4 h-4 text-purple-600 group-hover:text-purple-700" />
+                </Link>
+                <Link
+                  to="/salary"
+                  className="flex items-center justify-between p-3 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <IconReceipt className="w-5 h-5 text-orange-600" />
+                    <span className="font-medium text-gray-800">Process Salary</span>
+                  </div>
+                  <IconPrinter className="w-4 h-4 text-orange-600 group-hover:text-orange-700" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Financial Overview */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 mt-6">
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
+            <IconChartBar className="w-5 h-5 mr-2 text-blue-600" />
+            Financial Overview
+          </h2>
+        </div>
+        <div className="p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                    ₹{dashboardStats.totalRevenue.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <IconTrendingUp className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+            <div className="bg-red-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Monthly Expenses</p>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                    ₹{dashboardStats.monthlyExpenses.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <IconTrendingDown className="w-8 h-8 text-red-600" />
+              </div>
+            </div>
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Net Profit</p>
+                  <p className="text-2xl font-bold text-gray-800 mt-1">
+                    ₹{dashboardStats.monthlyProfit.toLocaleString('en-IN')}
+                  </p>
+                </div>
+                <IconMoney className="w-8 h-8 text-blue-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Attendance Modal */}
+      {showAttendanceModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+                Update Attendance
+              </h3>
+              <p className="text-gray-600 text-sm mt-1">
+                {selectedEmployee.employeeName} • {selectedEmployee.designationName}
+              </p>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div className="mb-6">
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-3">
+                    <IconUsers className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <p className="text-lg font-medium text-gray-800">{selectedEmployee.employeeName}</p>
+                  <p className="text-gray-600 text-sm">{selectedEmployee.designationName}</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Status
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setAttendanceStatus('present')}
+                      className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
+                        attendanceStatus === 'present'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-300 hover:border-green-300 hover:bg-green-50'
+                      }`}
+                    >
+                      <IconCheckCircle className="w-5 h-5 mb-1" />
+                      <span className="text-sm font-medium">Present</span>
+                    </button>
+                    <button
+                      onClick={() => setAttendanceStatus('absent')}
+                      className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
+                        attendanceStatus === 'absent'
+                          ? 'border-red-500 bg-red-50 text-red-700'
+                          : 'border-gray-300 hover:border-red-300 hover:bg-red-50'
+                      }`}
+                    >
+                      <IconXCircle className="w-5 h-5 mb-1" />
+                      <span className="text-sm font-medium">Absent</span>
+                    </button>
+                    <button
+                      onClick={() => setAttendanceStatus('leave')}
+                      className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
+                        attendanceStatus === 'leave'
+                          ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
+                          : 'border-gray-300 hover:border-yellow-300 hover:bg-yellow-50'
+                      }`}
+                    >
+                      <IconClock className="w-5 h-5 mb-1" />
+                      <span className="text-sm font-medium">Leave</span>
+                    </button>
+                    <button
+                      onClick={() => setAttendanceStatus('half_day')}
+                      className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
+                        attendanceStatus === 'half_day'
+                          ? 'border-orange-500 bg-orange-50 text-orange-700'
+                          : 'border-gray-300 hover:border-orange-300 hover:bg-orange-50'
+                      }`}
+                    >
+                      <IconClock className="w-5 h-5 mb-1" />
+                      <span className="text-sm font-medium">Half Day</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-6">
+                  <div className="text-xs text-gray-500 mb-2">
+                    Date: {moment(selectedDate).format('DD MMMM YYYY')}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 pt-4 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowAttendanceModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleAttendanceChange(selectedEmployee.employeeId, attendanceStatus)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Update Attendance
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attendance Summary Modal */}
+      {showAttendanceSummary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg sm:text-xl font-bold text-gray-800">
+                  Attendance Summary - {moment(selectedDate).format('DD MMMM YYYY')}
+                </h3>
+                <button
+                  onClick={() => setShowAttendanceSummary(false)}
+                  className="text-gray-500 hover:text-gray-700 text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[60vh]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-green-700">{dashboardStats.presentToday}</div>
+                    <div className="text-green-600 font-medium">Present</div>
+                  </div>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-red-700">{dashboardStats.absentToday}</div>
+                    <div className="text-red-600 font-medium">Absent</div>
+                  </div>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-700">{dashboardStats.totalEmployees}</div>
+                    <div className="text-blue-600 font-medium">Total Employees</div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {employeeList.map((emp) => {
+                  const status = getAttendanceStatus(emp.employeeId);
+                  const markedTime = attendanceData[emp.employeeId]?.[selectedDate]?.markedAt
+                    ? moment(attendanceData[emp.employeeId]?.[selectedDate]?.markedAt).format('HH:mm')
+                    : null;
+                  return (
+                    <div key={emp.employeeId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <IconUsers className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-gray-800">{emp.employeeName}</div>
+                          <div className="text-sm text-gray-500">{emp.designationName}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(status)}`}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </span>
+                        {markedTime && (
+                          <span className="text-sm text-gray-500">at {markedTime}</span>
+                        )}
+                        <button
+                          onClick={() => {
+                            setSelectedEmployee(emp);
+                            setAttendanceStatus(status);
+                            setShowAttendanceSummary(false);
+                            setShowAttendanceModal(true);
+                          }}
+                          className="p-1 hover:bg-gray-200 rounded"
+                        >
+                          <IconEdit className="w-4 h-4 text-gray-500" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="p-4 sm:p-6 border-t border-gray-200">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-gray-500">
+                  Total: {dashboardStats.totalEmployees} employees
+                </div>
+                <button
+                  onClick={() => setShowAttendanceSummary(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-);};
+  );
+};
 
 export default Dashboard;
