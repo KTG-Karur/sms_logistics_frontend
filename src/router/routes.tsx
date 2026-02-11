@@ -36,6 +36,7 @@ import {
     PdfSubAuditChecklistImages,
     ProfitLossReportPDF,
     DailyProfitLossReport,
+    AttendanceReport,
     Vehicle,
     PackageIntake,
     PakagePaymentScreen,
@@ -316,6 +317,10 @@ const routes = [
     {
      path: '/report/profit-loss',
         element: <ProfitLossReport />,
+    },
+    {
+     path: '/report/attendance',
+        element: <AttendanceReport />,
     },
     //old
     {

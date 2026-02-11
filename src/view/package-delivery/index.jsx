@@ -1360,29 +1360,7 @@ const DeliveryManagement = () => {
                         </div>
                         
                         <div className="p-4 sm:p-6">
-                            {/* Status Selection */}
-                            <div className="mb-6">
-                                <label className="block text-sm sm:text-base font-medium text-gray-700 mb-3">
-                                    Select New Status *
-                                </label>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                                    {statusOptions.map((option) => (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => setUpdateStatus(option.value)}
-                                            className={`p-3 rounded-lg border flex flex-col items-center justify-center transition-all ${
-                                                updateStatus === option.value
-                                                    ? 'border-primary bg-primary/10 text-primary'
-                                                    : 'border-gray-300 hover:border-primary hover:bg-primary/5'
-                                            }`}
-                                        >
-                                            <span className="text-lg mb-1">{option.icon}</span>
-                                            <span className="text-xs sm:text-sm font-medium">{option.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
+                          
 
                             {/* Package Status Updates */}
                             <div className="mb-6">
