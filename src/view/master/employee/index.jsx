@@ -860,6 +860,7 @@ const Employees = () => {
                                                         <div className="relative inline-block">
                                                             <img 
                                                                 src={licencePreview} 
+                                                                crossOrigin='ananymous'
                                                                 alt="Licence Preview" 
                                                                 className="max-w-full h-auto max-h-48 rounded border object-contain"
                                                             />

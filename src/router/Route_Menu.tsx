@@ -134,3 +134,4 @@ export const AttendanceReport = lazy(() => import('../view/report/attendanceRepo
 export const AuditReSchedule = lazy(() => import('../view/reasignAudit'));
 export const VehicleType = lazy(() => import('../view/master/vehicleType'));
 export const PackageDelivery = lazy(() => import('../view/package-delivery'));
+export const TripReport = lazy(() => import('../view/report/tripReport'));
