@@ -26,8 +26,8 @@ import IconSearch from '../../components/Icon/IconSearch';
 import IconFilter from '../../components/Icon/IconCoffee';
 import IconCheck from '../../components/Icon/IconCheck';
 import IconEdit from '../../components/Icon/IconEdit';
-import IconClipboardList from '../../components/Icon/IconClipboardList';
-import IconTruckDelivery from '../../components/Icon/IconTruckLoading';
+import IconClipboardList from '../../components/Icon/IconClipboardText';
+import IconTruckDelivery from '../../components/Icon/IconTruck';
 import IconHome from '../../components/Icon/IconHome';
 import IconBuilding from '../../components/Icon/IconBuilding';
 
@@ -1270,43 +1270,11 @@ const DeliveryManagement = () => {
             <div className="mb-4 sm:mb-6 lg:mb-8">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 sm:mb-6">
                     <div className="w-full lg:w-auto">
-                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Delivery Management</h1>
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Delivery Status</h1>
                         <p className="text-gray-600 mt-1 text-xs sm:text-sm lg:text-base">
                             Track and update delivery status for all trips
                         </p>
                     </div>
-                </div>
-
-                {/* Stats Cards - Responsive Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-8 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
-                    {[
-                        { label: 'Total', value: statusCounts.total, color: 'bg-blue-500', icon: <IconClipboardList className="w-4 h-4 sm:w-5 sm:h-5" /> },
-                        { label: 'Scheduled', value: statusCounts.scheduled, color: 'bg-blue-400', icon: '⏰' },
-                        { label: 'In Progress', value: statusCounts.in_progress, color: 'bg-yellow-500', icon: '🚚' },
-                        { label: 'At Warehouse', value: statusCounts.at_warehouse, color: 'bg-purple-500', icon: '🏢' },
-                        { label: 'Out for Delivery', value: statusCounts.out_for_delivery, color: 'bg-orange-500', icon: '📦' },
-                        { label: 'Delivered', value: statusCounts.delivered, color: 'bg-green-500', icon: '✓' },
-                        { label: 'Delayed', value: statusCounts.delayed, color: 'bg-red-500', icon: '⚠️' },
-                        { label: 'Cancelled', value: statusCounts.cancelled, color: 'bg-gray-500', icon: '✗' },
-                    ].map((stat, index) => (
-                        <div key={index} className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs sm:text-sm font-medium text-gray-600">{stat.label}</p>
-                                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{stat.value}</p>
-                                </div>
-                                <div className={`p-2 sm:p-3 ${stat.color.replace('bg-', 'bg-').replace('-500', '-100')} rounded-full`}>
-                                    {typeof stat.icon === 'string' ? (
-                                        <span className="text-lg sm:text-xl">{stat.icon}</span>
-                                    ) : (
-                                        <div className="text-blue-600">
-                                            {stat.icon}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
                 </div>
 
                 {/* Branch Filter */}

@@ -132,3 +132,4 @@ export const PackageReportPrint = lazy(() => import('../view/documents/packageRe
 export const ProfitLossReport = lazy(() => import('../view/report/monthlyProfitLossReport'));
 export const AuditReSchedule = lazy(() => import('../view/reasignAudit'));
 export const VehicleType = lazy(() => import('../view/master/vehicleType'));
+export const PackageDelivery = lazy(() => import('../view/package-delivery'));

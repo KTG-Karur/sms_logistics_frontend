@@ -230,7 +230,7 @@ const LoginBoxed = () => {
                                 <img 
                                     style={{ width: '200px', height: '40px' }} 
                                     className="flex-none drop-shadow-2xl filter brightness-110" 
-                                    src="/assets/images/Asian logo_02.png" 
+                                    src="/assets/images/SMS logo_02.png" 
                                     alt="logo" 
                                 />
                             </div>
@@ -419,7 +419,7 @@ const LoginBoxed = () => {
                                     <img 
                                         style={{ width: '220px', height: '45px' }} 
                                         className="flex-none drop-shadow-2xl filter brightness-110" 
-                                        src="/assets/images/Asian logo_02.png" 
+                                        src="/assets/images/SMS logo_02.png" 
                                         alt="logo" 
                                     />
                                 </div>

@@ -105,7 +105,7 @@ const Preview = () => {
                 <div className="flex justify-between flex-wrap gap-4 px-4">
                     <div className="text-2xl font-semibold uppercase">Invoice</div>
                     <div className="shrink-0">
-                        <img src="/assets/images/Asian logo_02.png" alt="img" className="w-14 ltr:ml-auto rtl:mr-auto" />
+                        <img src="/assets/images/SMS logo_02.png" alt="img" className="w-14 ltr:ml-auto rtl:mr-auto" />
                     </div>
                 </div>
                 <div className="ltr:text-right rtl:text-left px-4">

@@ -44,6 +44,7 @@ import {
     VehicleType,
     ExpensesSettlement,
     ProfitLossReport,
+    PackageDelivery,
 } from './Route_Menu';
 import path from 'path';
 
@@ -296,7 +297,7 @@ const routes = [
         path: '/package/payment',
         element: <PakagePayment />,
     },
-    {
+     {
         path: '/master/attendance',
         element: <Attendance />,
     },
@@ -304,16 +305,16 @@ const routes = [
         path: '/package/intake',
         element: <PackageIntake />,
     },
-    {
+      {
         path: '/package/assign-trip',
         element: <AssignTrip />,
 },
       {
         path: '/package/delivery',
-        element: <AssignTrip />,
+        element: <PackageDelivery/>,
     },
     {
-        path: '/report/profit-loss',
+     path: '/report/profit-loss',
         element: <ProfitLossReport />,
     },
     //old

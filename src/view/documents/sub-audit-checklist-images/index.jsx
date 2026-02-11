@@ -258,7 +258,7 @@ const AuditImagesPrintPage = () => {
                     <tr>
                         <td width="150" style={{ border: '1px solid #000', padding: '2px', verticalAlign: 'middle', textAlign: 'center' }}>
                             <img
-                                src="/assets/images/Asian logo_02.png"
+                                src="/assets/images/SMS logo_02.png"
                                 alt="Company Logo"
                                 style={{
                                     maxWidth: '140px',
