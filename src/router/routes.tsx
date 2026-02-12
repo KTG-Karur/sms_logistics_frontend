@@ -48,6 +48,7 @@ import {
     PackageDelivery,
     TripReport,
     OfficeCenter,
+    Customer,
 } from './Route_Menu';
 import path from 'path';
 
@@ -254,6 +255,10 @@ const routes = [
     {
         path: '/master/office-center',
         element: <OfficeCenter />,
+    },
+    {
+        path: '/master/customer',
+        element: <Customer />,
     },
     {
         path: '/package/payment/:id',
