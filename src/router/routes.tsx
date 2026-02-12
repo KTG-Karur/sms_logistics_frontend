@@ -49,6 +49,7 @@ import {
     TripReport,
     OfficeCenter,
     Customer,
+    Location,
 } from './Route_Menu';
 import path from 'path';
 
@@ -259,6 +260,10 @@ const routes = [
     {
         path: '/master/customer',
         element: <Customer />,
+    },
+    {
+        path: '/master/location',
+        element: <Location />,
     },
     {
         path: '/package/payment/:id',

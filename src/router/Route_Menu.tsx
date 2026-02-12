@@ -137,3 +137,4 @@ export const PackageDelivery = lazy(() => import('../view/package-delivery'));
 export const TripReport = lazy(() => import('../view/report/tripReport'));
 export const OfficeCenter = lazy(() => import('../view/master/officeCenter'));
 export const Customer = lazy(() => import('../view/master/customer'));
+export const Location = lazy(() => import('../view/master/location'));

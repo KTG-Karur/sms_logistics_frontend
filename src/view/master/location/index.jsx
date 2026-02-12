@@ -10,58 +10,75 @@ import IconPlus from '../../../components/Icon/IconPlus';
 import IconPencil from '../../../components/Icon/IconPencil';
 import IconFilter from '../../../components/Icon/IconSearch';
 import IconSearch from '../../../components/Icon/IconSearch';
-import { getCustomers, createCustomers, updateCustomers, deleteCustomers } from '../../../redux/customerSlice';
+import Select from 'react-select';
+import { getLocations, createLocations, updateLocations, deleteLocations } from '../../../redux/locationSlice';
+import { getOfficeCenters } from '../../../redux/officeCenterSlice';
 
-const Customers = () => {
+const Locations = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Customer');
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Location');
     const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
-    // Get customers state from Redux
-    const customersState = useSelector((state) => state.CustomerSlice || {});
-    const { customersData = [], loading = false, error = null } = customersState;
+    // Get locations state from Redux
+    const locationsState = useSelector((state) => state.LocationSlice || {});
+    const { locationsData = [], loading = false, error = null } = locationsState;
+
+    // Get office centers state from Redux for dropdown
+    const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
+    const { officeCentersData = [], loading: officeCentersLoading = false } = officeCenterState;
 
     const [showForm, setShowForm] = useState(false);
     const [state, setState] = useState({
-        customerName: '',
-        customerNumber: '',
-        isActive: true
+        locationName: '',
+        officeCenterId: null
     });
     const [errors, setErrors] = useState({});
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
-    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [selectedLocation, setSelectedLocation] = useState(null);
     const [isEdit, setIsEdit] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [showFilters, setShowFilters] = useState(false);
     const [filters, setFilters] = useState({
-        customerNumber: '',
-        customerName: ''
+        locationName: '',
+        officeCenterId: null,
+        status: ''
     });
 
     useEffect(() => {
-        dispatch(setPageTitle('Customer Management'));
-        fetchCustomers();
+        dispatch(setPageTitle('Location Management'));
+        fetchLocations();
+        fetchOfficeCenters();
     }, []);
 
     useEffect(() => {
-        fetchCustomers();
+        fetchLocations();
     }, [filters]);
 
-    const fetchCustomers = async () => {
+    const fetchOfficeCenters = async () => {
+        try {
+            await dispatch(getOfficeCenters({})).unwrap();
+        } catch (error) {
+            console.error('Error fetching office centers:', error);
+            showMessage('error', 'Failed to load office centers');
+        }
+    };
+
+    const fetchLocations = async () => {
         try {
             // Apply filters
             const filterParams = {};
-            if (filters.customerNumber) filterParams.customerNumber = filters.customerNumber;
-            if (filters.customerName) filterParams.customerName = filters.customerName;
+            if (filters.locationName) filterParams.locationName = filters.locationName;
+            if (filters.officeCenterId) filterParams.officeCenterId = filters.officeCenterId.value;
+            if (filters.status) filterParams.isActive = filters.status === 'Active' ? true : false;
             
-            await dispatch(getCustomers(filterParams)).unwrap();
+            await dispatch(getLocations(filterParams)).unwrap();
         } catch (error) {
-            console.error('Error fetching customers:', error);
-            showMessage('error', error.message || 'Failed to load customers');
+            console.error('Error fetching locations:', error);
+            showMessage('error', error.message || 'Failed to load locations');
         }
     };
 
@@ -72,25 +89,23 @@ const Customers = () => {
 
     // Get paginated data
     const getPaginatedData = () => {
-        const dataArray = customersData || [];
+        const dataArray = locationsData || [];
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
         return dataArray.slice(startIndex, endIndex);
     };
 
     const getTotalCount = () => {
-        return (customersData || []).length;
+        return (locationsData || []).length;
     };
 
     const validateForm = () => {
         const newErrors = {};
-        if (!state.customerName?.trim()) {
-            newErrors.customerName = 'Customer name is required';
+        if (!state.locationName?.trim()) {
+            newErrors.locationName = 'Location name is required';
         }
-        if (!state.customerNumber?.trim()) {
-            newErrors.customerNumber = 'Customer number is required';
-        } else if (!/^\d{10}$/.test(state.customerNumber.trim())) {
-            newErrors.customerNumber = 'Customer number must be 10 digits';
+        if (!state.officeCenterId) {
+            newErrors.officeCenterId = 'Office center is required';
         }
 
         setErrors(newErrors);
@@ -102,43 +117,43 @@ const Customers = () => {
         if (!validateForm()) return;
 
         const request = {
-            customerName: state.customerName.trim(),
-            customerNumber: state.customerNumber.trim()
+            locationName: state.locationName.trim(),
+            officeCenterId: state.officeCenterId.value
         };
 
         try {
-            if (isEdit && selectedCustomer) {
+            if (isEdit && selectedLocation) {
                 await dispatch(
-                    updateCustomers({
+                    updateLocations({
                         request: request,
-                        customerId: selectedCustomer.customer_id 
+                        locationsId: selectedLocation.location_id
                     })
                 ).unwrap();
-                showMessage('success', 'Customer updated successfully');
+                showMessage('success', 'Location updated successfully');
             } else {
-                await dispatch(createCustomers(request)).unwrap();
-                showMessage('success', 'Customer added successfully');
+                await dispatch(createLocations(request)).unwrap();
+                showMessage('success', 'Location added successfully');
             }
 
             onFormClear();
-            fetchCustomers();
+            fetchLocations();
         } catch (error) {
             console.error('Form submission error:', error);
-            showMessage('error', error.message || 'Failed to save customer data');
+            showMessage('error', error.message || 'Failed to save location data');
         }
     };
 
-    const handleDeleteCustomer = async (customer) => {
+    const handleDeleteLocation = async (location) => {
         showMessage(
             'warning',
-            'Are you sure you want to delete this customer?',
+            'Are you sure you want to delete this location?',
             async () => {
                 try {
-                    await dispatch(deleteCustomers(customer.customer_id)).unwrap();
-                    showMessage('success', 'Customer deleted successfully');
-                    fetchCustomers();
+                    await dispatch(deleteLocations(location.location_id)).unwrap();
+                    showMessage('success', 'Location deleted successfully');
+                    fetchLocations();
                 } catch (error) {
-                    showMessage('error', error.message || 'Failed to delete customer');
+                    showMessage('error', error.message || 'Failed to delete location');
                 }
             },
             'Yes, delete it'
@@ -146,32 +161,57 @@ const Customers = () => {
     };
 
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
+        const { name, value } = e.target;
         setState((prev) => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value,
+            [name]: value,
         }));
+        
+        // Clear error for this field
+        if (errors[name]) {
+            setErrors((prev) => ({
+                ...prev,
+                [name]: null
+            }));
+        }
+    };
+
+    const handleOfficeCenterChange = (selectedOption) => {
+        setState((prev) => ({
+            ...prev,
+            officeCenterId: selectedOption
+        }));
+        
+        if (errors.officeCenterId) {
+            setErrors((prev) => ({
+                ...prev,
+                officeCenterId: null
+            }));
+        }
     };
 
     const onFormClear = () => {
         setState({
-            customerName: '',
-            customerNumber: '',
-            isActive: true
+            locationName: '',
+            officeCenterId: null
         });
-        setSelectedCustomer(null);
+        setSelectedLocation(null);
         setIsEdit(false);
         setErrors({});
         setShowForm(false);
     };
 
-    const onEditForm = (customer) => {
+    const onEditForm = (location) => {
+        const officeCenterOption = {
+            value: location.office_center_id,
+            label: getOfficeCenterName(location.office_center_id)
+        };
+
         setState({
-            customerName: customer.customer_name || '',
-            customerNumber: customer.customer_number || '',
-            isActive: customer.is_active || true
+            locationName: location.location_name || '',
+            officeCenterId: officeCenterOption
         });
-        setSelectedCustomer(customer);
+        setSelectedLocation(location);
         setIsEdit(true);
         setShowForm(true);
     };
@@ -190,37 +230,58 @@ const Customers = () => {
         }));
     };
 
+    const handleFilterOfficeCenterChange = (selectedOption) => {
+        setFilters((prev) => ({
+            ...prev,
+            officeCenterId: selectedOption
+        }));
+    };
+
+    const handleFilterStatusChange = (selectedOption) => {
+        setFilters((prev) => ({
+            ...prev,
+            status: selectedOption ? selectedOption.value : ''
+        }));
+    };
+
     const clearFilters = () => {
         setFilters({
-            customerNumber: '',
-            customerName: ''
+            locationName: '',
+            officeCenterId: null,
+            status: ''
         });
     };
 
-    // Format date for display
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        try {
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return dateString;
-            
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = date.getFullYear();
-            return `${day}-${month}-${year}`;
-        } catch (error) {
-            return dateString;
-        }
+    // Get office center name by ID
+    const getOfficeCenterName = (officeCenterId) => {
+        const officeCenter = officeCentersData.find(oc => oc.id === officeCenterId);
+        return officeCenter ? officeCenter.officeCentersName : officeCenterId;
     };
 
+    // Prepare office center options for React Select
+    const getOfficeCenterOptions = () => {
+        return officeCentersData
+            .filter(center => center.isActive)
+            .map((center) => ({
+                value: center.id,
+                label: center.officeCentersName
+            }));
+    };
+
+    // Status options for filter
+    const statusOptions = [
+        { value: 'Active', label: 'Active' },
+        { value: 'Inactive', label: 'Inactive' }
+    ];
+
     // Filter data based on search term
-    const filteredData = customersData.filter((customer) => {
+    const filteredData = locationsData.filter((location) => {
         if (!searchTerm) return true;
 
         const searchLower = searchTerm.toLowerCase();
         return (
-            customer.customer_name?.toLowerCase().includes(searchLower) ||
-            customer.customer_number?.toLowerCase().includes(searchLower)
+            location.location_name?.toLowerCase().includes(searchLower) ||
+            getOfficeCenterName(location.office_center_id)?.toLowerCase().includes(searchLower)
         );
     });
 
@@ -232,31 +293,22 @@ const Customers = () => {
             width: 80,
         },
         {
-            Header: 'Customer Name',
-            accessor: 'customer_name',
+            Header: 'Location Name',
+            accessor: 'location_name',
         },
         {
-            Header: 'Customer Number',
-            accessor: 'customer_number',
+            Header: 'Office Center',
+            accessor: 'office_center_id',
+            Cell: ({ value }) => getOfficeCenterName(value),
         },
         {
             Header: 'Status',
-            accessor: 'is_active',
+            accessor: 'status',
             Cell: ({ value }) => (
-                <span className={`badge ${value ? 'bg-success' : 'bg-danger'}`}>
-                    {value ? 'Active' : 'Inactive'}
+                <span className={`badge ${value === 'Active' ? 'bg-success' : 'bg-danger'}`}>
+                    {value}
                 </span>
             ),
-        },
-        {
-            Header: 'Created Date',
-            accessor: 'created_at',
-            Cell: ({ value }) => formatDate(value),
-        },
-        {
-            Header: 'Updated Date',
-            accessor: 'updated_at',
-            Cell: ({ value }) => formatDate(value),
         },
         ...(roleIdforRole === 'Super Admin' ? [{
             Header: 'Actions',
@@ -276,7 +328,7 @@ const Customers = () => {
                         <button
                             type="button"
                             className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDeleteCustomer(row.original)}
+                            onClick={() => handleDeleteLocation(row.original)}
                         >
                             <IconTrashLines className="w-4 h-4" />
                         </button>
@@ -293,6 +345,21 @@ const Customers = () => {
         return arr.filter((item) => item[key] === value);
     }
 
+    const customSelectStyles = {
+        control: (provided) => ({
+            ...provided,
+            minHeight: '38px',
+            borderColor: '#e0e6ed',
+            '&:hover': {
+                borderColor: '#4361ee',
+            },
+        }),
+        menu: (provided) => ({
+            ...provided,
+            zIndex: 9999,
+        }),
+    };
+
     return (
         <div>
             {/* Search and Filter Bar */}
@@ -302,7 +369,7 @@ const Customers = () => {
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Search customers by name or number..."
+                                placeholder="Search locations by name or office center..."
                                 className="form-input w-full pl-10"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -326,7 +393,7 @@ const Customers = () => {
                                 className="btn btn-primary"
                             >
                                 <IconPlus className="w-4 h-4 mr-2" />
-                                Add Customer
+                                Add Location
                             </button>
                         )}
                     </div>
@@ -335,31 +402,50 @@ const Customers = () => {
                 {/* Filter Panel */}
                 {showFilters && (
                     <div className="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block mb-1 text-sm font-medium">
-                                    Customer Name
+                                    Location Name
                                 </label>
                                 <input
                                     type="text"
-                                    name="customerName"
-                                    value={filters.customerName}
+                                    name="locationName"
+                                    value={filters.locationName}
                                     onChange={handleFilterChange}
-                                    placeholder="Filter by customer name"
+                                    placeholder="Filter by location name"
                                     className="form-input"
                                 />
                             </div>
                             <div>
                                 <label className="block mb-1 text-sm font-medium">
-                                    Customer Number
+                                    Office Center
                                 </label>
-                                <input
-                                    type="text"
-                                    name="customerNumber"
-                                    value={filters.customerNumber}
-                                    onChange={handleFilterChange}
-                                    placeholder="Filter by customer number"
-                                    className="form-input"
+                                <Select
+                                    name="officeCenterId"
+                                    value={filters.officeCenterId}
+                                    onChange={handleFilterOfficeCenterChange}
+                                    options={getOfficeCenterOptions()}
+                                    placeholder="Select Office Center"
+                                    isClearable
+                                    styles={customSelectStyles}
+                                    className="react-select"
+                                    classNamePrefix="select"
+                                />
+                            </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium">
+                                    Status
+                                </label>
+                                <Select
+                                    name="status"
+                                    value={statusOptions.find(option => option.value === filters.status)}
+                                    onChange={handleFilterStatusChange}
+                                    options={statusOptions}
+                                    placeholder="Select Status"
+                                    isClearable
+                                    styles={customSelectStyles}
+                                    className="react-select"
+                                    classNamePrefix="select"
                                 />
                             </div>
                         </div>
@@ -383,12 +469,12 @@ const Customers = () => {
                 )}
             </div>
 
-            {/* Customer Form */}
+            {/* Location Form */}
             {showForm && (
                 <div className="panel mb-6">
                     <div className="flex items-center justify-between mb-5">
                         <h5 className="font-semibold text-lg dark:text-white-light">
-                            {isEdit ? 'Edit Customer' : 'Add New Customer'}
+                            {isEdit ? 'Edit Location' : 'Add New Location'}
                         </h5>
                         <button
                             type="button"
@@ -401,49 +487,49 @@ const Customers = () => {
 
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Customer Name */}
+                            {/* Office Center Dropdown - React Select */}
                             <div>
                                 <label className="block mb-1">
-                                    Customer Name <span className="text-danger">*</span>
+                                    Office Center <span className="text-danger">*</span>
                                 </label>
-                                <input
-                                    type="text"
-                                    name="customerName"
-                                    value={state.customerName}
-                                    onChange={handleChange}
-                                    placeholder="Enter customer name"
-                                    className="form-input"
-                                    maxLength={100}
+                                <Select
+                                    name="officeCenterId"
+                                    value={state.officeCenterId}
+                                    onChange={handleOfficeCenterChange}
+                                    options={getOfficeCenterOptions()}
+                                    placeholder="Select Office Center"
+                                    isDisabled={officeCentersLoading}
+                                    isLoading={officeCentersLoading}
+                                    styles={customSelectStyles}
+                                    className="react-select"
+                                    classNamePrefix="select"
                                 />
-                                {errors.customerName && (
+                                {errors.officeCenterId && (
                                     <div className="text-danger text-sm mt-1">
-                                        {errors.customerName}
+                                        {errors.officeCenterId}
                                     </div>
                                 )}
                             </div>
 
-                            {/* Customer Number */}
+                            {/* Location Name */}
                             <div>
                                 <label className="block mb-1">
-                                    Customer Number <span className="text-danger">*</span>
+                                    Location Name <span className="text-danger">*</span>
                                 </label>
                                 <input
                                     type="text"
-                                    name="customerNumber"
-                                    value={state.customerNumber}
+                                    name="locationName"
+                                    value={state.locationName}
                                     onChange={handleChange}
-                                    placeholder="Enter 10-digit mobile number"
+                                    placeholder="Enter location name"
                                     className="form-input"
-                                    maxLength={10}
+                                    maxLength={100}
                                 />
-                                {errors.customerNumber && (
+                                {errors.locationName && (
                                     <div className="text-danger text-sm mt-1">
-                                        {errors.customerNumber}
+                                        {errors.locationName}
                                     </div>
                                 )}
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Enter 10-digit mobile number without country code
-                                </p>
                             </div>
                         </div>
 
@@ -460,7 +546,7 @@ const Customers = () => {
                             <button
                                 type="submit"
                                 className="btn btn-primary"
-                                disabled={loading}
+                                disabled={loading || officeCentersLoading}
                             >
                                 {loading ? (
                                     <>
@@ -468,7 +554,7 @@ const Customers = () => {
                                         Processing...
                                     </>
                                 ) : (
-                                    isEdit ? 'Update Customer' : 'Add Customer'
+                                    isEdit ? 'Update Location' : 'Add Location'
                                 )}
                             </button>
                         </div>
@@ -476,25 +562,25 @@ const Customers = () => {
                 </div>
             )}
 
-            {/* Customers Table */}
+            {/* Locations Table */}
             <div className="panel">
                 {loading && !showForm ? (
                     <div className="flex items-center justify-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-                        <span className="ml-3">Loading customers...</span>
+                        <span className="ml-3">Loading locations...</span>
                     </div>
                 ) : error ? (
                     <div className="text-center py-8 text-danger">
-                        Error loading customers: {error}
+                        Error loading locations: {error}
                     </div>
-                ) : customersData.length === 0 ? (
+                ) : locationsData.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
-                        No customers found. {roleIdforRole === 'Super Admin' && 'Click "Add Customer" to get started.'}
+                        No locations found. {roleIdforRole === 'Super Admin' && 'Click "Add Location" to get started.'}
                     </div>
                 ) : (
                     <Table
                         columns={columns}
-                        Title={'Customer List'}
+                        Title={'Location List'}
                         toggle={null}
                         data={getPaginatedData()}
                         pageSize={pageSize}
@@ -512,4 +598,4 @@ const Customers = () => {
     );
 };
 
-export default Customers;
+export default Locations;
