@@ -19,6 +19,7 @@ import DashboardSlice from '../dashboardSlice';
 import VehicleTypeSlice from '../vehicleTypeSlice';
 import PackageTypeSlice from '../packageTypeSlice';
 import VehiclesSlice from '../vehiclesSlice';
+import OfficeCenterSlice from '../officeCenterSlice';
 
 const rootReducer = combineReducers({
     themeConfig: themeConfigSlice,
@@ -41,6 +42,7 @@ const rootReducer = combineReducers({
     VehicleTypeSlice,
     PackageTypeSlice,
     VehiclesSlice,
+    OfficeCenterSlice,
 });
 
 const store = configureStore({

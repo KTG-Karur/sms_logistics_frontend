@@ -47,6 +47,7 @@ import {
     ProfitLossReport,
     PackageDelivery,
     TripReport,
+    OfficeCenter,
 } from './Route_Menu';
 import path from 'path';
 
@@ -249,6 +250,10 @@ const routes = [
     {
         path: '/master/package',
         element: <Package />,
+    },
+    {
+        path: '/master/office-center',
+        element: <OfficeCenter />,
     },
     {
         path: '/package/payment/:id',
