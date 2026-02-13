@@ -50,6 +50,7 @@ import {
     OfficeCenter,
     Customer,
     Location,
+    ExpenceType,
 } from './Route_Menu';
 import path from 'path';
 
@@ -264,6 +265,10 @@ const routes = [
     {
         path: '/master/location',
         element: <Location />,
+    },
+    {
+        path: '/master/expence-type',
+        element: <ExpenceType />,
     },
     {
         path: '/package/payment/:id',
