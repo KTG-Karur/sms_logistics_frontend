@@ -34,6 +34,7 @@ import IconTruck from '../Icon/IconTruck';
 import IconCarMoving from '../Icon/IconCarMoving';
 import IconBox from '../Icon/IconBox';
 import IconCalendar from '../Icon/Menu/IconMenuCalendar';
+import packagePaymentcIcon from '../Icon/IconPackagePayment';
 import IconLocation from '../Icon/IconMenuLocation';
 import IconMenuPayment from '../Icon/IconMenuPayment';
 
@@ -89,6 +90,8 @@ const getIcon = (name?: string) => {
             return IconBox;
         case 'fe-calendar':
             return IconCalendar;
+        case 'fe-package-payment':
+            return packagePaymentcIcon;
         case 'fe-location':
             return IconLocation;
         default:

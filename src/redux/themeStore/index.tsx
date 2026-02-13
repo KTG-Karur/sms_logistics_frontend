@@ -20,6 +20,8 @@ import VehicleTypeSlice from '../vehicleTypeSlice';
 import PackageTypeSlice from '../packageTypeSlice';
 import ExpenceTypeSlice from '../expenceTypeSlice';
 import VehiclesSlice from '../vehiclesSlice';
+import AttendanceSlice from '../attendanceSlice';
+import HolidaySlice from '../holidaySlice';
 import OfficeCenterSlice from '../officeCenterSlice';
 import CustomerSlice from '../customerSlice';
 import LocationSlice from '../locationSlice';
@@ -45,6 +47,8 @@ const rootReducer = combineReducers({
     VehicleTypeSlice,
     PackageTypeSlice,
     VehiclesSlice,
+    AttendanceSlice,
+    HolidaySlice,
     OfficeCenterSlice,
     CustomerSlice,
     LocationSlice,
