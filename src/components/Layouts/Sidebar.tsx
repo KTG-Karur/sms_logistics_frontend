@@ -33,6 +33,7 @@ import IconTruck from '../Icon/IconTruck';
 import IconCarMoving from '../Icon/IconCarMoving';
 import IconBox from '../Icon/IconBox';
 import IconCalendar from '../Icon/Menu/IconMenuCalendar';
+import packagePaymentcIcon from '../Icon/IconPackagePayment';
 
 const getIcon = (name?: string) => {
     switch (name) {
@@ -82,6 +83,8 @@ const getIcon = (name?: string) => {
             return IconBox;
         case 'fe-calendar':
             return IconCalendar;
+        case 'fe-package-payment':
+            return packagePaymentcIcon;
         default:
             return IconMinus; // fallback
     }
