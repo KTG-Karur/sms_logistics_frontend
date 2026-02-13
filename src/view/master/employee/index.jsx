@@ -46,6 +46,7 @@ const Employees = () => {
         licenceNumber: '',
         licenceFile: null,
         salary: '',
+        salaryType: 'monthly', // Default to monthly
         isAuthenticated: false,
         isDriver: false,
         hasSalary: false,
@@ -71,6 +72,16 @@ const Employees = () => {
     const [licencePreview, setLicencePreview] = useState(null);
     
     const [roleOptions, setRoleOptions] = useState([]);
+    
+    // Salary type options
+    const salaryTypeOptions = [
+        { value: 'daily', label: 'Daily' },
+        // { value: 'weekly', label: 'Weekly' },
+        { value: 'monthly', label: 'Monthly' },
+        // { value: 'yearly', label: 'Yearly' },
+        // { value: 'hourly', label: 'Hourly' },
+        // { value: 'per_hour', label: 'Per Hour' },
+    ];
     
     // Filter options
     const filterOptions = [
@@ -198,7 +209,30 @@ const Employees = () => {
         { 
             Header: 'Salary', 
             accessor: 'salary', 
-            Cell: ({ value }) => value ? `₹${value}` : '-'
+            Cell: ({ row }) => {
+                const value = row.original.salary;
+                const salaryType = row.original.salaryType;
+                if (!value) return '-';
+                let typeLabel = '';
+                if (salaryType === 'daily') typeLabel = '/day';
+                else if (salaryType === 'weekly') typeLabel = '/week';
+                else if (salaryType === 'monthly') typeLabel = '/month';
+                else if (salaryType === 'yearly') typeLabel = '/year';
+                else if (salaryType === 'hourly') typeLabel = '/hour';
+                else if (salaryType === 'per_hour') typeLabel = '/hr';
+                else typeLabel = '/month';
+                
+                return `₹${value}${typeLabel}`;
+            }
+        },
+        { 
+            Header: 'Salary Type', 
+            accessor: 'salaryType',
+            Cell: ({ value }) => {
+                if (!value) return '-';
+                const option = salaryTypeOptions.find(opt => opt.value === value);
+                return option ? option.label : value;
+            }
         },
         { 
             Header: 'Has Salary', 
@@ -261,6 +295,7 @@ const Employees = () => {
             licenceNumber: '',
             licenceFile: null,
             salary: '',
+            salaryType: 'monthly',
             isAuthenticated: false,
             isDriver: false,
             hasSalary: false,
@@ -292,6 +327,7 @@ const Employees = () => {
             licenceNumber: data.licenceNumber || '',
             licenceFile: null,
             salary: data.salary || '',
+            salaryType: data.salaryType || 'monthly',
             isAuthenticated: data.isAuthenticated || false,
             isDriver: data.isDriver || false,
             hasSalary: data.hasSalary || false,
@@ -337,8 +373,13 @@ const Employees = () => {
         }
         
         // Validate salary if hasSalary is true
-        if (state.hasSalary && !state.salary) {
-            newErrors.salary = 'Salary is required when Has Salary is enabled';
+        if (state.hasSalary) {
+            if (!state.salary) {
+                newErrors.salary = 'Salary is required when Has Salary is enabled';
+            }
+            if (!state.salaryType) {
+                newErrors.salaryType = 'Salary type is required when Has Salary is enabled';
+            }
         }
         
         // Validate authentication fields if isAuthenticated is true
@@ -365,9 +406,10 @@ const Employees = () => {
         formData.append('is_loadman', state.isLoadman ? 1 : 0);
         formData.append('is_authenticated', state.isAuthenticated ? 1 : 0);
         
-        // Add salary only if hasSalary is true
+        // Add salary and salary type only if hasSalary is true
         if (state.hasSalary) {
             formData.append('salary', parseFloat(state.salary) || 0);
+            formData.append('salary_type', state.salaryType);
         }
         
         // Add role only if authenticated
@@ -478,17 +520,26 @@ const Employees = () => {
                 }
                 
                 if (name === 'hasSalary' && !checked) {
-                    // When hasSalary is disabled, clear salary
+                    // When hasSalary is disabled, clear salary and salary type
                     updatedState.salary = '';
+                    updatedState.salaryType = 'monthly';
                 }
                 
                 return updatedState;
             });
         } else {
-            // Only allow numbers for mobile and pincode
+            // Only allow numbers for mobile, pincode, and salary
             let processedValue = value;
-            if (name === 'mobileNo' || name === 'pincode' || name === 'salary') {
+            if (name === 'mobileNo' || name === 'pincode') {
+                processedValue = value.replace(/[^0-9]/g, '');
+            }
+            if (name === 'salary') {
                 processedValue = value.replace(/[^0-9.]/g, '');
+                // Prevent multiple decimal points
+                const decimalCount = (processedValue.match(/\./g) || []).length;
+                if (decimalCount > 1) {
+                    processedValue = processedValue.replace(/\.+$/, '');
+                }
             }
             
             setState((prev) => ({
@@ -805,22 +856,36 @@ const Employees = () => {
                                         </div>
                                     )}
 
-                                    {/* Salary Field - Only show if Has Salary is enabled */}
+                                    {/* Salary Fields - Only show if Has Salary is enabled */}
                                     {state.hasSalary && (
-                                        <div>
-                                            <label>Salary <span className="text-danger">*</span></label>
-                                            <input 
-                                                type="number" 
-                                                name="salary" 
-                                                value={state.salary} 
-                                                onChange={handleChange} 
-                                                placeholder="Enter Salary Amount" 
-                                                className="form-input" 
-                                                min="0"
-                                                step="0.01"
-                                            />
-                                            {errors.salary && <div className="text-danger text-sm mt-1">{errors.salary}</div>}
-                                        </div>
+                                        <>
+                                            <div>
+                                                <label>Salary Amount <span className="text-danger">*</span></label>
+                                                <input 
+                                                    type="text" 
+                                                    name="salary" 
+                                                    value={state.salary} 
+                                                    onChange={handleChange} 
+                                                    placeholder="Enter Salary Amount" 
+                                                    className="form-input" 
+                                                />
+                                                {errors.salary && <div className="text-danger text-sm mt-1">{errors.salary}</div>}
+                                            </div>
+                                            
+                                            <div>
+                                                <label>Salary Type <span className="text-danger">*</span></label>
+                                                <Select
+                                                    name="salaryType"
+                                                    options={salaryTypeOptions}
+                                                    value={getSelectedValue(salaryTypeOptions, state.salaryType)}
+                                                    onChange={(selectedOption) => handleSelectChange(selectedOption, { name: 'salaryType' })}
+                                                    placeholder="Select Salary Type"
+                                                    className="react-select"
+                                                    classNamePrefix="select"
+                                                />
+                                                {errors.salaryType && <div className="text-danger mt-1 text-sm">{errors.salaryType}</div>}
+                                            </div>
+                                        </>
                                     )}
 
                                     {/* Driver-specific fields */}

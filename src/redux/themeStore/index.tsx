@@ -18,6 +18,7 @@ import ProductEnquirySlice from '../productEnquirySlice'
 import DashboardSlice from '../dashboardSlice';
 import VehicleTypeSlice from '../vehicleTypeSlice';
 import PackageTypeSlice from '../packageTypeSlice';
+import ExpenceTypeSlice from '../expenceTypeSlice';
 import VehiclesSlice from '../vehiclesSlice';
 import AttendanceSlice from '../attendanceSlice';
 import HolidaySlice from '../holidaySlice';
@@ -51,6 +52,7 @@ const rootReducer = combineReducers({
     OfficeCenterSlice,
     CustomerSlice,
     LocationSlice,
+    ExpenceTypeSlice,
 });
 
 const store = configureStore({
