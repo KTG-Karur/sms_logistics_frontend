@@ -17,11 +17,14 @@ const getUserToken = () => {
 
 export function apiReturnCallBack(method, url, object = null, config = null) {
     const headers = {
-        'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         'If-Modified-Since': 0,
         auth: getUserToken(),
     };
+
+    if (method !== 'DELETE') {
+        headers['Content-Type'] = 'application/json';
+    }
 
     const fetchConfig = {
         method,
@@ -54,6 +57,8 @@ export function apiReturnCallBack(method, url, object = null, config = null) {
         } else if (method === 'GET') {
             const queryParams = new URLSearchParams(object).toString();
             url += `?${queryParams}`;
+        } else if (method === 'DELETE') {
+            delete fetchConfig.headers['Content-Type'];
         } else {
             fetchConfig.body = JSON.stringify(object);
         }

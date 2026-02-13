@@ -18,6 +18,7 @@ import IconMenuDashboards from '../Icon/Menu/IconMenuDashboard';
 import IconShield from '../Icon/IconShield';
 import IconUsers from '../Icon/IconUsers';
 import IconBuilding from '../Icon/IconBuilding';
+import IconBuildings from '../Icon/IconMenuBuilding';
 import IconCalculator from '../Icon/IconCalculator';
 import IconGavel from '../Icon/IconGavel';
 import IconReceipt from '../Icon/IconReceipt';
@@ -34,6 +35,8 @@ import IconCarMoving from '../Icon/IconCarMoving';
 import IconBox from '../Icon/IconBox';
 import IconCalendar from '../Icon/Menu/IconMenuCalendar';
 import packagePaymentcIcon from '../Icon/IconPackagePayment';
+import IconLocation from '../Icon/IconMenuLocation';
+import IconMenuPayment from '../Icon/IconMenuPayment';
 
 const getIcon = (name?: string) => {
     switch (name) {
@@ -67,6 +70,10 @@ const getIcon = (name?: string) => {
             return IconDollarSign;
         case 'fe-moneys':
             return IconMoney;
+        case 'fe-building':
+            return IconBuildings;
+        case 'fe-payment':
+            return IconMenuPayment;
         case 'fe-hand-holding-usd':
             return IconHandHoldingUsd;
         case 'fe-chart':
@@ -85,6 +92,8 @@ const getIcon = (name?: string) => {
             return IconCalendar;
         case 'fe-package-payment':
             return packagePaymentcIcon;
+        case 'fe-location':
+            return IconLocation;
         default:
             return IconMinus; // fallback
     }
