@@ -4,7 +4,8 @@ import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
 import { showMessage, dateConversion } from '../../../util/AllFunction';
 import { getEmployee } from '../../../redux/employeeSlice';
 import { 
-    getStaffAttendance, 
+    getStaffAttendanceList,
+    getStaffAttendance,
     createStaffAttendance, 
     updateStaffAttendance,
     resetAttendanceStatus,
@@ -26,6 +27,8 @@ import IconSearch from '../../../components/Icon/IconSearch';
 import IconPlus from '../../../components/Icon/IconPlus';
 import IconTrashLines from '../../../components/Icon/IconTrashLines';
 import IconDownload from '../../../components/Icon/IconDownload';
+import IconChevronLeft from '../../../components/Icon/IconChevronLeft';
+import IconChevronRight from '../../../components/Icon/IconChevronRight';
 
 const Attendance = () => {
     const dispatch = useDispatch();
@@ -33,7 +36,8 @@ const Attendance = () => {
     // Redux state
     const { employeeData } = useSelector((state) => state.EmployeeSlice);
     const { 
-        dailyAttendance, 
+        monthlyAttendance,
+        dailyAttendance,
         createAttendanceSuccess, 
         updateAttendanceSuccess,
         loading: attendanceLoading 
@@ -48,11 +52,12 @@ const Attendance = () => {
     const [loading, setLoading] = useState(false);
     const [employeeList, setEmployeeList] = useState([]);
     const [filteredEmployees, setFilteredEmployees] = useState([]);
-    const [attendanceData, setAttendanceData] = useState({});
     const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
+    const [selectedMonth, setSelectedMonth] = useState(moment().format('YYYY-MM'));
     const [searchQuery, setSearchQuery] = useState('');
     const [showHolidayForm, setShowHolidayForm] = useState(false);
     const [showHolidayList, setShowHolidayList] = useState(false);
+    const [viewMode, setViewMode] = useState('daily');
     
     // Login info for created_by/updated_by
     const loginInfo = localStorage.getItem('loginInfo');
@@ -67,25 +72,18 @@ const Attendance = () => {
         created_by: currentUserId
     });
     
-    // Filter
+    // Filters
     const [statusFilter, setStatusFilter] = useState('all');
     
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    // ============= ATTENDANCE STATUS OPTIONS =============
-    const attendanceStatuses = [
-        { value: 'present', label: 'Present', color: 'success', icon: IconCheckCircle },
-        { value: 'absent', label: 'Absent', color: 'danger', icon: IconXCircle },
-        { value: 'halfday', label: 'Half Day', color: 'warning', icon: IconClock },
-    ];
-
     // ============= INITIAL LOAD =============
     useEffect(() => {
         dispatch(setPageTitle('Attendance Management'));
         fetchEmployees();
-        fetchAttendance();
+        fetchDailyAttendance(selectedDate);
         fetchHolidays();
     }, []);
 
@@ -101,13 +99,23 @@ const Attendance = () => {
         }
     };
 
-    const fetchAttendance = async () => {
+    const fetchMonthlyAttendance = async () => {
         try {
-            await dispatch(getStaffAttendance({ 
-                attendanceDate: selectedDate 
+            await dispatch(getStaffAttendanceList({ 
+                attendanceDate: selectedMonth + '-01'
             }));
         } catch (error) {
-            console.error('Failed to fetch attendance:', error);
+            console.error('Failed to fetch monthly attendance:', error);
+        }
+    };
+
+    const fetchDailyAttendance = async (date) => {
+        try {
+            await dispatch(getStaffAttendance({ 
+                attendanceDate: date 
+            }));
+        } catch (error) {
+            console.error('Failed to fetch daily attendance:', error);
         }
     };
 
@@ -127,12 +135,12 @@ const Attendance = () => {
         }
     }, [employeeData]);
 
-    // ============= PROCESS ATTENDANCE DATA =============
+    // ============= PROCESS DAILY ATTENDANCE DATA =============
+    const [attendanceData, setAttendanceData] = useState({});
+    
     useEffect(() => {
         if (dailyAttendance && dailyAttendance.length > 0) {
-            // Group by employee and date, take the latest record for each
             const attendanceMap = {};
-            
             dailyAttendance.forEach(record => {
                 const staffId = record.staffId;
                 const date = record.attendanceDate;
@@ -141,17 +149,30 @@ const Attendance = () => {
                     attendanceMap[staffId] = {};
                 }
                 
-                // Always overwrite with the latest record we get from API
                 attendanceMap[staffId][date] = {
                     status: record.attendanceStatus,
                     attendanceId: record.staffAttendanceId,
-                    markedAt: new Date().toISOString()
                 };
             });
-            
             setAttendanceData(attendanceMap);
         }
     }, [dailyAttendance]);
+
+    // ============= PROCESS MONTHLY ATTENDANCE DATA =============
+    const [attendanceDetail, setAttendanceDetail] = useState([]);
+    const [monthDates, setMonthDates] = useState([]);
+    
+    useEffect(() => {
+        if (monthlyAttendance?.attendanceDetail) {
+            setAttendanceDetail(monthlyAttendance.attendanceDetail);
+            
+            if (monthlyAttendance.attendanceDetail.length > 0) {
+                const dates = Object.keys(monthlyAttendance.attendanceDetail[0].dailyStatus || {})
+                    .sort((a, b) => new Date(a) - new Date(b));
+                setMonthDates(dates);
+            }
+        }
+    }, [monthlyAttendance]);
 
     // ============= PROCESS HOLIDAY DATA =============
     const [holidays, setHolidays] = useState([]);
@@ -176,15 +197,20 @@ const Attendance = () => {
     useEffect(() => {
         if (createAttendanceSuccess || updateAttendanceSuccess) {
             showMessage('success', 'Attendance saved successfully');
-            fetchAttendance();
+            if (viewMode === 'monthly') {
+                fetchMonthlyAttendance();
+            } else {
+                fetchDailyAttendance(selectedDate);
+            }
             dispatch(resetAttendanceStatus());
         }
-    }, [createAttendanceSuccess, updateAttendanceSuccess]);
+    }, [createAttendanceSuccess, updateAttendanceSuccess, viewMode, selectedDate]);
 
     useEffect(() => {
         if (createHolidaySuccess) {
             showMessage('success', 'Holiday added successfully');
             fetchHolidays();
+            fetchMonthlyAttendance();
             setShowHolidayForm(false);
             setHolidayForm({
                 holiday_date: '',
@@ -199,7 +225,7 @@ const Attendance = () => {
     // ============= FILTERING =============
     useEffect(() => {
         filterEmployees();
-    }, [searchQuery, statusFilter, selectedDate, attendanceData]);
+    }, [searchQuery, statusFilter, attendanceDetail, selectedDate, viewMode, attendanceData]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -208,7 +234,6 @@ const Attendance = () => {
     const filterEmployees = () => {
         let filtered = [...employeeList];
         
-        // Search filter
         if (searchQuery) {
             filtered = filtered.filter(emp => 
                 emp.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -216,17 +241,24 @@ const Attendance = () => {
             );
         }
         
-        // Status filter
-        if (statusFilter !== 'all') {
+        if (viewMode === 'monthly' && attendanceDetail.length > 0) {
+            const employeeIdsWithData = attendanceDetail.map(emp => emp.staffId);
+            filtered = filtered.filter(emp => employeeIdsWithData.includes(emp.employeeId));
+        }
+        
+        if (viewMode === 'daily' && statusFilter !== 'all') {
             filtered = filtered.filter(emp => {
-                const empAttendance = attendanceData[emp.employeeId]?.[selectedDate];
+                const empAttendance = getEmployeeAttendanceStatus(emp.employeeId, selectedDate);
                 
-                // Handle holiday case
                 if (isHoliday(selectedDate) && statusFilter === 'holiday') {
                     return true;
                 }
                 
-                return empAttendance?.status === statusFilter;
+                if (isSunday(selectedDate) && statusFilter === 'sunday') {
+                    return true;
+                }
+                
+                return empAttendance === statusFilter;
             });
         }
         
@@ -234,9 +266,22 @@ const Attendance = () => {
     };
 
     // ============= ATTENDANCE HANDLERS =============
+    const handleMonthChange = (direction) => {
+        const newMonth = moment(selectedMonth).add(direction, 'months').format('YYYY-MM');
+        setSelectedMonth(newMonth);
+        dispatch(getStaffAttendanceList({ attendanceDate: newMonth + '-01' }));
+    };
+
     const handleDateChange = (date) => {
         setSelectedDate(date);
-        dispatch(getStaffAttendance({ attendanceDate: date }));
+        fetchDailyAttendance(date);
+    };
+
+    const handleViewModeChange = (mode) => {
+        setViewMode(mode);
+        if (mode === 'monthly') {
+            fetchMonthlyAttendance();
+        }
     };
 
     const isHoliday = (date) => {
@@ -248,16 +293,44 @@ const Attendance = () => {
         return holiday ? holiday.holidayName : null;
     };
 
-    const handleAttendanceChange = async (employeeId, status) => {
-        if (isHoliday(selectedDate)) {
-            showMessage('info', `Cannot mark attendance on ${getHolidayName(selectedDate)} holiday`);
+    const isSunday = (date) => {
+        return moment(date).day() === 0;
+    };
+
+    const getEmployeeAttendanceStatus = (employeeId, date) => {
+        if (isHoliday(date)) {
+            return 'holiday';
+        }
+        if (isSunday(date)) {
+            return 'sunday';
+        }
+        
+        if (viewMode === 'daily') {
+            return attendanceData[employeeId]?.[date]?.status || '-';
+        }
+        
+        const employee = attendanceDetail.find(emp => emp.staffId === employeeId);
+        if (employee && employee.dailyStatus) {
+            return employee.dailyStatus[date] || '-';
+        }
+        return '-';
+    };
+
+    const handleAttendanceChange = async (employeeId, status, date = selectedDate) => {
+        if (isHoliday(date)) {
+            showMessage('info', `Cannot mark attendance on ${getHolidayName(date)} holiday`);
+            return;
+        }
+
+        if (isSunday(date)) {
+            showMessage('info', `Cannot mark attendance on Sunday`);
             return;
         }
 
         const attendancePayload = {
             staffAttendance: [{
                 staffId: employeeId,
-                attendanceDate: selectedDate,
+                attendanceDate: date,
                 attendanceStatus: status,
                 updatedBy: currentUserId,
                 createdBy: currentUserId
@@ -274,6 +347,11 @@ const Attendance = () => {
     const markAllAttendance = async (status) => {
         if (isHoliday(selectedDate)) {
             showMessage('info', `Cannot mark attendance on ${getHolidayName(selectedDate)} holiday`);
+            return;
+        }
+
+        if (isSunday(selectedDate)) {
+            showMessage('info', `Cannot mark attendance on Sunday`);
             return;
         }
 
@@ -337,12 +415,36 @@ const Attendance = () => {
 
     const getStatusDetails = (status) => {
         const statusMap = {
-            'present': { color: 'success', icon: IconCheckCircle, label: 'Present' },
-            'absent': { color: 'danger', icon: IconXCircle, label: 'Absent' },
-            'halfday': { color: 'warning', icon: IconClock, label: 'Half Day' },
-            'holiday': { color: 'purple', icon: IconSun, label: 'Holiday' },
-            'sunday': { color: 'purple', icon: IconSun, label: 'Sunday' },
-            'pending': { color: 'light', icon: IconMinus, label: 'Pending' }
+            'present': { 
+                color: 'success', 
+                icon: IconCheckCircle, 
+                label: 'Present' 
+            },
+            'absent': { 
+                color: 'danger', 
+                icon: IconXCircle, 
+                label: 'Absent' 
+            },
+            'halfday': { 
+                color: 'warning', 
+                icon: IconClock, 
+                label: 'Half Day' 
+            },
+            'holiday': { 
+                color: 'purple', 
+                icon: IconSun, 
+                label: 'Holiday' 
+            },
+            'sunday': { 
+                color: 'info', 
+                icon: IconSun, 
+                label: 'Sunday' 
+            },
+            'pending': { 
+                color: 'light', 
+                icon: IconMinus, 
+                label: 'Pending' 
+            }
         };
         return statusMap[status] || statusMap.pending;
     };
@@ -351,28 +453,43 @@ const Attendance = () => {
         return getStatusDetails(status).color;
     };
 
-    const getStatusIcon = (status) => {
-        const details = getStatusDetails(status);
-        const IconComponent = details.icon;
-        return IconComponent ? <IconComponent className="w-5 h-5" /> : null;
-    };
-
     const getStatusLabel = (status) => {
         return getStatusDetails(status).label;
     };
 
-    const getStatusCount = (status) => {
-        if (status === 'holiday') {
-            return isHoliday(selectedDate) ? 1 : 0;
-        }
-        if (status === 'pending') {
-            return filteredEmployees.filter(emp => 
-                getAttendanceStatus(emp.employeeId) === 'pending'
+    const getSummaryStats = () => {
+        if (viewMode === 'monthly') {
+            const stats = {
+                totalEmployees: attendanceDetail.length,
+                totalPresent: attendanceDetail.reduce((sum, emp) => sum + (emp.presentCount || 0), 0),
+                totalAbsent: attendanceDetail.reduce((sum, emp) => sum + (emp.absentCount || 0), 0),
+                totalHalfDay: attendanceDetail.reduce((sum, emp) => sum + (emp.halfDayCount || 0), 0),
+                totalWorkingDays: attendanceDetail.reduce((sum, emp) => sum + (emp.totalWorkingDays || 0), 0),
+            };
+            return stats;
+        } else {
+            const presentCount = filteredEmployees.filter(emp => 
+                getEmployeeAttendanceStatus(emp.employeeId, selectedDate) === 'present'
             ).length;
+            const absentCount = filteredEmployees.filter(emp => 
+                getEmployeeAttendanceStatus(emp.employeeId, selectedDate) === 'absent'
+            ).length;
+            const halfDayCount = filteredEmployees.filter(emp => {
+                const status = getEmployeeAttendanceStatus(emp.employeeId, selectedDate);
+                return status === 'halfday';
+            }).length;
+            const pendingCount = filteredEmployees.filter(emp => 
+                getEmployeeAttendanceStatus(emp.employeeId, selectedDate) === '-'
+            ).length;
+            
+            return {
+                presentCount,
+                absentCount,
+                halfDayCount,
+                pendingCount,
+                totalEmployees: filteredEmployees.length
+            };
         }
-        return filteredEmployees.filter(emp => 
-            getAttendanceStatus(emp.employeeId) === status
-        ).length;
     };
 
     // ============= PAGINATION =============
@@ -387,36 +504,65 @@ const Attendance = () => {
 
     // ============= EXPORT =============
     const exportAttendance = () => {
+        if (viewMode === 'monthly') {
+            exportMonthlyAttendance();
+        } else {
+            exportDailyAttendance();
+        }
+    };
+
+    const exportDailyAttendance = () => {
         const data = {
             date: selectedDate,
             holiday: isHoliday(selectedDate) ? getHolidayName(selectedDate) : 'No',
-            employees: filteredEmployees.map(emp => ({
-                name: emp.employeeName,
-                status: getAttendanceStatus(emp.employeeId),
-                statusLabel: getStatusLabel(getAttendanceStatus(emp.employeeId)),
-                markedAt: attendanceData[emp.employeeId]?.[selectedDate]?.markedAt 
-                    ? moment(attendanceData[emp.employeeId][selectedDate].markedAt).format('HH:mm:ss') 
-                    : 'N/A'
-            }))
+            isSunday: isSunday(selectedDate),
+            employees: filteredEmployees.map(emp => {
+                const status = getEmployeeAttendanceStatus(emp.employeeId, selectedDate);
+                return {
+                    name: emp.employeeName,
+                    status: getStatusLabel(status),
+                };
+            })
         };
 
         const csvContent = [
             ['Date', selectedDate],
+            ['Day', moment(selectedDate).format('dddd')],
             ['Holiday', data.holiday],
             [''],
-            ['Employee Name', 'Status', 'Marked Time'],
+            ['Employee Name', 'Status'],
             ...data.employees.map(emp => [
                 emp.name,
-                emp.statusLabel,
-                emp.markedAt
+                emp.status
             ])
         ].map(row => row.join(',')).join('\n');
 
-        const blob = new Blob([csvContent], { type: 'text/csv' });
+        downloadCSV(csvContent, `attendance_${selectedDate}.csv`);
+    };
+
+    const exportMonthlyAttendance = () => {
+        const csvContent = [
+            ['Monthly Attendance Report - ' + moment(selectedMonth).format('MMMM YYYY')],
+            [''],
+            ['Employee Name', 'Present Days', 'Absent Days', 'Half Days', 'Working Days'],
+            ...attendanceDetail.map(emp => [
+                emp.staffName,
+                emp.presentCount || 0,
+                emp.absentCount || 0,
+                emp.halfDayCount || 0,
+                emp.totalWorkingDays || 0
+            ])
+        ].map(row => row.join(',')).join('\n');
+
+        downloadCSV(csvContent, `attendance_${selectedMonth}.csv`);
+    };
+
+    const downloadCSV = (content, filename) => {
+        const blob = new Blob([content], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `attendance_${selectedDate}.csv`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -424,21 +570,22 @@ const Attendance = () => {
         showMessage('success', 'Attendance exported successfully');
     };
 
-    // ============= COMPONENTS =============
-    const HolidayBadge = () => {
-        if (isHoliday(selectedDate)) {
-            return (
-                <div className="inline-flex items-center px-3 py-2 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-sm font-medium">
-                    <IconSun className="w-4 h-4 mr-2" />
-                    {getHolidayName(selectedDate)} - Holiday
-                </div>
-            );
-        }
-        return null;
+    // ============= STATUS BADGE COMPONENT =============
+    const StatusBadge = ({ status }) => {
+        const details = getStatusDetails(status);
+        const IconComponent = details.icon;
+        
+        return (
+            <span className={`badge badge-${details.color} capitalize inline-flex items-center gap-1 px-2 py-1`}>
+                {IconComponent && <IconComponent className="w-4 h-4" />}
+                <span>{details.label}</span>
+            </span>
+        );
     };
 
     // ============= RENDER =============
     const isLoading = loading || attendanceLoading || holidayLoading;
+    const stats = getSummaryStats();
 
     return (
         <div className="space-y-6">
@@ -450,23 +597,87 @@ const Attendance = () => {
                             Attendance Management
                         </h2>
                         <p className="text-gray-500 dark:text-gray-400">
-                            Mark daily attendance (Present / Absent / Half Day)
+                            {viewMode === 'monthly' 
+                                ? 'Monthly attendance calendar view' 
+                                : 'Daily attendance marking'}
                         </p>
                     </div>
                     <div className="flex items-center space-x-3">
-                        {/* Date Selector */}
-                        <div className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
-                            <IconCalendar className="w-5 h-5 text-primary" />
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => handleDateChange(e.target.value)}
-                                className="form-input bg-transparent border-0 focus:ring-0"
-                            />
+                        {/* View Mode Toggle */}
+                        <div className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-900 p-1 rounded-lg">
+                            <button
+                                onClick={() => handleViewModeChange('daily')}
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    viewMode === 'daily'
+                                        ? 'bg-primary text-white'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                Daily View
+                            </button>
+                            <button
+                                onClick={() => handleViewModeChange('monthly')}
+                                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                    viewMode === 'monthly'
+                                        ? 'bg-primary text-white'
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                }`}
+                            >
+                                Monthly View
+                            </button>
                         </div>
-                        {/* Holiday Indicator */}
-                        <HolidayBadge />
                     </div>
+                </div>
+
+                {/* Month/Date Selector */}
+                <div className="mt-6">
+                    {viewMode === 'monthly' ? (
+                        <div className="flex items-center justify-between">
+                            <button
+                                onClick={() => handleMonthChange(-1)}
+                                className="btn btn-outline-primary"
+                            >
+                                <IconChevronLeft className="w-4 h-4 mr-2" />
+                                Previous Month
+                            </button>
+                            <h3 className="text-lg font-semibold">
+                                {moment(selectedMonth).format('MMMM YYYY')}
+                            </h3>
+                            <button
+                                onClick={() => handleMonthChange(1)}
+                                className="btn btn-outline-primary"
+                            >
+                                Next Month
+                                <IconChevronRight className="w-4 h-4 ml-2" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
+                                    <IconCalendar className="w-5 h-5 text-primary" />
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => handleDateChange(e.target.value)}
+                                        className="form-input bg-transparent border-0 focus:ring-0"
+                                    />
+                                </div>
+                                {isHoliday(selectedDate) && (
+                                    <div className="inline-flex items-center px-3 py-2 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-sm font-medium">
+                                        <IconSun className="w-4 h-4 mr-2" />
+                                        {getHolidayName(selectedDate)} - Holiday
+                                    </div>
+                                )}
+                                {isSunday(selectedDate) && !isHoliday(selectedDate) && (
+                                    <div className="inline-flex items-center px-3 py-2 rounded-full bg-info-100 text-info-800 dark:bg-info-900 dark:text-info-200 text-sm font-medium">
+                                        <IconSun className="w-4 h-4 mr-2" />
+                                        Sunday - Weekly Off
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Filters Section */}
@@ -475,7 +686,7 @@ const Attendance = () => {
                     <div className="relative">
                         <input
                             type="text"
-                            placeholder="Search employees..."
+                            placeholder="Search employees by name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="form-input pl-10"
@@ -483,19 +694,22 @@ const Attendance = () => {
                         <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     </div>
                     
-                    {/* Status Filter */}
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="form-select"
-                    >
-                        <option value="all">All Status</option>
-                        <option value="present">Present</option>
-                        <option value="absent">Absent</option>
-                        <option value="halfday">Half Day</option>
-                        <option value="pending">Pending</option>
-                        <option value="holiday">Holiday</option>
-                    </select>
+                    {/* Status Filter - Only for Daily View */}
+                    {viewMode === 'daily' && (
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="form-select"
+                        >
+                            <option value="all">All Status</option>
+                            <option value="present">Present</option>
+                            <option value="absent">Absent</option>
+                            <option value="halfday">Half Day</option>
+                            <option value="-">Pending</option>
+                            <option value="holiday">Holiday</option>
+                            <option value="sunday">Sunday</option>
+                        </select>
+                    )}
                     
                     {/* Show Per Page */}
                     <select
@@ -511,64 +725,85 @@ const Attendance = () => {
                 </div>
 
                 {/* Summary Stats */}
-                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {['present', 'absent', 'halfday', 'pending', 'holiday'].map((status) => {
-                        const count = getStatusCount(status);
-                        if (status === 'holiday' && count === 0) return null;
-                        
-                        return (
-                            <div
-                                key={status}
-                                className={`bg-${getStatusColor(status)}-50 dark:bg-${getStatusColor(status)}-900/20 p-4 rounded-lg`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <div className="text-sm text-gray-600 dark:text-gray-300 capitalize">
-                                            {getStatusLabel(status)}
-                                        </div>
-                                        <div className={`text-2xl font-bold text-${getStatusColor(status)}-600`}>
-                                            {count}
-                                        </div>
-                                    </div>
-                                    {getStatusIcon(status)}
-                                </div>
+                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {viewMode === 'monthly' ? (
+                        <>
+                            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Total Employees</div>
+                                <div className="text-2xl font-bold text-primary-600">{stats.totalEmployees}</div>
                             </div>
-                        );
-                    })}
+                            <div className="bg-success-50 dark:bg-success-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Total Present</div>
+                                <div className="text-2xl font-bold text-success-600">{stats.totalPresent}</div>
+                            </div>
+                            <div className="bg-danger-50 dark:bg-danger-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Total Absent</div>
+                                <div className="text-2xl font-bold text-danger-600">{stats.totalAbsent}</div>
+                            </div>
+                            <div className="bg-warning-50 dark:bg-warning-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Total Half Day</div>
+                                <div className="text-2xl font-bold text-warning-600">{stats.totalHalfDay}</div>
+                            </div>
+                            <div className="bg-info-50 dark:bg-info-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Working Days</div>
+                                <div className="text-2xl font-bold text-info-600">{stats.totalWorkingDays}</div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Total Employees</div>
+                                <div className="text-2xl font-bold text-primary-600">{stats.totalEmployees}</div>
+                            </div>
+                            <div className="bg-success-50 dark:bg-success-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Present</div>
+                                <div className="text-2xl font-bold text-success-600">{stats.presentCount}</div>
+                            </div>
+                            <div className="bg-danger-50 dark:bg-danger-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Absent</div>
+                                <div className="text-2xl font-bold text-danger-600">{stats.absentCount}</div>
+                            </div>
+                            <div className="bg-warning-50 dark:bg-warning-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Half Day</div>
+                                <div className="text-2xl font-bold text-warning-600">{stats.halfDayCount}</div>
+                            </div>
+                            <div className="bg-light-50 dark:bg-gray-900/20 p-4 rounded-lg">
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Pending</div>
+                                <div className="text-2xl font-bold text-gray-600">{stats.pendingCount}</div>
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Action Buttons - All Three Buttons */}
+                {/* Action Buttons - Only for Daily View */}
+                {viewMode === 'daily' && !isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                    <div className="mt-6 flex flex-wrap gap-2">
+                        <button
+                            onClick={() => markAllAttendance('present')}
+                            className="btn btn-success"
+                        >
+                            <IconCheckCircle className="w-4 h-4 mr-2" />
+                            Mark All Present
+                        </button>
+                        <button
+                            onClick={() => markAllAttendance('absent')}
+                            className="btn btn-danger"
+                        >
+                            <IconXCircle className="w-4 h-4 mr-2" />
+                            Mark All Absent
+                        </button>
+                        <button
+                            onClick={() => markAllAttendance('halfday')}
+                            className="btn btn-warning"
+                        >
+                            <IconClock className="w-4 h-4 mr-2" />
+                            Mark All Half Day
+                        </button>
+                    </div>
+                )}
+
+                {/* Global Action Buttons */}
                 <div className="mt-6 flex flex-wrap gap-2">
-                    <button
-                        onClick={() => markAllAttendance('present')}
-                        disabled={isHoliday(selectedDate)}
-                        className={`btn btn-success ${
-                            isHoliday(selectedDate) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                    >
-                        <IconCheckCircle className="w-4 h-4 mr-2" />
-                        Mark All Present
-                    </button>
-                    <button
-                        onClick={() => markAllAttendance('absent')}
-                        disabled={isHoliday(selectedDate)}
-                        className={`btn btn-danger ${
-                            isHoliday(selectedDate) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                    >
-                        <IconXCircle className="w-4 h-4 mr-2" />
-                        Mark All Absent
-                    </button>
-                    <button
-                        onClick={() => markAllAttendance('halfday')}
-                        disabled={isHoliday(selectedDate)}
-                        className={`btn btn-warning ${
-                            isHoliday(selectedDate) ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                    >
-                        <IconClock className="w-4 h-4 mr-2" />
-                        Mark All Half Day
-                    </button>
                     <button
                         onClick={() => setShowHolidayForm(true)}
                         className="btn btn-info"
@@ -587,19 +822,19 @@ const Attendance = () => {
                         className="btn btn-primary"
                     >
                         <IconDownload className="w-4 h-4 mr-2" />
-                        Export
+                        Export {viewMode === 'monthly' ? 'Monthly' : 'Daily'} Report
                     </button>
                 </div>
             </div>
 
-            {/* Attendance Table */}
+            {/* Attendance Table/Calendar */}
             <div className="panel">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">
-                        Attendance for {dateConversion(selectedDate, 'DD MMMM YYYY')}
-                        {isHoliday(selectedDate) && (
-                            <span className="ml-2 text-purple-600">(Holiday)</span>
-                        )}
+                        {viewMode === 'monthly' 
+                            ? `Attendance Calendar - ${moment(selectedMonth).format('MMMM YYYY')}`
+                            : `Attendance for ${dateConversion(selectedDate, 'DD MMMM YYYY')}`
+                        }
                     </h3>
                     <div className="text-sm text-gray-500">
                         Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredEmployees.length)} of {filteredEmployees.length} employees
@@ -612,170 +847,278 @@ const Attendance = () => {
                     </div>
                 ) : (
                     <>
-                        {/* Desktop Table */}
-                        <div className="overflow-x-auto hidden md:block">
-                            <table className="w-full table-auto">
-                                <thead>
-                                    <tr className="bg-gray-50 dark:bg-gray-800">
-                                        <th className="px-4 py-3 text-left">S.No</th>
-                                        <th className="px-4 py-3 text-left">Employee</th>
-                                        <th className="px-4 py-3 text-left">Status</th>
-                                        <th className="px-4 py-3 text-left">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {currentItems.map((employee, index) => {
-                                        const status = getAttendanceStatus(employee.employeeId);
-                                        const statusDetails = getStatusDetails(status);
-                                        const markedTime = attendanceData[employee.employeeId]?.[selectedDate]?.markedAt
-                                            ? moment(attendanceData[employee.employeeId][selectedDate].markedAt).format('HH:mm')
-                                            : null;
-                                        const isDisabled = status === 'holiday';
-                                        
-                                        return (
-                                            <tr
-                                                key={employee.employeeId}
-                                                className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900"
-                                            >
-                                                <td className="px-4 py-3">
-                                                    {indexOfFirstItem + index + 1}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center space-x-3">
+                        {viewMode === 'monthly' ? (
+                            /* Monthly Calendar View */
+                            <div className="overflow-x-auto">
+                                <table className="w-full table-auto border-collapse">
+                                    <thead>
+                                        <tr className="bg-gray-50 dark:bg-gray-800">
+                                            <th className="px-4 py-3 text-left sticky left-0 bg-gray-50 dark:bg-gray-800 z-10">
+                                                Employee
+                                            </th>
+                                            {monthDates.map(date => {
+                                                const day = moment(date).format('D');
+                                                const dayName = moment(date).format('ddd');
+                                                const isWeekend = moment(date).day() === 0;
+                                                const isHolidayDate = isHoliday(date);
+                                                
+                                                return (
+                                                    <th 
+                                                        key={date} 
+                                                        className={`px-2 py-3 text-center min-w-[40px] ${
+                                                            isWeekend ? 'bg-gray-100 dark:bg-gray-900' : ''
+                                                        } ${
+                                                            isHolidayDate ? 'bg-purple-50 dark:bg-purple-900/20' : ''
+                                                        }`}
+                                                    >
+                                                        <div className="text-sm font-medium">{day}</div>
+                                                        <div className="text-xs text-gray-500">{dayName}</div>
+                                                        {isHolidayDate && (
+                                                            <div className="text-xs text-purple-600 truncate max-w-[60px]">
+                                                                🎉
+                                                            </div>
+                                                        )}
+                                                    </th>
+                                                );
+                                            })}
+                                            <th className="px-2 py-3 text-center bg-success-50 dark:bg-success-900/20">
+                                                P
+                                            </th>
+                                            <th className="px-2 py-3 text-center bg-warning-50 dark:bg-warning-900/20">
+                                                H
+                                            </th>
+                                            <th className="px-2 py-3 text-center bg-danger-50 dark:bg-danger-900/20">
+                                                A
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {attendanceDetail.map((employee, index) => (
+                                            <tr key={employee.staffId} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900">
+                                                <td className="px-4 py-2 font-medium sticky left-0 bg-white dark:bg-gray-800">
+                                                    <div className="flex items-center space-x-2">
                                                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                                                             <IconUser className="w-4 h-4 text-primary" />
                                                         </div>
-                                                        <div className="font-medium">
-                                                            {employee.employeeName}
+                                                        <span>{employee.staffName}</span>
+                                                    </div>
+                                                </td>
+                                                {monthDates.map(date => {
+                                                    const status = employee.dailyStatus[date] || '-';
+                                                    const color = getStatusColor(status);
+                                                    const isWeekend = moment(date).day() === 0;
+                                                    const isHolidayDate = isHoliday(date);
+                                                    
+                                                    return (
+                                                        <td 
+                                                            key={date} 
+                                                            className={`px-2 py-2 text-center ${
+                                                                isWeekend ? 'bg-gray-50 dark:bg-gray-900/50' : ''
+                                                            } ${
+                                                                isHolidayDate ? 'bg-purple-50 dark:bg-purple-900/10' : ''
+                                                            }`}
+                                                        >
+                                                            {status !== '-' && status !== 'sunday' && status !== 'holiday' ? (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setSelectedDate(date);
+                                                                        setViewMode('daily');
+                                                                        fetchDailyAttendance(date);
+                                                                    }}
+                                                                    className={`px-2 py-1 rounded text-xs font-medium bg-${color}-100 text-${color}-800 dark:bg-${color}-900/30 dark:text-${color}-200 hover:opacity-80 transition-opacity`}
+                                                                >
+                                                                    {getStatusLabel(status)}
+                                                                </button>
+                                                            ) : (
+                                                                <span className={`text-xs ${
+                                                                    status === 'sunday' ? 'text-info-600' : 
+                                                                    status === 'holiday' ? 'text-purple-600' : 
+                                                                    'text-gray-400'
+                                                                }`}>
+                                                                    {status === 'sunday' ? 'SUN' : 
+                                                                     status === 'holiday' ? 'HOL' : '-'}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
+                                                <td className="px-2 py-2 text-center font-semibold text-success-600 bg-success-50 dark:bg-success-900/20">
+                                                    {employee.presentCount || 0}
+                                                </td>
+                                                <td className="px-2 py-2 text-center font-semibold text-warning-600 bg-warning-50 dark:bg-warning-900/20">
+                                                    {employee.halfDayCount || 0}
+                                                </td>
+                                                <td className="px-2 py-2 text-center font-semibold text-danger-600 bg-danger-50 dark:bg-danger-900/20">
+                                                    {employee.absentCount || 0}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            /* Daily View Table */
+                            <>
+                                {/* Desktop Table */}
+                                <div className="overflow-x-auto hidden md:block">
+                                    <table className="w-full table-auto">
+                                        <thead>
+                                            <tr className="bg-gray-50 dark:bg-gray-800">
+                                                <th className="px-4 py-3 text-left">S.No</th>
+                                                <th className="px-4 py-3 text-left">Employee</th>
+                                                <th className="px-4 py-3 text-left">Status</th>
+                                                {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                                                    <th className="px-4 py-3 text-left">Actions</th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {currentItems.map((employee, index) => {
+                                                const status = getEmployeeAttendanceStatus(employee.employeeId, selectedDate);
+                                                const isDisabled = status === 'holiday' || status === 'sunday';
+                                                
+                                                return (
+                                                    <tr
+                                                        key={employee.employeeId}
+                                                        className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900"
+                                                    >
+                                                        <td className="px-4 py-3">
+                                                            {indexOfFirstItem + index + 1}
+                                                        </td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center space-x-3">
+                                                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                                                    <IconUser className="w-4 h-4 text-primary" />
+                                                                </div>
+                                                                <div className="font-medium">
+                                                                    {employee.employeeName}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3">
+        {status === 'present' && <IconCheckCircle className="w-4 h-4 text-success" />}
+        {status === 'absent' && <IconXCircle className="w-4 h-4 text-danger" />}
+        {status === 'halfday' && <IconClock className="w-4 h-4 text-warning" />}
+        {status === 'holiday' && <IconSun className="w-4 h-4 text-primary"/>}
+        {status === 'sunday' && <IconSun className="w-4 h-4 text-secondary" />}
+        {(status === 'pending' || status === '-') && <IconMinus className="w-4 h-4" />}
+   
+</td>
+                                                        {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                                                            <td className="px-4 py-3">
+                                                                <div className="flex items-center space-x-2">
+                                                                    <button
+                                                                        onClick={() => handleAttendanceChange(employee.employeeId, 'present', selectedDate)}
+                                                                        disabled={status === 'present'}
+                                                                        className={`btn btn-outline-success btn-sm ${
+                                                                            status === 'present' ? 'opacity-50 cursor-not-allowed' : ''
+                                                                        }`}
+                                                                    >
+                                                                        <IconCheckCircle className="w-3 h-3 mr-1" />
+                                                                        Present
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleAttendanceChange(employee.employeeId, 'absent', selectedDate)}
+                                                                        disabled={status === 'absent'}
+                                                                        className={`btn btn-outline-danger btn-sm ${
+                                                                            status === 'absent' ? 'opacity-50 cursor-not-allowed' : ''
+                                                                        }`}
+                                                                    >
+                                                                        <IconXCircle className="w-3 h-3 mr-1" />
+                                                                        Absent
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleAttendanceChange(employee.employeeId, 'halfday', selectedDate)}
+                                                                        disabled={status === 'halfday'}
+                                                                        className={`btn btn-outline-warning btn-sm ${
+                                                                            status === 'halfday' ? 'opacity-50 cursor-not-allowed' : ''
+                                                                        }`}
+                                                                    >
+                                                                        <IconClock className="w-3 h-3 mr-1" />
+                                                                        Half Day
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile Cards */}
+                                <div className="md:hidden space-y-4">
+                                    {currentItems.map((employee, index) => {
+                                        const status = getEmployeeAttendanceStatus(employee.employeeId, selectedDate);
+                                        const markedTime = attendanceData[employee.employeeId]?.[selectedDate]?.markedAt
+                                            ? moment(attendanceData[employee.employeeId][selectedDate].markedAt).format('HH:mm')
+                                            : null;
+                                        const isDisabled = status === 'holiday' || status === 'sunday';
+                                        
+                                        return (
+                                            <div
+                                                key={employee.employeeId}
+                                                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+                                            >
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className="flex items-center space-x-3">
+                                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                            <IconUser className="w-5 h-5 text-primary" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-semibold">{employee.employeeName}</div>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center space-x-2">
-                                                        <span className={`text-${statusDetails.color}`}>
-                                                            {statusDetails.icon && <statusDetails.icon className="w-5 h-5" />}
-                                                        </span>
-                                                        <span className={`badge badge-${statusDetails.color} capitalize`}>
-                                                            {statusDetails.label}
-                                                        </span>
-                                                        {markedTime && status !== 'holiday' && status !== 'pending' && (
-                                                            <span className="text-xs text-gray-500">
-                                                                at {markedTime}
-                                                            </span>
-                                                        )}
+                                                    <StatusBadge status={status} />
+                                                </div>
+                                                
+                                                {markedTime && status !== 'holiday' && status !== 'sunday' && status !== 'pending' && (
+                                                    <div className="text-sm text-gray-500 mb-3">
+                                                        Marked at: {markedTime}
                                                     </div>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    <div className="flex items-center space-x-2">
-                                                        {/* Present Button */}
+                                                )}
+                                                
+                                                {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                                                    <div className="grid grid-cols-3 gap-2 pt-3 border-t">
                                                         <button
                                                             onClick={() => handleAttendanceChange(employee.employeeId, 'present')}
-                                                            disabled={isDisabled || status === 'present'}
-                                                            className={`btn btn-outline-success btn-sm ${
-                                                                isDisabled || status === 'present' ? 'opacity-50 cursor-not-allowed' : ''
+                                                            disabled={status === 'present'}
+                                                            className={`btn btn-success btn-sm ${
+                                                                status === 'present' ? 'opacity-50 cursor-not-allowed' : ''
                                                             }`}
                                                         >
-                                                            <IconCheckCircle className="w-3 h-3 mr-1" />
+                                                            <IconCheckCircle className="w-3 h-3 mr-1 inline" />
                                                             Present
                                                         </button>
-                                                        
-                                                        {/* Absent Button */}
                                                         <button
                                                             onClick={() => handleAttendanceChange(employee.employeeId, 'absent')}
-                                                            disabled={isDisabled || status === 'absent'}
-                                                            className={`btn btn-outline-danger btn-sm ${
-                                                                isDisabled || status === 'absent' ? 'opacity-50 cursor-not-allowed' : ''
+                                                            disabled={status === 'absent'}
+                                                            className={`btn btn-danger btn-sm ${
+                                                                status === 'absent' ? 'opacity-50 cursor-not-allowed' : ''
                                                             }`}
                                                         >
-                                                            <IconXCircle className="w-3 h-3 mr-1" />
+                                                            <IconXCircle className="w-3 h-3 mr-1 inline" />
                                                             Absent
                                                         </button>
-                                                        
-                                                        {/* Half Day Button */}
                                                         <button
                                                             onClick={() => handleAttendanceChange(employee.employeeId, 'halfday')}
-                                                            disabled={isDisabled || status === 'halfday'}
-                                                            className={`btn btn-outline-warning btn-sm ${
-                                                                isDisabled || status === 'halfday' ? 'opacity-50 cursor-not-allowed' : ''
+                                                            disabled={status === 'halfday'}
+                                                            className={`btn btn-warning btn-sm ${
+                                                                status === 'halfday' ? 'opacity-50 cursor-not-allowed' : ''
                                                             }`}
                                                         >
-                                                            <IconClock className="w-3 h-3 mr-1" />
+                                                            <IconClock className="w-3 h-3 mr-1 inline" />
                                                             Half Day
                                                         </button>
                                                     </div>
-                                                </td>
-                                            </tr>
+                                                )}
+                                            </div>
                                         );
                                     })}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Mobile Cards */}
-                        <div className="md:hidden space-y-4">
-                            {currentItems.map((employee, index) => {
-                                const status = getAttendanceStatus(employee.employeeId);
-                                const statusDetails = getStatusDetails(status);
-                                const markedTime = attendanceData[employee.employeeId]?.[selectedDate]?.markedAt
-                                    ? moment(attendanceData[employee.employeeId][selectedDate].markedAt).format('HH:mm')
-                                    : null;
-                                const isDisabled = status === 'holiday';
-                                
-                                return (
-                                    <div
-                                        key={employee.employeeId}
-                                        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4"
-                                    >
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center space-x-3">
-                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <IconUser className="w-5 h-5 text-primary" />
-                                                </div>
-                                            </div>
-                                            <span className={`badge badge-${statusDetails.color} capitalize`}>
-                                                {statusDetails.label}
-                                            </span>
-                                        </div>
-                                        
-                                        {markedTime && status !== 'holiday' && status !== 'pending' && (
-                                            <div className="text-sm text-gray-500 mb-3">
-                                                Marked at: {markedTime}
-                                            </div>
-                                        )}
-                                        
-                                        <div className="grid grid-cols-3 gap-2 pt-3 border-t">
-                                            <button
-                                                onClick={() => handleAttendanceChange(employee.employeeId, 'present')}
-                                                disabled={isDisabled || status === 'present'}
-                                                className={`btn btn-success btn-sm ${
-                                                    isDisabled || status === 'present' ? 'opacity-50 cursor-not-allowed' : ''
-                                                }`}
-                                            >
-                                                Present
-                                            </button>
-                                            <button
-                                                onClick={() => handleAttendanceChange(employee.employeeId, 'absent')}
-                                                disabled={isDisabled || status === 'absent'}
-                                                className={`btn btn-danger btn-sm ${
-                                                    isDisabled || status === 'absent' ? 'opacity-50 cursor-not-allowed' : ''
-                                                }`}
-                                            >
-                                                Absent
-                                            </button>
-                                            <button
-                                                onClick={() => handleAttendanceChange(employee.employeeId, 'halfday')}
-                                                disabled={isDisabled || status === 'halfday'}
-                                                className={`btn btn-warning btn-sm ${
-                                                    isDisabled || status === 'halfday' ? 'opacity-50 cursor-not-allowed' : ''
-                                                }`}
-                                            >
-                                                Half Day
-                                            </button>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                </div>
+                            </>
+                        )}
 
                         {/* Pagination */}
                         {totalPages > 1 && (
@@ -906,6 +1249,7 @@ const Attendance = () => {
                                             <tr className="bg-gray-50 dark:bg-gray-900">
                                                 <th className="px-4 py-3 text-left">Holiday Name</th>
                                                 <th className="px-4 py-3 text-left">Date</th>
+                                                <th className="px-4 py-3 text-left">Day</th>
                                                 <th className="px-4 py-3 text-left">Actions</th>
                                             </tr>
                                         </thead>
@@ -917,6 +1261,9 @@ const Attendance = () => {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         {dateConversion(holiday.holidayDate, 'DD MMMM YYYY')}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {moment(holiday.holidayDate).format('dddd')}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <button
