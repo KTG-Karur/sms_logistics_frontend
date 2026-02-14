@@ -8,13 +8,7 @@ import Tippy from '@tippyjs/react';
 import ModelViewBox from '../../../util/ModelViewBox';
 import { findArrObj, showMessage } from '../../../util/AllFunction';
 import _ from 'lodash';
-import { 
-    getPackageType, 
-    createPackageType, 
-    updatePackageType, 
-    deletePackageType,
-    resetPackageTypeStatus 
-} from '../../../redux/packageTypeSlice';
+import { getPackageType, createPackageType, updatePackageType, deletePackageType, resetPackageTypeStatus } from '../../../redux/packageTypeSlice';
 
 const PackageTypes = () => {
     const loginInfo = localStorage.getItem('loginInfo');
@@ -94,7 +88,7 @@ const PackageTypes = () => {
         pickupPrice: item.package_pickup_price,
         dropPrice: item.package_drop_price,
         is_active: item.is_active ? 'Active' : 'Inactive',
-        originalData: item // Keep original data for reference
+        originalData: item, // Keep original data for reference
     }));
 
     const handlePaginationChange = (pageIndex, newPageSize) => {
@@ -107,9 +101,7 @@ const PackageTypes = () => {
 
         // Apply search filter
         if (searchTerm) {
-            filteredData = filteredData.filter((pkg) => 
-                pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
         }
 
         const startIndex = currentPage * pageSize;
@@ -121,9 +113,7 @@ const PackageTypes = () => {
         let filteredData = transformedPackageTypes;
 
         if (searchTerm) {
-            filteredData = filteredData.filter((pkg) => 
-                pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
         }
 
         return filteredData.length;
@@ -176,11 +166,11 @@ const PackageTypes = () => {
             Header: 'Status',
             accessor: 'is_active',
             Cell: ({ value }) => (
-                <span className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                    value === 'Active' 
-                        ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' 
-                        : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
-                }`}>
+                <span
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
+                        value === 'Active' ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
+                    }`}
+                >
                     {value}
                 </span>
             ),
@@ -194,11 +184,7 @@ const PackageTypes = () => {
                   Cell: ({ row }) => (
                       <div className="flex items-center justify-center space-x-2">
                           <Tippy content="Edit">
-                              <button 
-                                  type="button" 
-                                  onClick={() => onEditForm(row.original)} 
-                                  className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200"
-                              >
+                              <button type="button" onClick={() => onEditForm(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200">
                                   <IconPencil className="w-4 h-4" />
                               </button>
                           </Tippy>
@@ -261,24 +247,20 @@ const PackageTypes = () => {
             newErrors.package_type_name = 'Package name must be at least 2 characters';
         }
 
-        if (!state.package_pickup_price) {
+        if (state.package_pickup_price === '' || state.package_pickup_price === null || state.package_pickup_price === undefined) {
             newErrors.package_pickup_price = 'Pickup price is required';
-        } else if (isNaN(state.package_pickup_price) || parseFloat(state.package_pickup_price) <= 0) {
-            newErrors.package_pickup_price = 'Pickup price must be a valid positive number';
+        } else if (isNaN(state.package_pickup_price) || parseFloat(state.package_pickup_price) < 0) {
+            newErrors.package_pickup_price = 'Pickup price must be a valid number (0 or positive)';
         }
 
-        if (!state.package_drop_price) {
+        if (state.package_drop_price === '' || state.package_drop_price === null || state.package_drop_price === undefined) {
             newErrors.package_drop_price = 'Drop price is required';
-        } else if (isNaN(state.package_drop_price) || parseFloat(state.package_drop_price) <= 0) {
-            newErrors.package_drop_price = 'Drop price must be a valid positive number';
+        } else if (isNaN(state.package_drop_price) || parseFloat(state.package_drop_price) < 0) {
+            newErrors.package_drop_price = 'Drop price must be a valid number (0 or positive)';
         }
 
         // Check for duplicate package name (excluding current item in edit mode)
-        const duplicatePackage = transformedPackageTypes.find(
-            (pkg) => 
-                pkg.packageName.toLowerCase() === state.package_type_name.toLowerCase() && 
-                (!isEdit || pkg.id !== selectedItem?.id)
-        );
+        const duplicatePackage = transformedPackageTypes.find((pkg) => pkg.packageName.toLowerCase() === state.package_type_name.toLowerCase() && (!isEdit || pkg.id !== selectedItem?.id));
 
         if (duplicatePackage) {
             newErrors.package_type_name = 'Package name already exists';
@@ -303,14 +285,16 @@ const PackageTypes = () => {
 
         try {
             if (isEdit) {
-                await dispatch(updatePackageType({
-                    request: requestData,
-                    packageTypeId: selectedItem.id
-                })).unwrap();
+                await dispatch(
+                    updatePackageType({
+                        request: requestData,
+                        packageTypeId: selectedItem.id,
+                    }),
+                ).unwrap();
             } else {
                 await dispatch(createPackageType(requestData)).unwrap();
             }
-            
+
             // Refresh data after successful operation
             fetchPackageData();
         } catch (error) {
@@ -528,8 +512,7 @@ const PackageTypes = () => {
                     </div>
 
                     {/* Price Preview */}
-                    {state.package_pickup_price && state.package_drop_price && 
-                     !errors.package_pickup_price && !errors.package_drop_price && (
+                    {state.package_pickup_price && state.package_drop_price && !errors.package_pickup_price && !errors.package_drop_price && (
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                             <h4 className="font-medium text-gray-800 dark:text-gray-300 mb-3 flex items-center">
                                 <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -541,19 +524,19 @@ const PackageTypes = () => {
                                 <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Pickup Price</div>
                                     <div className="flex items-center">
-                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                            ₹{parseFloat(state.package_pickup_price).toFixed(2)}
-                                        </div>
-                                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">PICKUP</span>
+                                        <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">₹{parseFloat(state.package_pickup_price).toFixed(2)}</div>
+                                        <span className="ml-2 text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded">
+                                            {parseFloat(state.package_pickup_price) === 0 ? 'FREE' : 'PICKUP'}
+                                        </span>
                                     </div>
                                 </div>
                                 <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-green-200 dark:border-green-800">
                                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Drop Price</div>
                                     <div className="flex items-center">
-                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                                            ₹{parseFloat(state.package_drop_price).toFixed(2)}
-                                        </div>
-                                        <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">DROP</span>
+                                        <div className="text-2xl font-bold text-green-600 dark:text-green-400">₹{parseFloat(state.package_drop_price).toFixed(2)}</div>
+                                        <span className="ml-2 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-0.5 rounded">
+                                            {parseFloat(state.package_drop_price) === 0 ? 'FREE' : 'DROP'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -562,6 +545,9 @@ const PackageTypes = () => {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 These prices will be used to calculate load man payments for pickup and drop services.
+                                {parseFloat(state.package_pickup_price) === 0 && parseFloat(state.package_drop_price) === 0 && (
+                                    <span className="ml-1 text-orange-600 dark:text-orange-400 font-medium">Note: Both services are set to free (₹0).</span>
+                                )}
                             </div>
                         </div>
                     )}

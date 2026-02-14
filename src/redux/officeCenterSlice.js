@@ -1,8 +1,19 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { getOfficeCentersApi, createOfficeCentersApi, updateOfficeCentersApi, deleteOfficeCentersApi } from '../api/OfficeCenterApi';
+import { 
+    getOfficeCentersApi, 
+    getOfficeCentersWithLocationsApi,
+    createOfficeCentersApi, 
+    updateOfficeCentersApi, 
+    deleteOfficeCentersApi 
+} from '../api/OfficeCenterApi';
 
 export const getOfficeCenters = createAsyncThunk('officeCenters/getOfficeCenters', async (request = {}) => {
     const data = await getOfficeCentersApi(request);
+    return data;
+});
+
+export const getOfficeCentersWithLocations = createAsyncThunk('officeCenters/getOfficeCentersWithLocations', async () => {
+    const data = await getOfficeCentersWithLocationsApi();
     return data;
 });
 
@@ -22,11 +33,14 @@ const officeCenterSlice = createSlice({
     name: 'officeCenter',
     initialState: {
         officeCentersData: [],
+        officeCentersWithLocationsData: [],
         officeCenterList: [],
         loading: false,
         error: null,
         getOfficeCentersSuccess: false,
         getOfficeCentersFailed: false,
+        getOfficeCentersWithLocationsSuccess: false,
+        getOfficeCentersWithLocationsFailed: false,
         createOfficeCentersSuccess: false,
         createOfficeCentersFailed: false,
         updateOfficeCentersSuccess: false,
@@ -39,6 +53,8 @@ const officeCenterSlice = createSlice({
         resetOfficeCentersStatus: (state) => {
             state.getOfficeCentersSuccess = false;
             state.getOfficeCentersFailed = false;
+            state.getOfficeCentersWithLocationsSuccess = false;
+            state.getOfficeCentersWithLocationsFailed = false;
             state.createOfficeCentersSuccess = false;
             state.createOfficeCentersFailed = false;
             state.updateOfficeCentersSuccess = false;
@@ -88,6 +104,28 @@ const officeCenterSlice = createSlice({
                 state.errorMessage = action.error.message || 'Fetch office centers failed';
                 state.getOfficeCentersSuccess = false;
                 state.getOfficeCentersFailed = true;
+            })
+            
+            // FETCH OFFICE CENTERS WITH LOCATIONS
+            .addCase(getOfficeCentersWithLocations.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+                state.errorMessage = null;
+                state.getOfficeCentersWithLocationsSuccess = false;
+                state.getOfficeCentersWithLocationsFailed = false;
+            })
+            .addCase(getOfficeCentersWithLocations.fulfilled, (state, action) => {
+                state.loading = false;
+                state.officeCentersWithLocationsData = action.payload.data || [];
+                state.getOfficeCentersWithLocationsSuccess = true;
+                state.getOfficeCentersWithLocationsFailed = false;
+            })
+            .addCase(getOfficeCentersWithLocations.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Fetch office centers with locations failed';
+                state.errorMessage = action.error.message || 'Fetch office centers with locations failed';
+                state.getOfficeCentersWithLocationsSuccess = false;
+                state.getOfficeCentersWithLocationsFailed = true;
             })
             
             // CREATE OFFICE CENTER

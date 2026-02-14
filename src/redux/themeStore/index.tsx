@@ -25,6 +25,7 @@ import HolidaySlice from '../holidaySlice';
 import OfficeCenterSlice from '../officeCenterSlice';
 import CustomerSlice from '../customerSlice';
 import LocationSlice from '../locationSlice';
+import PackageSlice from '../packageSlice';
 
 const rootReducer = combineReducers({
     themeConfig: themeConfigSlice,
@@ -53,6 +54,7 @@ const rootReducer = combineReducers({
     CustomerSlice,
     LocationSlice,
     ExpenceTypeSlice,
+    PackageSlice,
 });
 
 const store = configureStore({
