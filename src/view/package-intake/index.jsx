@@ -902,14 +902,14 @@ const PackageIntake = () => {
                     </Tippy>
                     {row.original.delivery_status === 'not_started' && (
                         <>
-                            <Tippy content="Edit">
+                            {/* <Tippy content="Edit">
                                 <button 
                                     onClick={() => handleEdit(row.original)} 
                                     className="btn btn-outline-success btn-sm p-1.5 rounded-lg hover:bg-success hover:text-white transition-colors"
                                 >
                                     <IconPencil className="w-4 h-4" />
                                 </button>
-                            </Tippy>
+                            </Tippy> */}
                             <Tippy content="Delete">
                                 <button 
                                     onClick={() => handleDelete(row.original)} 
