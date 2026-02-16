@@ -1,9 +1,9 @@
 import { apiReturnCallBack } from './ApiConfig';
 
-// GET all officeCenters
-export async function getOfficeCentersApi(request) {
+// GET all opening balances with filters
+export async function getOpeningBalanceApi(request) {
     try {
-        const response = await apiReturnCallBack('GET', '/office-centers', request);
+        const response = await apiReturnCallBack('GET', '/opening-balances', request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -20,10 +20,10 @@ export async function getOfficeCentersApi(request) {
     }
 }
 
-// GET office centers with locations
-export async function getOfficeCentersWithLocationsApi() {
+// CREATE opening balance
+export async function createOpeningBalanceApi(request) {
     try {
-        const response = await apiReturnCallBack('GET', '/office-centers/with-locations/all');
+        const response = await apiReturnCallBack('POST', '/opening-balances', request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -40,10 +40,10 @@ export async function getOfficeCentersWithLocationsApi() {
     }
 }
 
-// CREATE officeCenters
-export async function createOfficeCentersApi(request) {
+// BULK CREATE opening balances
+export async function bulkCreateOpeningBalancesApi(request) {
     try {
-        const response = await apiReturnCallBack('POST', '/office-centers', request);
+        const response = await apiReturnCallBack('POST', '/opening-balances/bulk', request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -60,10 +60,10 @@ export async function createOfficeCentersApi(request) {
     }
 }
 
-// UPDATE officeCenters
-export async function updateOfficeCentersApi(request, officeCentersId) {
+// UPDATE opening balance
+export async function updateOpeningBalanceApi(request, openingBalanceId) {
     try {
-        const response = await apiReturnCallBack('PUT', `/office-centers/${officeCentersId}`, request);
+        const response = await apiReturnCallBack('PUT', `/opening-balances/${openingBalanceId}`, request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -80,9 +80,10 @@ export async function updateOfficeCentersApi(request, officeCentersId) {
     }
 }
 
-export async function deleteOfficeCentersApi(officeCentersId) {
+// DELETE opening balance (soft delete)
+export async function deleteOpeningBalanceApi(openingBalanceId) {
     try {
-        const response = await apiReturnCallBack('DELETE', `/office-centers/${officeCentersId}`);
+        const response = await apiReturnCallBack('DELETE', `/opening-balances/${openingBalanceId}`);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {

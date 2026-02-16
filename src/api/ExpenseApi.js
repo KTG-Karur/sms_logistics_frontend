@@ -1,9 +1,9 @@
 import { apiReturnCallBack } from './ApiConfig';
 
-// GET all officeCenters
-export async function getOfficeCentersApi(request) {
+// GET all expenses with filters
+export async function getExpenseApi(request) {
     try {
-        const response = await apiReturnCallBack('GET', '/office-centers', request);
+        const response = await apiReturnCallBack('GET', '/expenses', request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -20,10 +20,10 @@ export async function getOfficeCentersApi(request) {
     }
 }
 
-// GET office centers with locations
-export async function getOfficeCentersWithLocationsApi() {
+// GET single expense with details
+export async function getExpenseByIdApi(expenseId) {
     try {
-        const response = await apiReturnCallBack('GET', '/office-centers/with-locations/all');
+        const response = await apiReturnCallBack('GET', `/expenses/${expenseId}`);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -40,10 +40,10 @@ export async function getOfficeCentersWithLocationsApi() {
     }
 }
 
-// CREATE officeCenters
-export async function createOfficeCentersApi(request) {
+// CREATE expense (with optional payment)
+export async function createExpenseApi(request) {
     try {
-        const response = await apiReturnCallBack('POST', '/office-centers', request);
+        const response = await apiReturnCallBack('POST', '/expenses', request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -60,10 +60,10 @@ export async function createOfficeCentersApi(request) {
     }
 }
 
-// UPDATE officeCenters
-export async function updateOfficeCentersApi(request, officeCentersId) {
+// UPDATE expense (with optional payment)
+export async function updateExpenseApi(request, expenseId) {
     try {
-        const response = await apiReturnCallBack('PUT', `/office-centers/${officeCentersId}`, request);
+        const response = await apiReturnCallBack('PUT', `/expenses/${expenseId}`, request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
@@ -80,9 +80,30 @@ export async function updateOfficeCentersApi(request, officeCentersId) {
     }
 }
 
-export async function deleteOfficeCentersApi(officeCentersId) {
+// DELETE expense (soft delete)
+export async function deleteExpenseApi(expenseId) {
     try {
-        const response = await apiReturnCallBack('DELETE', `/office-centers/${officeCentersId}`);
+        const response = await apiReturnCallBack('DELETE', `/expenses/${expenseId}`);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// GET expense payments
+export async function getExpensePaymentsApi(expenseId) {
+    try {
+        const response = await apiReturnCallBack('GET', `/expenses/${expenseId}/payments`);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {
