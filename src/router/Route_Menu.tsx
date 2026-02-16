@@ -126,7 +126,6 @@ export const ProfitLossReportPDF = lazy(() => import('../view/documents/profitLo
 export const PdfSubAuditChecklist = lazy(() => import('../view/documents/sub-audit-checklist-report-pdf'));
 export const PdfSubAuditChecklistImages = lazy(() => import('../view/documents/sub-audit-checklist-images'));
 export const PdfSubAuditChecklistBarChart = lazy(() => import('../view/documents/sub-audit-checklist-report-bar-chart'));
-export const ExpenseSettlementDetails = lazy(() => import('../view/master/expenseSettlementDetails'));
 export const PakagePaymentScreen = lazy(() => import('../view/package-payment-screen'));
 export const PackageReportPrint = lazy(() => import('../view/documents/packageReportPrint'));
 export const ProfitLossReport = lazy(() => import('../view/report/monthlyProfitLossReport'));

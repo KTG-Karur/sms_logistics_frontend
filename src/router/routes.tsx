@@ -9,7 +9,6 @@ import {
     Employee,
     Role,
     CompanyInfo,
-    ExpenseSettlementDetails,
     //new asf - ev
     Package,
     //new VMS
@@ -275,10 +274,6 @@ const routes = [
         element: <PakagePaymentScreen />,
     },
     {
-        path: '/expenses/settlement/details',
-        element: <ExpenseSettlementDetails />,
-    },
-    {
         path: '/staff/salary',
         element: <StaffSalary />,
     },
@@ -443,10 +438,6 @@ const routes = [
 const dontCkeckRouts = [
     //new VMS
     {
-        path: '/master/sub-checklist-audit',
-        element: <ExpenseSettlementDetails />,
-    },
-    {
         path: '/payments/record/:id',
         element: <PakagePaymentScreen />,
     },
@@ -521,10 +512,6 @@ const dontCkeckRouts = [
     {
         path: '/audit/report-pdf',
         element: <PackageReportPrint />,
-    },
-    {
-        path: '/expenses/settlement/details',
-        element: <ExpenseSettlementDetails />,
     },
 ];
 
