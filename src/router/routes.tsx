@@ -32,7 +32,7 @@ import {
     PackageReportPrint,
     AuditReSchedule,
     PdfSubAuditChecklistBarChart,
-    PdfSubAuditChecklistImages,
+    PaymentPrintPdf,
     ProfitLossReportPDF,
     DailyProfitLossReport,
     AttendanceReport,
@@ -361,8 +361,8 @@ const routes = [
         element: <PdfSubAuditChecklistBarChart />,
     },
     {
-        path: '/documents/print-sub-checklist-sub-audit-images',
-        element: <PdfSubAuditChecklistImages />,
+        path: '/documents/balance-payment-print',
+        element: <PaymentPrintPdf />,
     },
     {
         path: '/documents/audit-report-pdf',
@@ -452,7 +452,7 @@ const dontCkeckRouts = [
     },
     {
         path: '/documents/print-sub-checklist-sub-audit-images',
-        element: <PdfSubAuditChecklistImages />,
+        element: <PaymentPrintPdf />,
     },
     {
         path: '/documents/audit-report-pdf',

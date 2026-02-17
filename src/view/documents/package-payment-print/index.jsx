@@ -92,6 +92,29 @@ const PackageReportPrint = () => {
                     tripId: 'TRP002'
                 },
                 {
+                    id: 2,
+                    packageId: 'PKG002',
+                    fromCenter: 'Karur',
+                    toCenter: 'Salem',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '789 Market Road, Salem',
+                    fromMobile: customerMobile,
+                    fromName: customerName,
+                    toMobile: '7654321098',
+                    toName: 'Mike Brown',
+                    tripName: 'VSK',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 1, rate: 70 }
+                    ],
+                    totalAmount: 70,
+                    paidAmount: 0,
+                    dueAmount: 70,
+                    paymentBy: 'from',
+                    paymentStatus: 'pending',
+                    date: '2025-11-17',
+                    tripId: 'TRP002'
+                },
+                {
                     id: 3,
                     packageId: 'PKG003',
                     fromCenter: 'Karur',
@@ -301,12 +324,10 @@ const PackageReportPrint = () => {
                 id="ledger-bill-to-print"
                 className="bg-white mx-auto ledger-container"
             >
-                {/* Header with Phone Numbers on Right */}
-                <div className="header-top">
-                    <div className="header-left">
-                        <span className="cash-bill">CASH BILL</span>
-                    </div>
-                    <div className="header-right">
+                {/* Header with Cash Bill and Phone Numbers */}
+                <div className="header-section">
+                    <div className="cash-bill">CASH BILL</div>
+                    <div className="phone-numbers">
                         <div>cell:95002 43118</div>
                         <div>95665 27118</div>
                     </div>
@@ -324,7 +345,7 @@ const PackageReportPrint = () => {
                     <span>Bill Date: {formatFullDate()}</span>
                 </div>
 
-                {/* Main Table */}
+                {/* Main Table - Increased Size */}
                 <table className="ledger-table">
                     <thead>
                         <tr>
@@ -351,13 +372,13 @@ const PackageReportPrint = () => {
                                 <td colSpan="5" className="no-data">No transactions</td>
                             </tr>
                         )}
+                        {/* Total Row Inside Table */}
+                        <tr className="total-row">
+                            <td colSpan="4" className="total-label-cell">Total Amount:</td>
+                            <td className="total-value-cell">₹{totalAmount.toFixed(2)}</td>
+                        </tr>
                     </tbody>
                 </table>
-
-                {/* Total Amount */}
-                <div className="total-section">
-                    <span>Total Amount: ₹{totalAmount.toFixed(2)}</span>
-                </div>
 
                 {/* Footer with Thank You and Signature */}
                 <div className="ledger-footer">
@@ -395,32 +416,36 @@ const PackageReportPrint = () => {
                     width: 148mm;
                     max-width: 148mm;
                     min-width: 148mm;
+                    height: 210mm;
                     margin: 0 auto;
                     padding: 3mm 4mm;
                     background: white;
                     font-family: 'Times New Roman', Times, serif;
-                    border: 2px solid #333;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    border: 1px solid #ccc;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
                     box-sizing: border-box;
+                    overflow: hidden;
+                    page-break-inside: avoid;
+                    break-inside: avoid;
+                    display: flex;
+                    flex-direction: column;
                 }
 
-                /* Header Top with Phone Numbers */
-                .header-top {
+                /* Header Section */
+                .header-section {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     margin-bottom: 2mm;
-                    border-bottom: 1px dotted #333;
-                    padding-bottom: 1mm;
                 }
 
-                .header-left {
+                .cash-bill {
                     font-size: 14pt;
                     font-weight: bold;
                     text-transform: uppercase;
                 }
 
-                .header-right {
+                .phone-numbers {
                     font-size: 9pt;
                     text-align: right;
                     line-height: 1.2;
@@ -430,7 +455,7 @@ const PackageReportPrint = () => {
                 .company-header {
                     text-align: center;
                     margin-bottom: 2mm;
-                    border-bottom: 2px solid #333;
+                    border-bottom: 1px solid #ccc;
                     padding-bottom: 1mm;
                 }
 
@@ -458,36 +483,35 @@ const PackageReportPrint = () => {
                     padding-bottom: 1mm;
                 }
 
-                /* Table Styles - Reduced font by 3px (from 8pt to 5pt) */
+                /* Table Styles */
                 .ledger-table {
                     width: 100%;
                     border-collapse: collapse;
-                    margin-bottom: 2mm;
-                    font-size: 5pt;
+                    font-size: 9pt;
                     table-layout: fixed;
+                    flex: 1;
                 }
 
                 .ledger-table th {
-                    border: 1px solid #333;
-                    padding: 1pt 0.5pt;
+                    border-left: 1px solid #aaa;
+                    border-right: 1px solid #aaa;
+                    border-top: 1px solid #aaa;
+                    border-bottom: 1px solid #aaa;
+                    padding: 3pt 2pt;
                     font-weight: bold;
                     text-align: center;
-                    background: #f0f0f0;
-                    font-size: 5pt;
-                    white-space: nowrap;
+                    background: white;
+                    font-size: 9pt;
                 }
 
                 .ledger-table td {
-                    padding: 1pt 0.5pt;
+                    border-left: 1px solid #aaa;
+                    border-right: 1px solid #aaa;
+                    padding: 3pt 2pt;
                     vertical-align: middle;
-                    border-left: 1px solid #333;
-                    border-right: 1px solid #333;
-                    border-bottom: none;
+                    font-size: 9pt;
                     border-top: none;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    font-size: 5pt;
+                    border-bottom: none;
                 }
 
                 .ledger-table td.col-rate,
@@ -511,22 +535,30 @@ const PackageReportPrint = () => {
                 .col-qty { width: 10%; }
                 .col-amount { width: 18%; }
 
-                .no-data {
-                    text-align: center;
-                    padding: 2pt;
-                    font-style: italic;
-                    border-bottom: 1px solid #333 !important;
+                /* Total Row inside table - Larger font */
+                .total-row td {
+                    border-top: 1px solid #aaa;
+                    border-bottom: 1px solid #aaa;
+                    border-left: 1px solid #aaa;
+                    border-right: 1px solid #aaa;
+                    font-weight: bold;
+                    padding: 4pt 2pt;
                 }
 
-                /* Total Section */
-                .total-section {
-                    margin: 1.5mm 0;
-                    padding: 1mm 0;
-                    border-top: 2px solid #333;
-                    border-bottom: 2px solid #333;
+                .total-label-cell {
                     text-align: right;
-                    font-size: 11pt;
-                    font-weight: bold;
+                    font-size: 12pt !important;
+                }
+
+                .total-value-cell {
+                    text-align: right;
+                    font-size: 12pt !important;
+                }
+
+                .no-data {
+                    text-align: center;
+                    padding: 4pt;
+                    font-style: italic;
                 }
 
                 /* Footer with Signature */
@@ -534,11 +566,12 @@ const PackageReportPrint = () => {
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-end;
-                    margin-top: 1.5mm;
+                    margin-top: auto;
+                    padding-top: 2mm;
                 }
 
                 .thankyou {
-                    font-size: 10pt;
+                    font-size: 12pt;
                     font-style: italic;
                     font-weight: bold;
                 }
@@ -548,7 +581,10 @@ const PackageReportPrint = () => {
                 }
 
                 .signature-text {
-                    font-size: 8pt;
+                    font-size: 10pt;
+                    border-top: 1px solid #aaa;
+                    padding-top: 2pt;
+                    min-width: 40mm;
                 }
 
                 /* Print Styles */
@@ -578,11 +614,15 @@ const PackageReportPrint = () => {
                         height: 210mm;
                         margin: 0 !important;
                         padding: 3mm 4mm !important;
-                        border: 2px solid #333 !important;
+                        border: 1px solid #ccc !important;
                         box-shadow: none !important;
                         page-break-after: avoid;
                         page-break-inside: avoid;
+                        break-inside: avoid;
                         box-sizing: border-box;
+                        overflow: hidden;
+                        display: flex;
+                        flex-direction: column;
                     }
 
                     .no-print {
@@ -594,9 +634,9 @@ const PackageReportPrint = () => {
                         margin: 0;
                     }
 
-                    .ledger-table th {
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
+                    .ledger-table th,
+                    .ledger-table td {
+                        border-color: #aaa !important;
                     }
                 }
             `}</style>

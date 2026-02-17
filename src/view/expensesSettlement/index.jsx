@@ -21,7 +21,7 @@ import Tippy from '@tippyjs/react';
 import Select from 'react-select';
 import Table from '../../util/Table';
 import { useNavigate } from 'react-router-dom';
-import { getExpense } from '../../redux/expenseSlice';
+import { getExpense, setExpenseFilters, clearExpenseFilters } from '../../redux/expenseSlice';
 import { createExpensePayment, resetExpensePaymentStatus } from '../../redux/expensePaymentSlice';
 
 const ExpenseSettlement = () => {
@@ -47,21 +47,26 @@ const ExpenseSettlement = () => {
     const getTodayDate = () => new Date();
 
     // Get data from Redux store
-    const { expenseData, loading: expenseLoading } = useSelector((state) => state.ExpenseSlice);
+    const { expenseData, loading: expenseLoading, filters: storeFilters } = useSelector((state) => state.ExpenseSlice);
     const { createPaymentSuccess, createPaymentFailed, loading: paymentLoading } = useSelector((state) => state.ExpensePaymentSlice);
 
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
-    const [filters, setFilters] = useState({
-        category: 'all',
-        status: 'all',
+    
+    // Local filter state for UI
+    const [localFilters, setLocalFilters] = useState({
         search: '',
-        officeCenterId: 'all',
     });
 
-    const [selectedCategory, setSelectedCategory] = useState('all');
-    const [pendingExpenses, setPendingExpenses] = useState([]);
-    const [officeCenters, setOfficeCenters] = useState([]);
-    const [expenseTypes, setExpenseTypes] = useState([]);
+    // Filter state for backend
+    const [filterState, setFilterState] = useState({
+        expenseTypeId: '',
+        isPaid: '',
+        officeCenterId: '',
+        startDate: '',
+        endDate: ''
+    });
+    
+    const [showFilter, setShowFilter] = useState(false);
 
     // Payment form state - shown above table
     const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -73,30 +78,28 @@ const ExpenseSettlement = () => {
     });
     const [paymentErrors, setPaymentErrors] = useState({});
 
-    // Filter state
-    const [filterState, setFilterState] = useState({
-        expenseTypeId: '',
-        isPaid: '',
-        officeCenterId: '',
-    });
-    const [showFilter, setShowFilter] = useState(false);
-
     // Pagination
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
 
-    // Categories for filtering
-    const expenseCategories = [
-        { value: 'Fuel', label: 'Fuel Expenses' },
-        { value: 'Snack', label: 'Snack Expenses' },
-        { value: 'Maintenance', label: 'Maintenance Expenses' },
-        { value: 'Other', label: 'Other Expenses' },
-    ];
+    // Options for filters
+    const [officeCenters, setOfficeCenters] = useState([]);
+    const [expenseTypes, setExpenseTypes] = useState([]);
 
     useEffect(() => {
         dispatch(setPageTitle('Expense Settlement'));
-        fetchExpenses();
+        // Set default date filter to today
+        setFilterState(prev => ({
+            ...prev,
+            startDate: formatInputDate(getTodayDate()),
+            endDate: formatInputDate(getTodayDate())
+        }));
     }, []);
+
+    // Fetch expenses when filters change
+    useEffect(() => {
+        fetchExpenses();
+    }, [filterState]);
 
     // Handle payment creation response
     useEffect(() => {
@@ -113,10 +116,9 @@ const ExpenseSettlement = () => {
         }
     }, [createPaymentSuccess, createPaymentFailed]);
 
-    // Extract unique office centers and expense types from expense data
+    // Extract unique office centers and expense types from expense data for filter options
     useEffect(() => {
         if (expenseData && expenseData.data) {
-            // Extract office centers
             const centers = new Set();
             const types = new Set();
 
@@ -147,115 +149,106 @@ const ExpenseSettlement = () => {
         }
     }, [expenseData]);
 
-    // Transform and filter data whenever expenseData changes
-    useEffect(() => {
-        if (expenseData && expenseData.data) {
-            const transformed = transformExpenseData(expenseData.data);
-            setPendingExpenses(transformed);
-        }
-    }, [expenseData]);
-
     const fetchExpenses = async () => {
         try {
-            await dispatch(getExpense({})).unwrap();
+            // Prepare filter params for backend
+            const params = {};
+            
+            if (filterState.officeCenterId) {
+                params.officeCenterId = filterState.officeCenterId;
+            }
+            
+            if (filterState.expenseTypeId) {
+                params.expenseTypeId = filterState.expenseTypeId;
+            }
+            
+            if (filterState.isPaid) {
+                // Convert status to isPaid boolean
+                if (filterState.isPaid === 'unpaid') {
+                    params.isPaid = false;
+                } else if (filterState.isPaid === 'partially_paid') {
+                    // For partially paid, we need to handle differently
+                    // This might require backend support for partial payment filter
+                    params.isPaid = false; // For now, show unpaid and partially paid
+                }
+            }
+            
+            if (filterState.startDate) {
+                params.startDate = filterState.startDate;
+            }
+            
+            if (filterState.endDate) {
+                params.endDate = filterState.endDate;
+            }
+            
+            // Search by description or invoice number
+            if (localFilters.search) {
+                params.search = localFilters.search;
+            }
+
+            await dispatch(getExpense(params)).unwrap();
         } catch (error) {
             showMessage('error', 'Failed to fetch expenses');
         }
     };
 
-    // Transform API data to match component structure
-    const transformExpenseData = (apiData) => {
-        if (!apiData || apiData.length === 0) return [];
+    // Transform API data to match component structure and filter for pending expenses
+    const getPendingExpenses = () => {
+        if (!expenseData || !expenseData.data) return [];
 
-        return apiData.map((expense) => {
-            const totalAmount = parseFloat(expense.amount) || 0;
-            const paidAmount = parseFloat(expense.paid_amount) || 0;
-            const balance = totalAmount - paidAmount;
+        return expenseData.data
+            .map((expense) => {
+                const totalAmount = parseFloat(expense.amount) || 0;
+                const paidAmount = parseFloat(expense.paid_amount) || 0;
+                const balance = totalAmount - paidAmount;
 
-            // Determine status
-            let status = 'Unpaid';
-            if (balance === 0) status = 'Fully Paid';
-            else if (paidAmount > 0 && balance > 0) status = 'Partially Paid';
+                // Determine status
+                let status = 'Unpaid';
+                if (balance === 0) status = 'Fully Paid';
+                else if (paidAmount > 0 && balance > 0) status = 'Partially Paid';
 
-            return {
-                id: expense.expense_id,
-                expenseType: expense.expenseType?.expence_type_name || 'Expense',
-                expenseTypeId: expense.expenseType?.expence_type_id,
-                description: expense.description || 'No description',
-                totalAmount: totalAmount,
-                paidAmount: paidAmount,
-                balance: balance,
-                status: status,
-                category: expense.expenseType?.expence_type_name || 'Other',
-                vendor: expense.expenseType?.expence_type_name || 'N/A',
-                paymentMethod: expense.payment_method || 'Not Specified',
-                invoiceNumber: expense.invoice_number || 'N/A',
-                expense_date: expense.expense_date,
-                is_paid: expense.is_paid,
-                // Office Center details
-                officeCenter: expense.officeCenter
-                    ? {
-                          id: expense.officeCenter.office_center_id,
-                          name: expense.officeCenter.office_center_name,
-                      }
-                    : null,
-                // Store original data
-                originalData: expense,
-            };
-        });
+                return {
+                    id: expense.expense_id,
+                    expenseType: expense.expenseType?.expence_type_name || 'Expense',
+                    expenseTypeId: expense.expenseType?.expence_type_id,
+                    description: expense.description || 'No description',
+                    totalAmount: totalAmount,
+                    paidAmount: paidAmount,
+                    balance: balance,
+                    status: status,
+                    category: expense.expenseType?.expence_type_name || 'Other',
+                    vendor: expense.expenseType?.expence_type_name || 'N/A',
+                    paymentMethod: expense.payment_method || 'Not Specified',
+                    invoiceNumber: expense.invoice_number || 'N/A',
+                    expense_date: expense.expense_date,
+                    is_paid: expense.is_paid,
+                    // Office Center details
+                    officeCenter: expense.officeCenter
+                        ? {
+                              id: expense.officeCenter.office_center_id,
+                              name: expense.officeCenter.office_center_name,
+                          }
+                        : null,
+                    // Store original data
+                    originalData: expense,
+                };
+            })
+            .filter(item => !item.is_paid && item.balance > 0); // Only show pending expenses
     };
 
-    // Filter data to only show expenses with pending balance
-    const getFilteredPendingExpenses = () => {
-        // First filter to only show expenses with balance > 0 (not fully paid)
-        let data = pendingExpenses.filter((item) => !item.is_paid && item.balance > 0);
-
-        // Apply office center filter
-        if (filterState.officeCenterId) {
-            data = data.filter((item) => item.officeCenter?.id === filterState.officeCenterId);
-        }
-
-        // Apply category/expense type filter
-        if (filterState.expenseTypeId) {
-            data = data.filter((item) => item.expenseTypeId === filterState.expenseTypeId);
-        }
-
-        // Apply status filter
-        if (filterState.isPaid) {
-            data = data.filter((item) => {
-                if (filterState.isPaid === 'unpaid') return item.paidAmount === 0;
-                if (filterState.isPaid === 'partially_paid') return item.balance > 0 && item.paidAmount > 0;
-                return true;
-            });
-        }
-
-        // Apply search filter
-        if (filters.search) {
-            const searchLower = filters.search.toLowerCase();
-            data = data.filter(
-                (item) =>
-                    item.expenseType.toLowerCase().includes(searchLower) ||
-                    item.description.toLowerCase().includes(searchLower) ||
-                    (item.officeCenter?.name && item.officeCenter.name.toLowerCase().includes(searchLower)),
-            );
-        }
-
-        return data;
-    };
-
-    // Calculate totals for pending expenses only
+    // Calculate totals for pending expenses
     const calculateTotals = () => {
-        const filteredData = getFilteredPendingExpenses();
+        const pendingExpenses = getPendingExpenses();
 
-        const totalAmount = filteredData.reduce((sum, item) => sum + item.totalAmount, 0);
-        const paidAmount = filteredData.reduce((sum, item) => sum + item.paidAmount, 0);
-        const balanceAmount = filteredData.reduce((sum, item) => sum + item.balance, 0);
+        const totalAmount = pendingExpenses.reduce((sum, item) => sum + item.totalAmount, 0);
+        const paidAmount = pendingExpenses.reduce((sum, item) => sum + item.paidAmount, 0);
+        const balanceAmount = pendingExpenses.reduce((sum, item) => sum + item.balance, 0);
 
         return {
             totalAmount,
             paidAmount,
             balanceAmount,
-            itemCount: filteredData.length,
+            itemCount: pendingExpenses.length,
             settlementRate: totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0,
         };
     };
@@ -268,8 +261,17 @@ const ExpenseSettlement = () => {
         }));
     };
 
+    const handleDateFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilterState((prev) => ({
+            ...prev,
+            [name]: value,
+        }));
+    };
+
     const handleFilterApply = () => {
         setShowFilter(false);
+        // Filters are already applied via useEffect when filterState changes
     };
 
     const handleFilterClear = () => {
@@ -277,24 +279,24 @@ const ExpenseSettlement = () => {
             expenseTypeId: '',
             isPaid: '',
             officeCenterId: '',
+            startDate: formatInputDate(getTodayDate()),
+            endDate: formatInputDate(getTodayDate())
         });
+        setLocalFilters({ search: '' });
         setShowFilter(false);
+        dispatch(clearExpenseFilters());
     };
 
     const handleSearchChange = (e) => {
-        setFilters((prev) => ({ ...prev, search: e.target.value }));
-    };
-
-    const handleCategoryClick = (category) => {
-        setSelectedCategory(category);
-        if (category === 'all') {
-            setFilterState((prev) => ({ ...prev, expenseTypeId: '' }));
-        } else {
-            const type = expenseTypes.find((t) => t.name === category);
-            if (type) {
-                setFilterState((prev) => ({ ...prev, expenseTypeId: type.id }));
-            }
-        }
+        const value = e.target.value;
+        setLocalFilters({ search: value });
+        
+        // Debounce search to avoid too many API calls
+        const timeoutId = setTimeout(() => {
+            fetchExpenses();
+        }, 500);
+        
+        return () => clearTimeout(timeoutId);
     };
 
     // Payment form functions
@@ -557,7 +559,7 @@ const ExpenseSettlement = () => {
                             <div className="text-xl font-bold text-gray-800 dark:text-white">₹{totals.balanceAmount.toLocaleString('en-IN')}</div>
                         </div>
                     </div>
-                    <div className="text-xs text-gray-500">{getFilteredPendingExpenses().filter((e) => e.balance > 0).length} items pending</div>
+                    <div className="text-xs text-gray-500">{getPendingExpenses().filter((e) => e.balance > 0).length} items pending</div>
                 </div>
 
                 <div className="bg-gradient-to-r from-primary to-primary/90 text-white rounded-lg p-4 shadow-lg">
@@ -576,31 +578,6 @@ const ExpenseSettlement = () => {
         );
     };
 
-    // Render category tabs
-    const renderCategoryTabs = () => (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
-            <div className="flex flex-wrap gap-2">
-                <button
-                    onClick={() => handleCategoryClick('all')}
-                    className={`px-4 py-2 rounded-lg flex items-center ${selectedCategory === 'all' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-                >
-                    <IconList className="w-4 h-4 mr-2" />
-                    All Categories
-                </button>
-                {expenseCategories.map((cat) => (
-                    <button
-                        key={cat.value}
-                        onClick={() => handleCategoryClick(cat.value)}
-                        className={`px-4 py-2 rounded-lg flex items-center ${selectedCategory === cat.value ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-                    >
-                        <IconReceipt className="w-4 h-4 mr-2" />
-                        {cat.label}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-
     return (
         <div>
             {/* Header with Date */}
@@ -613,16 +590,13 @@ const ExpenseSettlement = () => {
                     <IconCalendar className="w-5 h-5 text-primary mr-2" />
                     <div>
                         <div className="text-sm text-gray-500">Settlement Date</div>
-                        <div className="font-semibold">{formatDisplayDate(selectedDate)}</div>
+                        <div className="font-semibold">{formatDisplayDate(getTodayDate())}</div>
                     </div>
                 </div>
             </div>
 
             {/* Summary Cards */}
             {renderSummaryCards()}
-
-            {/* Category Tabs */}
-            {renderCategoryTabs()}
 
             {/* Filter Panel */}
             {showFilter && (
@@ -634,7 +608,30 @@ const ExpenseSettlement = () => {
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {/* Date Range Filters */}
+                        <div>
+                            <label>Start Date</label>
+                            <input
+                                type="date"
+                                name="startDate"
+                                className="form-input w-full"
+                                value={filterState.startDate}
+                                onChange={handleDateFilterChange}
+                            />
+                        </div>
+                        
+                        <div>
+                            <label>End Date</label>
+                            <input
+                                type="date"
+                                name="endDate"
+                                className="form-input w-full"
+                                value={filterState.endDate}
+                                onChange={handleDateFilterChange}
+                            />
+                        </div>
+
                         {/* Office Center Filter */}
                         <div>
                             <label>Office Center</label>
@@ -644,7 +641,7 @@ const ExpenseSettlement = () => {
                                 value={getSelectedValue(officeCenterOptions, filterState.officeCenterId)}
                                 onChange={(selectedOption) => handleFilterChange(selectedOption, { name: 'officeCenterId' })}
                                 placeholder="All Centers"
-                                isClearable={false}
+                                isClearable={true}
                                 className="react-select"
                                 classNamePrefix="select"
                             />
@@ -659,7 +656,7 @@ const ExpenseSettlement = () => {
                                 value={getSelectedValue(expenseTypeOptions, filterState.expenseTypeId)}
                                 onChange={(selectedOption) => handleFilterChange(selectedOption, { name: 'expenseTypeId' })}
                                 placeholder="All Types"
-                                isClearable={false}
+                                isClearable={true}
                                 className="react-select"
                                 classNamePrefix="select"
                             />
@@ -674,7 +671,7 @@ const ExpenseSettlement = () => {
                                 value={getSelectedValue(filterStatusOptions, filterState.isPaid)}
                                 onChange={(selectedOption) => handleFilterChange(selectedOption, { name: 'isPaid' })}
                                 placeholder="All Status"
-                                isClearable={false}
+                                isClearable={true}
                                 className="react-select"
                                 classNamePrefix="select"
                             />
@@ -696,12 +693,18 @@ const ExpenseSettlement = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
                 <div className="flex items-center gap-4">
                     <div className="flex-1 relative">
-                        <input type="text" className="form-input pl-10 w-full" placeholder="Search by description, category, center..." value={filters.search} onChange={handleSearchChange} />
+                        <input 
+                            type="text" 
+                            className="form-input pl-10 w-full" 
+                            placeholder="Search by description, invoice number..." 
+                            value={localFilters.search} 
+                            onChange={handleSearchChange} 
+                        />
                         <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     </div>
                     <button type="button" onClick={() => setShowFilter(!showFilter)} className="btn btn-outline-primary">
                         <IconFilter className="ltr:mr-2 rtl:ml-2" />
-                        Filters
+                        Advanced Filters
                     </button>
                 </div>
             </div>
@@ -809,7 +812,11 @@ const ExpenseSettlement = () => {
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex justify-between items-center">
                         <h3 className="font-semibold text-lg text-gray-800 dark:text-white">Pending Expense Settlement List</h3>
-                        <div className="text-sm text-gray-500">Showing {getFilteredPendingExpenses().length} pending expenses</div>
+                        <div className="text-sm text-gray-500">
+                            Showing {getPendingExpenses().length} pending expenses
+                            {filterState.startDate && filterState.endDate && 
+                                ` for ${formatDisplayDate(new Date(filterState.startDate))} - ${formatDisplayDate(new Date(filterState.endDate))}`}
+                        </div>
                     </div>
                 </div>
 
@@ -825,7 +832,11 @@ const ExpenseSettlement = () => {
                                 {filterState.expenseTypeId && (
                                     <span className="badge bg-primary">Type: {expenseTypes.find((t) => t.id === filterState.expenseTypeId)?.name || filterState.expenseTypeId}</span>
                                 )}
-                                {filterState.isPaid && <span className="badge bg-primary">Status: {filterState.isPaid === 'unpaid' ? 'Unpaid' : 'Partially Paid'}</span>}
+                                {filterState.isPaid && (
+                                    <span className="badge bg-primary">
+                                        Status: {filterState.isPaid === 'unpaid' ? 'Unpaid' : 'Partially Paid'}
+                                    </span>
+                                )}
                                 <button type="button" onClick={handleFilterClear} className="text-danger text-sm hover:underline ml-2">
                                     Clear All
                                 </button>
@@ -840,11 +851,11 @@ const ExpenseSettlement = () => {
                     ) : (
                         <Table
                             columns={expenseColumns}
-                            data={getPaginatedData(getFilteredPendingExpenses())}
+                            data={getPaginatedData(getPendingExpenses())}
                             pageSize={pageSize}
                             pageIndex={currentPage}
-                            totalCount={getFilteredPendingExpenses().length}
-                            totalPages={Math.ceil(getFilteredPendingExpenses().length / pageSize)}
+                            totalCount={getPendingExpenses().length}
+                            totalPages={Math.ceil(getPendingExpenses().length / pageSize)}
                             onPaginationChange={handlePaginationChange}
                             pagination={true}
                             isSearchable={false}
@@ -853,10 +864,14 @@ const ExpenseSettlement = () => {
                         />
                     )}
 
-                    {getFilteredPendingExpenses().length === 0 && !expenseLoading && (
+                    {getPendingExpenses().length === 0 && !expenseLoading && (
                         <div className="text-center py-8">
                             <div className="text-gray-400 mb-2">No pending expenses found</div>
-                            <div className="text-sm text-gray-500">All expenses are fully paid</div>
+                            <div className="text-sm text-gray-500">
+                                {filterState.startDate && filterState.endDate 
+                                    ? `No pending expenses for selected date range`
+                                    : 'All expenses are fully paid'}
+                            </div>
                         </div>
                     )}
                 </div>
