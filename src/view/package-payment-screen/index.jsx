@@ -11,10 +11,11 @@ import IconCheck from '../../components/Icon/IconCheck';
 import IconX from '../../components/Icon/IconX';
 import IconPhone from '../../components/Icon/IconPhone';
 import IconUser from '../../components/Icon/IconUser';
+import { makeCustomerBulkPayment, resetCustomerPaymentStatus, getCustomerBookingsAndPayments } from '../../redux/customerPaymentSlice';
 
 const RecordPayment = () => {
     const dispatch = useDispatch();
-    const { customerKey } = useParams();
+    const { customerId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     const { customer } = location.state || {};
@@ -24,37 +25,82 @@ const RecordPayment = () => {
     const [paymentForm, setPaymentForm] = useState({
         amount: '',
         paymentDate: new Date().toISOString().split('T')[0],
-        notes: ''
+        paymentMode: 'cash',
+        description: '',
+        bookingIds: []
     });
     const [errors, setErrors] = useState({});
     const [shipmentsList, setShipmentsList] = useState([]);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [processing, setProcessing] = useState(false);
+    const [customerData, setCustomerData] = useState(null);
+    const [loadingBookings, setLoadingBookings] = useState(false);
+
+    // Payment mode options
+    const paymentModes = [
+        { value: 'cash', label: 'Cash' },
+        // { value: 'card', label: 'Card' },
+        { value: 'upi', label: 'UPI' },
+        // { value: 'bank_transfer', label: 'Bank Transfer' },
+        // { value: 'cheque', label: 'Cheque' },
+        // { value: 'wallet', label: 'Wallet' }
+    ];
 
     useEffect(() => {
-        if (customer && customer.shipments) {
-            dispatch(setPageTitle(`Record Payment - ${customer.name}`));
-            setShipmentsList(customer.shipments);
-            // Select all shipments by default
-            setSelectedShipments(customer.shipments.map(s => s.id));
-            // Calculate initial total due for all shipments
-            const totalDue = customer.shipments.reduce((sum, s) => sum + s.dueAmount, 0);
-            setPaymentForm(prev => ({
-                ...prev,
-                amount: totalDue.toString()
-            }));
+        dispatch(setPageTitle('Record Payment'));
+        
+        if (customer && customer.customer_id) {
+            setCustomerData(customer);
+            fetchCustomerBookings(customer.customer_id);
+        } else if (customerId) {
+            // If customer data not passed via state, fetch it
+            fetchCustomerBookings(customerId);
         } else {
             showMessage('error', 'Customer data not found');
             navigate('/package/payment');
         }
-    }, [customer, dispatch, navigate]);
+    }, [customer, customerId, dispatch, navigate]);
+
+    const fetchCustomerBookings = async (id) => {
+        setLoadingBookings(true);
+        try {
+            const result = await dispatch(getCustomerBookingsAndPayments({ 
+                customerId: id, 
+            })).unwrap();
+            
+            if (result?.data) {
+                const bookings = result.data.bookings || [];
+                // Filter only bookings with due amount > 0
+                const pendingBookings = bookings.filter(b => parseFloat(b.due_amount) > 0);
+                
+                setShipmentsList(pendingBookings);
+                
+                // Select all pending shipments by default
+                const pendingIds = pendingBookings.map(b => b.booking_id);
+                setSelectedShipments(pendingIds);
+                
+                // Calculate initial total due for all pending shipments
+                const totalDue = pendingBookings.reduce((sum, b) => sum + parseFloat(b.due_amount || 0), 0);
+                setPaymentForm(prev => ({
+                    ...prev,
+                    amount: totalDue.toString()
+                }));
+            }
+        } catch (error) {
+            console.error('Error fetching customer bookings:', error);
+            showMessage('error', 'Failed to load customer bookings');
+        } finally {
+            setLoadingBookings(false);
+        }
+    };
 
     // Calculate selected totals
     const calculateSelectedTotals = () => {
-        const selected = shipmentsList.filter(s => selectedShipments.includes(s.id));
-        const totalDue = selected.reduce((sum, s) => sum + s.dueAmount, 0);
-        const totalAmount = selected.reduce((sum, s) => sum + s.totalAmount, 0);
-        const paidAmount = selected.reduce((sum, s) => sum + s.paidAmount, 0);
+        const selected = shipmentsList.filter(s => selectedShipments.includes(s.booking_id));
+        const totalDue = selected.reduce((sum, s) => sum + parseFloat(s.due_amount || 0), 0);
+        const totalAmount = selected.reduce((sum, s) => sum + parseFloat(s.total_amount || 0), 0);
+        const paidAmount = selected.reduce((sum, s) => sum + parseFloat(s.paid_amount || 0), 0);
         
         return { totalDue, totalAmount, paidAmount, count: selected.length };
     };
@@ -71,8 +117,8 @@ const RecordPayment = () => {
             
             // Update payment amount to match new selected total
             if (newSelected.length > 0) {
-                const selectedShipmentsData = shipmentsList.filter(s => newSelected.includes(s.id));
-                const newTotalDue = selectedShipmentsData.reduce((sum, s) => sum + s.dueAmount, 0);
+                const selectedShipmentsData = shipmentsList.filter(s => newSelected.includes(s.booking_id));
+                const newTotalDue = selectedShipmentsData.reduce((sum, s) => sum + parseFloat(s.due_amount || 0), 0);
                 setPaymentForm(prevForm => ({
                     ...prevForm,
                     amount: newTotalDue.toString()
@@ -91,18 +137,18 @@ const RecordPayment = () => {
     // Select all shipments on current page
     const selectAllOnPage = () => {
         const pageShipments = getPaginatedData();
-        const allSelected = pageShipments.every(s => selectedShipments.includes(s.id));
+        const allSelected = pageShipments.every(s => selectedShipments.includes(s.booking_id));
         
         if (allSelected) {
             // Deselect all on page
             const newSelected = selectedShipments.filter(id => 
-                !pageShipments.some(s => s.id === id)
+                !pageShipments.some(s => s.booking_id === id)
             );
             setSelectedShipments(newSelected);
             
             // Recalculate total due for remaining selected shipments
-            const remainingSelected = shipmentsList.filter(s => newSelected.includes(s.id));
-            const newTotalDue = remainingSelected.reduce((sum, s) => sum + s.dueAmount, 0);
+            const remainingSelected = shipmentsList.filter(s => newSelected.includes(s.booking_id));
+            const newTotalDue = remainingSelected.reduce((sum, s) => sum + parseFloat(s.due_amount || 0), 0);
             setPaymentForm(prev => ({
                 ...prev,
                 amount: newTotalDue > 0 ? newTotalDue.toString() : ''
@@ -111,15 +157,15 @@ const RecordPayment = () => {
             // Select all on page
             const newSelected = [...selectedShipments];
             pageShipments.forEach(s => {
-                if (!newSelected.includes(s.id)) {
-                    newSelected.push(s.id);
+                if (!newSelected.includes(s.booking_id)) {
+                    newSelected.push(s.booking_id);
                 }
             });
             setSelectedShipments(newSelected);
             
             // Calculate new total due including newly selected shipments
-            const selectedShipmentsData = shipmentsList.filter(s => newSelected.includes(s.id));
-            const newTotalDue = selectedShipmentsData.reduce((sum, s) => sum + s.dueAmount, 0);
+            const selectedShipmentsData = shipmentsList.filter(s => newSelected.includes(s.booking_id));
+            const newTotalDue = selectedShipmentsData.reduce((sum, s) => sum + parseFloat(s.due_amount || 0), 0);
             setPaymentForm(prev => ({
                 ...prev,
                 amount: newTotalDue.toString()
@@ -140,67 +186,70 @@ const RecordPayment = () => {
         if (!paymentForm.amount || paymentAmount <= 0) {
             newErrors.amount = 'Valid payment amount is required';
         } else if (paymentAmount > totalDue) {
-            newErrors.amount = `Payment amount cannot exceed total due (₹${totalDue})`;
+            newErrors.amount = `Payment amount cannot exceed total due (₹${totalDue.toFixed(2)})`;
         }
 
         if (!paymentForm.paymentDate) {
             newErrors.paymentDate = 'Payment date is required';
         }
 
+        if (!paymentForm.paymentMode) {
+            newErrors.paymentMode = 'Payment mode is required';
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Handle form submission with confirmation
-    const handleSubmit = () => {
+    // Handle form submission
+    const handleSubmit = async () => {
         if (!validateForm()) {
             showMessage('error', 'Please fix all errors');
             return;
         }
 
         const paymentAmount = parseFloat(paymentForm.amount);
-        const { totalDue } = calculateSelectedTotals();
+        const { totalDue, count } = calculateSelectedTotals();
         
-        showMessage('warning', `Are you sure you want to record payment of ₹${paymentAmount} for ${selectedShipments.length} shipment(s)?`, () => {
-            // Payment confirmed - process payment
-            const updatedShipments = [...shipmentsList];
-            let remainingAmount = paymentAmount;
+        showMessage(
+            'warning', 
+            `Are you sure you want to record payment of ₹${paymentAmount.toFixed(2)} for ${count} shipment(s)?`, 
+            async () => {
+                setProcessing(true);
+                
+                try {
+                    const paymentData = {
+                        amount: paymentAmount,
+                        paymentMode: paymentForm.paymentMode,
+                        paymentDate: paymentForm.paymentDate,
+                        description: paymentForm.description || `Payment for ${count} shipment(s)`,
+                        bookingIds: selectedShipments
+                    };
 
-            selectedShipments.forEach(shipmentId => {
-                if (remainingAmount <= 0) return;
+                    const result = await dispatch(makeCustomerBulkPayment({
+                        customerId: customerId || customer?.customer_id,
+                        paymentData,
+                        type: 'sender' // Default to sender
+                    })).unwrap();
 
-                const shipmentIndex = updatedShipments.findIndex(s => s.id === shipmentId);
-                if (shipmentIndex !== -1) {
-                    const shipment = updatedShipments[shipmentIndex];
-                    // Calculate proportional amount
-                    const proportion = shipment.dueAmount / totalDue;
-                    const amountToApply = Math.min(remainingAmount, Math.round(paymentAmount * proportion));
-
-                    updatedShipments[shipmentIndex].paidAmount += amountToApply;
-                    updatedShipments[shipmentIndex].dueAmount -= amountToApply;
-
-                    // Update payment status
-                    if (updatedShipments[shipmentIndex].dueAmount <= 0) {
-                        updatedShipments[shipmentIndex].paymentStatus = 'completed';
-                        updatedShipments[shipmentIndex].status = 'completed';
-                    } else if (updatedShipments[shipmentIndex].paidAmount > 0) {
-                        updatedShipments[shipmentIndex].paymentStatus = 'partial';
+                    if (result?.data) {
+                        showMessage('success', `Payment of ₹${paymentAmount.toFixed(2)} recorded successfully`);
+                        
+                        // Redirect back after 1.5 seconds
+                        setTimeout(() => {
+                            navigate('/package/payment');
+                        }, 1500);
                     }
-
-                    remainingAmount -= amountToApply;
+                } catch (error) {
+                    console.error('Payment error:', error);
+                    showMessage('error', error.message || 'Failed to process payment');
+                } finally {
+                    setProcessing(false);
+                    dispatch(resetCustomerPaymentStatus());
                 }
-            });
-
-            setShipmentsList(updatedShipments);
-
-            // Show success message
-            showMessage('success', `Payment of ₹${paymentAmount} recorded successfully`);
-
-            // Redirect back after 1.5 seconds
-            setTimeout(() => {
-                navigate('/package/payment');
-            }, 1500);
-        });
+            },
+            'Yes, process payment'
+        );
     };
 
     // Calculate selected totals
@@ -213,7 +262,7 @@ const RecordPayment = () => {
                 <div className="flex items-center">
                     <input
                         type="checkbox"
-                        checked={getPaginatedData().every(s => selectedShipments.includes(s.id))}
+                        checked={getPaginatedData().length > 0 && getPaginatedData().every(s => selectedShipments.includes(s.booking_id))}
                         onChange={selectAllOnPage}
                         className="w-4 h-4 md:w-5 md:h-5 text-primary border-2 border-gray-300 rounded focus:ring-2 focus:ring-primary"
                     />
@@ -224,8 +273,8 @@ const RecordPayment = () => {
             Cell: ({ row }) => (
                 <input
                     type="checkbox"
-                    checked={selectedShipments.includes(row.original.id)}
-                    onChange={() => toggleShipmentSelection(row.original.id)}
+                    checked={selectedShipments.includes(row.original.booking_id)}
+                    onChange={() => toggleShipmentSelection(row.original.booking_id)}
                     className="w-4 h-4 md:w-5 md:h-5 text-primary border-2 border-gray-300 rounded focus:ring-2 focus:ring-primary"
                 />
             ),
@@ -233,18 +282,18 @@ const RecordPayment = () => {
         },
         {
             Header: 'SHIPMENT',
-            accessor: 'id',
+            accessor: 'booking_number',
             Cell: ({ row }) => (
                 <div>
-                    <div className="font-bold text-gray-900 text-sm md:text-base">#{row.original.id}</div>
-                    <div className="text-xs text-gray-500 mt-1">{row.original.date}</div>
+                    <div className="font-bold text-gray-900 text-sm md:text-base">#{row.original.booking_number}</div>
+                    <div className="text-xs text-gray-500 mt-1">{new Date(row.original.booking_date).toLocaleDateString()}</div>
                     <div className="mt-1">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            row.original.paymentBy === 'from' 
+                            row.original.payment_by === 'sender' 
                                 ? 'bg-blue-100 text-blue-800'
                                 : 'bg-green-100 text-green-800'
                         }`}>
-                            {row.original.paymentBy === 'from' ? 'Sender Pays' : 'Receiver Pays'}
+                            {row.original.payment_by === 'sender' ? 'Sender Pays' : 'Receiver Pays'}
                         </span>
                     </div>
                 </div>
@@ -252,41 +301,51 @@ const RecordPayment = () => {
             width: 120,
         },
         {
+            Header: 'FROM/TO',
+            accessor: 'route',
+            Cell: ({ row }) => (
+                <div>
+                    <div className="text-xs">
+                        <span className="font-medium">From:</span> {row.original.fromCenter?.office_center_name || 'N/A'}
+                    </div>
+                    <div className="text-xs mt-1">
+                        <span className="font-medium">To:</span> {row.original.toCenter?.office_center_name || 'N/A'}
+                    </div>
+                </div>
+            ),
+        },
+        {
             Header: 'AMOUNT',
             accessor: 'amount',
             Cell: ({ row }) => (
                 <div>
-                    <div className="font-bold text-gray-900">₹{row.original.totalAmount}</div>
-                    <div className="text-xs text-gray-500">Due: ₹{row.original.dueAmount}</div>
+                    <div className="font-bold text-gray-900">₹{parseFloat(row.original.total_amount).toFixed(2)}</div>
+                    <div className="text-xs text-red-600 font-medium">Due: ₹{parseFloat(row.original.due_amount).toFixed(2)}</div>
                 </div>
             ),
             width: 100,
         },
         {
             Header: 'STATUS',
-            accessor: 'paymentStatus',
-            Cell: ({ value, row }) => {
+            accessor: 'payment_status',
+            Cell: ({ value }) => {
                 const statusConfig = {
                     pending: { 
                         color: 'bg-yellow-100 text-yellow-800',
-                        icon: <IconX className="w-3 h-3" />,
                         label: 'Due'
                     },
                     partial: { 
                         color: 'bg-orange-100 text-orange-800',
-                        icon: '💰',
                         label: 'Partial'
                     },
                     completed: { 
                         color: 'bg-green-100 text-green-800',
-                        icon: <IconCheck className="w-3 h-3" />,
                         label: 'Paid'
                     }
                 };
                 const config = statusConfig[value] || statusConfig.pending;
                 return (
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center justify-center ${config.color}`}>
-                        <span className="mr-1">{config.icon}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
                         {value === 'pending' ? 'Due' : value === 'partial' ? 'Partial' : 'Paid'}
                     </span>
                 );
@@ -311,12 +370,28 @@ const RecordPayment = () => {
         return shipmentsList.length;
     };
 
-    if (!customer || !shipmentsList) {
+    if (loadingBookings) {
         return (
             <div className="container mx-auto px-4 py-8">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-                    <p className="text-gray-600 mt-4">Loading customer data...</p>
+                    <p className="text-gray-600 mt-4">Loading customer bookings...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!customerData && shipmentsList.length === 0) {
+        return (
+            <div className="container mx-auto px-4 py-8">
+                <div className="text-center">
+                    <p className="text-gray-600">No pending payments found for this customer.</p>
+                    <button
+                        onClick={() => navigate('/package/payment')}
+                        className="btn btn-primary mt-4"
+                    >
+                        Back to Payment Dashboard
+                    </button>
                 </div>
             </div>
         );
@@ -340,24 +415,24 @@ const RecordPayment = () => {
                                 <IconUser className="w-4 h-4 text-white" />
                             </div>
                             <div className="text-right">
-                                <div className="font-bold text-lg text-red-600">₹{customer.totalDue}</div>
-                                <div className="text-xs text-gray-500">Total Due</div>
+                                <div className="font-bold text-lg text-red-600">₹{selectedTotals.totalDue.toFixed(2)}</div>
+                                <div className="text-xs text-gray-500">Selected Due</div>
                             </div>
                         </div>
                     </div>
                     
                     <div>
                         <h1 className="text-xl font-bold text-gray-900 mb-1">
-                            Record Payment for {customer.name}
+                            Record Payment for {customerData?.customer_name || 'Customer'}
                         </h1>
                         <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600">
                             <span className="flex items-center">
                                 <IconPhone className="w-3 h-3 mr-1" />
-                                {customer.mobile}
+                                {customerData?.customer_number}
                             </span>
                             <span>•</span>
                             <span>
-                                {customer.shipmentCount} shipment{customer.shipmentCount !== 1 ? 's' : ''}
+                                {shipmentsList.length} pending shipment{shipmentsList.length !== 1 ? 's' : ''}
                             </span>
                         </div>
                     </div>
@@ -377,7 +452,7 @@ const RecordPayment = () => {
                                         {selectedShipments.length} of {shipmentsList.length} selected
                                         {selectedTotals.count > 0 && (
                                             <span className="ml-2 text-red-600 font-bold">
-                                                • ₹{selectedTotals.totalDue} due
+                                                • ₹{selectedTotals.totalDue.toFixed(2)} due
                                             </span>
                                         )}
                                     </p>
@@ -409,7 +484,6 @@ const RecordPayment = () => {
                                 totalCount={getTotalCount()}
                                 totalPages={Math.ceil(getTotalCount() / pageSize)}
                                 onPaginationChange={handlePaginationChange}
-                                onSearchChange={() => {}}
                                 pagination={true}
                                 isSearchable={false}
                                 isSortable={true}
@@ -435,7 +509,7 @@ const RecordPayment = () => {
                             {/* Payment Amount */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-900 mb-2">
-                                    Payment Amount
+                                    Payment Amount <span className="text-danger">*</span>
                                 </label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
@@ -457,20 +531,48 @@ const RecordPayment = () => {
                                         min="0"
                                         max={selectedTotals.totalDue}
                                         step="0.01"
+                                        disabled={processing}
                                     />
                                 </div>
                                 {errors.amount && (
                                     <p className="mt-1 text-red-600 text-xs">⚠️ {errors.amount}</p>
                                 )}
                                 <div className="text-xs text-gray-500 mt-1">
-                                    Max: ₹{selectedTotals.totalDue}
+                                    Max: ₹{selectedTotals.totalDue.toFixed(2)}
                                 </div>
+                            </div>
+
+                            {/* Payment Mode */}
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 mb-2">
+                                    Payment Mode <span className="text-danger">*</span>
+                                </label>
+                                <select
+                                    value={paymentForm.paymentMode}
+                                    onChange={(e) => {
+                                        setPaymentForm({...paymentForm, paymentMode: e.target.value});
+                                        if (errors.paymentMode) {
+                                            setErrors({...errors, paymentMode: null});
+                                        }
+                                    }}
+                                    className={`form-select w-full py-2 rounded-lg border ${errors.paymentMode ? 'border-red-500' : 'border-gray-300'} focus:border-primary focus:ring-1 focus:ring-primary`}
+                                    disabled={processing}
+                                >
+                                    {paymentModes.map(mode => (
+                                        <option key={mode.value} value={mode.value}>
+                                            {mode.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                {errors.paymentMode && (
+                                    <p className="mt-1 text-red-600 text-xs">⚠️ {errors.paymentMode}</p>
+                                )}
                             </div>
 
                             {/* Payment Date */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-900 mb-2">
-                                    Payment Date
+                                    Payment Date <span className="text-danger">*</span>
                                 </label>
                                 <div className="relative">
                                     <IconCalendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -484,6 +586,7 @@ const RecordPayment = () => {
                                             }
                                         }}
                                         className={`form-input w-full pl-10 pr-3 py-2 rounded-lg border ${errors.paymentDate ? 'border-red-500' : 'border-gray-300'} focus:border-primary focus:ring-1 focus:ring-primary`}
+                                        disabled={processing}
                                     />
                                 </div>
                                 {errors.paymentDate && (
@@ -491,28 +594,38 @@ const RecordPayment = () => {
                                 )}
                             </div>
 
-                            {/* Notes */}
+                            {/* Description */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-900 mb-2">
-                                    Notes (Optional)
+                                    Description (Optional)
                                 </label>
                                 <textarea
-                                    value={paymentForm.notes}
-                                    onChange={(e) => setPaymentForm({...paymentForm, notes: e.target.value})}
+                                    value={paymentForm.description}
+                                    onChange={(e) => setPaymentForm({...paymentForm, description: e.target.value})}
                                     className="form-textarea w-full rounded-lg border border-gray-300 focus:border-primary focus:ring-1 focus:ring-primary"
-                                    placeholder="Enter payment notes..."
+                                    placeholder="Enter payment description..."
                                     rows="3"
+                                    disabled={processing}
                                 />
                             </div>
 
                             {/* Submit Button */}
                             <button
                                 onClick={handleSubmit}
-                                disabled={selectedShipments.length === 0 || !paymentForm.amount || parseFloat(paymentForm.amount) <= 0}
+                                disabled={selectedShipments.length === 0 || !paymentForm.amount || parseFloat(paymentForm.amount) <= 0 || processing}
                                 className="btn btn-success w-full py-3 mt-2 flex items-center justify-center font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <IconDollarSign className="w-5 h-5 mr-2" />
-                                Record Payment
+                                {processing ? (
+                                    <>
+                                        <span className="animate-spin border-2 border-white border-l-transparent rounded-full w-4 h-4 mr-2"></span>
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <IconDollarSign className="w-5 h-5 mr-2" />
+                                        Record Payment
+                                    </>
+                                )}
                             </button>
 
                             {/* Quick Summary */}
