@@ -361,7 +361,7 @@ const routes = [
         element: <PdfSubAuditChecklistBarChart />,
     },
     {
-        path: '/documents/balance-payment-print',
+        path: '/documents/balance-payment-print/:customerId',
         element: <PaymentPrintPdf />,
     },
     {
@@ -451,7 +451,7 @@ const dontCkeckRouts = [
         element: <PdfSubAuditChecklist />,
     },
     {
-        path: '/documents/print-sub-checklist-sub-audit-images',
+        path: '/documents/balance-payment-print/:customerId',
         element: <PaymentPrintPdf />,
     },
     {

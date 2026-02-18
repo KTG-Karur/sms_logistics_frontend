@@ -1,243 +1,61 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import IconPrinter from '../../../components/Icon/IconPrinter';
 import IconBack from '../../../components/Icon/IconArrowLeft';
 import moment from 'moment';
+import { getCustomerPendingPayments } from '../../../redux/customerPaymentSlice';
+import { showMessage } from '../../../util/AllFunction';
 
 const PackageReportPrint = () => {
     const location = useLocation();
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const { customerId } = useParams();
 
-    const [filteredData, setFilteredData] = useState([]);
-    const [filters, setFilters] = useState(null);
-    const [stats, setStats] = useState(null);
-    const [generatedDate, setGeneratedDate] = useState('');
-    const [totalRecords, setTotalRecords] = useState(0);
+    const [pendingPayments, setPendingPayments] = useState(null);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-    const [allShipments, setAllShipments] = useState([]);
+    const [pendingShipments, setPendingShipments] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [generatedDate, setGeneratedDate] = useState(moment().format('DD-MM-YYYY'));
 
     useEffect(() => {
-        if (location.state) {
-            const { filteredData = [], filters = null, stats = null, generatedDate = '', totalRecords = 0 } = location.state;
-            
-            setFilteredData(filteredData);
-            setFilters(filters);
-            setStats(stats);
-            setGeneratedDate(generatedDate);
-            setTotalRecords(totalRecords);
-            
-            // Group by customer - for demo, using first customer as selected
-            if (filteredData.length > 0) {
-                // In real scenario, you'd have a selected customer ID
-                // For demo, group by fromName (sender)
-                const customerShipments = filteredData.filter(item => 
-                    item.fromName === filteredData[0].fromName
-                );
-                setAllShipments(customerShipments);
+        if (location.state?.customer) {
+            const { customer } = location.state;
+            setSelectedCustomer(customer);
+            fetchPendingPayments(customer.customer_id);
+        } else if (customerId) {
+            fetchPendingPayments(customerId);
+        } else {
+            showMessage('error', 'Customer data not found');
+            navigate('/package/payment');
+        }
+    }, [location.state, customerId, navigate]);
+
+    const fetchPendingPayments = async (id) => {
+        setLoading(true);
+        try {
+            const result = await dispatch(getCustomerPendingPayments(id)).unwrap();
+
+            if (result?.data) {
+                setPendingPayments(result.data);
+                const allPending = result.data.pending_bookings || [];
+                setPendingShipments(allPending);
+                
                 setSelectedCustomer({
-                    name: filteredData[0].fromName,
-                    mobile: filteredData[0].fromMobile
+                    customer_id: result.data.customer_id,
+                    customer_name: result.data.customer_info?.customer_name || 'Customer',
+                    customer_number: result.data.customer_info?.customer_number || 'N/A',
+                    summary: result.data.summary
                 });
             }
-        } else {
-            // Comprehensive dummy data for ONE customer with multiple shipments
-            const customerName = 'John Doe';
-            const customerMobile = '9876543210';
-            
-            const dummyShipments = [
-                {
-                    id: 1,
-                    packageId: 'PKG001',
-                    fromCenter: 'Karur',
-                    toCenter: 'Erode',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '456 Park Avenue, Erode',
-                    fromMobile: customerMobile,
-                    fromName: customerName,
-                    toMobile: '8765432109',
-                    toName: 'Robert Johnson',
-                    tripName: 'RRR',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 6, rate: 70 }
-                    ],
-                    totalAmount: 420,
-                    paidAmount: 420,
-                    dueAmount: 0,
-                    paymentBy: 'from',
-                    paymentStatus: 'completed',
-                    date: '2025-11-17',
-                    tripId: 'TRP001'
-                },
-                {
-                    id: 2,
-                    packageId: 'PKG002',
-                    fromCenter: 'Karur',
-                    toCenter: 'Salem',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '789 Market Road, Salem',
-                    fromMobile: customerMobile,
-                    fromName: customerName,
-                    toMobile: '7654321098',
-                    toName: 'Mike Brown',
-                    tripName: 'VSK',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 1, rate: 70 }
-                    ],
-                    totalAmount: 70,
-                    paidAmount: 0,
-                    dueAmount: 70,
-                    paymentBy: 'from',
-                    paymentStatus: 'pending',
-                    date: '2025-11-17',
-                    tripId: 'TRP002'
-                },
-                {
-                    id: 2,
-                    packageId: 'PKG002',
-                    fromCenter: 'Karur',
-                    toCenter: 'Salem',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '789 Market Road, Salem',
-                    fromMobile: customerMobile,
-                    fromName: customerName,
-                    toMobile: '7654321098',
-                    toName: 'Mike Brown',
-                    tripName: 'VSK',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 1, rate: 70 }
-                    ],
-                    totalAmount: 70,
-                    paidAmount: 0,
-                    dueAmount: 70,
-                    paymentBy: 'from',
-                    paymentStatus: 'pending',
-                    date: '2025-11-17',
-                    tripId: 'TRP002'
-                },
-                {
-                    id: 3,
-                    packageId: 'PKG003',
-                    fromCenter: 'Karur',
-                    toCenter: 'Coimbatore',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '456 Cross Cut Road, Coimbatore',
-                    fromMobile: customerMobile,
-                    fromName: customerName,
-                    toMobile: '9988776655',
-                    toName: 'David Wilson',
-                    tripName: 'Export',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 24, rate: 70 }
-                    ],
-                    totalAmount: 1680,
-                    paidAmount: 500,
-                    dueAmount: 1180,
-                    paymentBy: 'from',
-                    paymentStatus: 'partial',
-                    date: '2025-11-18',
-                    tripId: 'TRP003'
-                },
-                {
-                    id: 4,
-                    packageId: 'PKG004',
-                    fromCenter: 'Karur',
-                    toCenter: 'Chennai',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '456 Anna Salai, Chennai',
-                    fromMobile: customerMobile,
-                    fromName: customerName,
-                    toMobile: '8877665544',
-                    toName: 'Sarah Williams',
-                    tripName: 'KPN',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 10, rate: 70 }
-                    ],
-                    totalAmount: 700,
-                    paidAmount: 200,
-                    dueAmount: 500,
-                    paymentBy: 'from',
-                    paymentStatus: 'partial',
-                    date: '2025-11-19',
-                    tripId: 'TRP004'
-                },
-                {
-                    id: 5,
-                    packageId: 'PKG005',
-                    fromCenter: 'Karur',
-                    toCenter: 'Madurai',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '789 North Veli Street, Madurai',
-                    fromMobile: customerMobile,
-                    fromName: customerName,
-                    toMobile: '7788996655',
-                    toName: 'Priya Kumar',
-                    tripName: 'VRL',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 15, rate: 70 }
-                    ],
-                    totalAmount: 1050,
-                    paidAmount: 1050,
-                    dueAmount: 0,
-                    paymentBy: 'from',
-                    paymentStatus: 'completed',
-                    date: '2025-11-20',
-                    tripId: 'TRP005'
-                },
-                {
-                    id: 6,
-                    packageId: 'PKG006',
-                    fromCenter: 'Karur',
-                    toCenter: 'Trichy',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '456 Cantonment, Trichy',
-                    fromMobile: '9988776655', // Different sender - received by customer
-                    fromName: 'Ramesh Kumar',
-                    toMobile: customerMobile,
-                    toName: customerName,
-                    tripName: 'SRS',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 8, rate: 70 }
-                    ],
-                    totalAmount: 560,
-                    paidAmount: 0,
-                    dueAmount: 560,
-                    paymentBy: 'to', // Receiver pays (customer receives)
-                    paymentStatus: 'pending',
-                    date: '2025-11-21',
-                    tripId: 'TRP006'
-                },
-                {
-                    id: 7,
-                    packageId: 'PKG007',
-                    fromCenter: 'Karur',
-                    toCenter: 'Tirupur',
-                    fromLocation: '123 Main Street, Karur',
-                    toLocation: '456 Avinashi Road, Tirupur',
-                    fromMobile: '8877665544', // Different sender - received by customer
-                    fromName: 'Suresh Reddy',
-                    toMobile: customerMobile,
-                    toName: customerName,
-                    tripName: 'GATI',
-                    packageDetails: [
-                        { packageType: 'bag', quantity: 12, rate: 70 }
-                    ],
-                    totalAmount: 840,
-                    paidAmount: 300,
-                    dueAmount: 540,
-                    paymentBy: 'to', // Receiver pays (customer receives)
-                    paymentStatus: 'partial',
-                    date: '2025-11-22',
-                    tripId: 'TRP007'
-                }
-            ];
-            
-            setAllShipments(dummyShipments);
-            setSelectedCustomer({
-                name: customerName,
-                mobile: customerMobile
-            });
+        } catch (error) {
+            console.error('Error fetching pending payments:', error);
+            showMessage('error', 'Failed to load pending payments');
+        } finally {
+            setLoading(false);
         }
-    }, [location.state]);
+    };
 
     const handlePrint = () => {
         window.print();
@@ -257,10 +75,17 @@ const PackageReportPrint = () => {
         return moment(date).format('DD-MM-YYYY');
     };
 
+    // Safe number parsing function
+    const parseNumber = (value) => {
+        if (value === null || value === undefined || value === '') return 0;
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? 0 : parsed;
+    };
+
     // Format quantity with fractions
     const formatQuantity = (qty) => {
-        if (!qty) return '0';
-        const num = parseFloat(qty);
+        const num = parseNumber(qty);
+        if (num === 0) return '0';
         if (Number.isInteger(num)) return num.toString();
         
         const whole = Math.floor(num);
@@ -270,52 +95,88 @@ const PackageReportPrint = () => {
         if (Math.abs(fraction - 0.25) < 0.01) return whole > 0 ? `${whole}¼` : '¼';
         if (Math.abs(fraction - 0.75) < 0.01) return whole > 0 ? `${whole}¾` : '¾';
         
-        return num.toString();
+        return num.toFixed(2);
     };
 
-    // Prepare table rows from all shipments
+    // Format currency
+    const formatCurrency = (value) => {
+        const num = parseNumber(value);
+        return num.toFixed(2);
+    };
+
+    // Prepare table rows - each package as a separate row
     const prepareTableRows = () => {
-        if (!allShipments || allShipments.length === 0) return [];
+        if (!pendingShipments || pendingShipments.length === 0) return [];
 
-        return allShipments.map((shipment, index) => {
-            // Determine payment indicator
-            let paymentIndicator;
-            if (shipment.fromName === selectedCustomer?.name) {
-                paymentIndicator = 'S';
-            } else {
-                paymentIndicator = 'R';
-            }
-
-            // Get the full mobile number
-            const mobile = shipment.fromName === selectedCustomer?.name 
-                ? shipment.toMobile 
-                : shipment.fromMobile;
-
-            const tripName = shipment.tripName || 'GEN';
+        const rows = [];
+        let serialNo = 1;
+        
+        pendingShipments.forEach((shipment) => {
+            // Determine counterparty (other party's details)
+            const isSender = shipment.from_customer_id === selectedCustomer?.customer_id;
+            const counterparty = isSender ? shipment.receiver : shipment.sender;
+            const counterpartyName = counterparty?.customer_name || 'Unknown';
+            const counterpartyNumber = counterparty?.customer_number || 'N/A';
             
-            // Format: Date - Particular (with full mobile)
-            const dateParticular = `${formatDate(shipment.date)} - ${tripName}-${mobile}(${paymentIndicator})`;
-
-            // Get package details
-            const packageDetail = shipment.packageDetails && shipment.packageDetails[0] 
-                ? shipment.packageDetails[0] 
-                : { packageType: 'bag', quantity: 0, rate: 0 };
-
-            return {
-                id: shipment.id,
-                sno: index + 1,
-                dateParticular: dateParticular,
-                qty: packageDetail.quantity || 0,
-                rate: packageDetail.rate || 0,
-                amount: (packageDetail.quantity || 0) * (packageDetail.rate || 0)
-            };
+            // Format date
+            const formattedDate = formatDate(shipment.booking_date);
+            
+            // Get packages
+            const packages = shipment.packages || [];
+            
+            if (packages.length > 0) {
+                // Add each package as a separate row
+                packages.forEach((pkg) => {
+                    const packageType = pkg.packageType?.package_type_name || 'Package';
+                    const quantity = parseNumber(pkg.quantity);
+                    const amount = parseNumber(pkg.total_package_charge);
+                    const rate = quantity > 0 ? amount / quantity : 0;
+                    
+                    rows.push({
+                        id: `row-${shipment.booking_id}-${pkg.booking_package_id || Math.random()}`,
+                        sno: serialNo++,
+                        dateParticular: `${formattedDate} - ${counterpartyName} (${counterpartyNumber})`,
+                        packageType: packageType,
+                        rate: rate,
+                        qty: quantity,
+                        amount: amount
+                    });
+                });
+            } else {
+                // If no packages, create a default row
+                const amount = parseNumber(shipment.total_amount);
+                rows.push({
+                    id: `row-${shipment.booking_id}`,
+                    sno: serialNo++,
+                    dateParticular: `${formattedDate} - ${counterpartyName} (${counterpartyNumber})`,
+                    packageType: 'General',
+                    rate: amount,
+                    qty: 1,
+                    amount: amount
+                });
+            }
         });
+
+        return rows;
     };
 
     const tableRows = prepareTableRows();
 
-    // Calculate totals
-    const totalAmount = tableRows.reduce((sum, row) => sum + row.amount, 0);
+    // Calculate total amount safely
+    const totalAmount = tableRows.reduce((sum, row) => {
+        return sum + parseNumber(row.amount);
+    }, 0);
+
+    if (loading) {
+        return (
+            <div className="container mx-auto px-4 py-8">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+                    <p className="text-gray-600 mt-4">Loading pending payments...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 bg-gray-100 min-h-screen">
@@ -324,7 +185,7 @@ const PackageReportPrint = () => {
                 id="ledger-bill-to-print"
                 className="bg-white mx-auto ledger-container"
             >
-                {/* Header with Cash Bill and Phone Numbers */}
+                {/* Header with Cash Bill centered - reduced to 10px */}
                 <div className="header-section">
                     <div className="cash-bill">CASH BILL</div>
                     <div className="phone-numbers">
@@ -341,11 +202,15 @@ const PackageReportPrint = () => {
 
                 {/* Customer Info and Bill Date */}
                 <div className="info-bar">
-                    <span>M/s: {selectedCustomer?.name || '__________'} - {selectedCustomer?.mobile || '__________'}</span>
-                    <span>Bill Date: {formatFullDate()}</span>
+                    <div>
+                        <span>M/s: {selectedCustomer?.customer_name || '__________'} - {selectedCustomer?.customer_number || '__________'}</span>
+                    </div>
+                    <div>
+                        <span>Bill Date: {formatFullDate(generatedDate)}</span>
+                    </div>
                 </div>
 
-                {/* Main Table - Increased Size */}
+                {/* Main Table */}
                 <table className="ledger-table">
                     <thead>
                         <tr>
@@ -362,29 +227,30 @@ const PackageReportPrint = () => {
                                 <tr key={row.id}>
                                     <td className="col-sno">{row.sno}</td>
                                     <td className="col-particular">{row.dateParticular}</td>
-                                    <td className="col-rate">{row.rate}</td>
+                                    <td className="col-rate">₹{formatCurrency(row.rate)}</td>
                                     <td className="col-qty">{formatQuantity(row.qty)}</td>
-                                    <td className="col-amount">{row.amount}</td>
+                                    <td className="col-amount">₹{formatCurrency(row.amount)}</td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="5" className="no-data">No transactions</td>
+                                <td colSpan="5" className="no-data">No pending payments found</td>
                             </tr>
                         )}
-                        {/* Total Row Inside Table */}
-                        <tr className="total-row">
-                            <td colSpan="4" className="total-label-cell">Total Amount:</td>
-                            <td className="total-value-cell">₹{totalAmount.toFixed(2)}</td>
-                        </tr>
+                        
+                        {/* Total Row - aligned right */}
+                        {tableRows.length > 0 && (
+                            <tr className="total-row">
+                                <td colSpan="4" className="total-label-cell">Total</td>
+                                <td className="total-value-cell">₹{formatCurrency(totalAmount)}</td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
 
                 {/* Footer with Thank You and Signature */}
                 <div className="ledger-footer">
-                    <div className="thankyou">
-                        Thank You Visit Again
-                    </div>
+                    <div className="thankyou">Thank You Visit Again</div>
                     <div className="signature-area">
                         <div className="signature-text">Signature</div>
                     </div>
@@ -405,7 +271,7 @@ const PackageReportPrint = () => {
                     className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center"
                 >
                     <IconPrinter className="w-4 h-4 mr-2" />
-                    Print Ledger Bill
+                    Print Cash Bill
                 </button>
             </div>
 
@@ -440,15 +306,19 @@ const PackageReportPrint = () => {
                 }
 
                 .cash-bill {
-                    font-size: 14pt;
+                    font-size: 10px; /* Reduced to 10px */
                     font-weight: bold;
                     text-transform: uppercase;
+                    color: #000;
+                    flex: 1;
+                    text-align: center;
                 }
 
                 .phone-numbers {
                     font-size: 9pt;
                     text-align: right;
                     line-height: 1.2;
+                    min-width: 80px;
                 }
 
                 /* Company Header */
@@ -478,9 +348,10 @@ const PackageReportPrint = () => {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    margin-bottom: 2mm;
+                    margin-bottom: 3mm;
                     font-size: 10pt;
                     padding-bottom: 1mm;
+                    border-bottom: 1px dashed #ccc;
                 }
 
                 /* Table Styles */
@@ -493,10 +364,7 @@ const PackageReportPrint = () => {
                 }
 
                 .ledger-table th {
-                    border-left: 1px solid #aaa;
-                    border-right: 1px solid #aaa;
-                    border-top: 1px solid #aaa;
-                    border-bottom: 1px solid #aaa;
+                    border: 1px solid #aaa;
                     padding: 3pt 2pt;
                     font-weight: bold;
                     text-align: center;
@@ -510,49 +378,39 @@ const PackageReportPrint = () => {
                     padding: 3pt 2pt;
                     vertical-align: middle;
                     font-size: 9pt;
-                    border-top: none;
-                    border-bottom: none;
-                }
-
-                .ledger-table td.col-rate,
-                .ledger-table td.col-qty,
-                .ledger-table td.col-amount {
-                    text-align: right;
-                }
-
-                .ledger-table td.col-sno {
-                    text-align: center;
-                }
-
-                .ledger-table td.col-particular {
-                    text-align: left;
                 }
 
                 /* Column widths */
                 .col-sno { width: 8%; }
                 .col-particular { width: 52%; }
-                .col-rate { width: 12%; }
+                .col-rate { width: 15%; }
                 .col-qty { width: 10%; }
-                .col-amount { width: 18%; }
+                .col-amount { width: 15%; }
 
-                /* Total Row inside table - Larger font */
+                /* Alignment */
+                .col-sno { text-align: center; }
+                .col-particular { text-align: left; }
+                .col-rate { text-align: right; }
+                .col-qty { text-align: right; }
+                .col-amount { text-align: right; }
+
+                /* Total Row */
                 .total-row td {
                     border-top: 1px solid #aaa;
                     border-bottom: 1px solid #aaa;
-                    border-left: 1px solid #aaa;
-                    border-right: 1px solid #aaa;
                     font-weight: bold;
                     padding: 4pt 2pt;
                 }
 
                 .total-label-cell {
                     text-align: right;
-                    font-size: 12pt !important;
+                    font-size: 11pt;
+                    padding-right: 10px;
                 }
 
                 .total-value-cell {
                     text-align: right;
-                    font-size: 12pt !important;
+                    font-size: 11pt;
                 }
 
                 .no-data {
@@ -561,17 +419,17 @@ const PackageReportPrint = () => {
                     font-style: italic;
                 }
 
-                /* Footer with Signature */
+                /* Footer with Thank You and Signature */
                 .ledger-footer {
                     display: flex;
                     justify-content: space-between;
                     align-items: flex-end;
                     margin-top: auto;
-                    padding-top: 2mm;
+                    padding-top: 3mm;
                 }
 
                 .thankyou {
-                    font-size: 12pt;
+                    font-size: 10pt;
                     font-style: italic;
                     font-weight: bold;
                 }

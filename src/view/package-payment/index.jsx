@@ -15,6 +15,7 @@ import IconPhone from '../../components/Icon/IconPhone';
 import IconCalendar from '../../components/Icon/IconCalendar';
 import IconCreditCard from '../../components/Icon/IconCreditCard';
 import IconFilter from '../../components/Icon/IconFilter';
+import IconPrinter from '../../components/Icon/IconPrinter';
 import { getAllCustomersPaymentSummary, getCustomerBookingsAndPayments, resetCustomerPaymentStatus } from '../../redux/customerPaymentSlice';
 import Select from 'react-select';
 
@@ -41,7 +42,8 @@ const PendingPayments = () => {
     const [filters, setFilters] = useState({
         search: '',
         status: 'all',
-        status: 'customer_name',
+        sortBy: 'customer_name',
+        sortOrder: 'ASC',
         page: 1,
         limit: 20,
     });
@@ -71,23 +73,26 @@ const PendingPayments = () => {
 
             // Apply search filter
             if (searchTerm) {
-                customers = customers.filter((customer) => customer.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) || customer.customer_number.includes(searchTerm));
+                customers = customers.filter((customer) => 
+                    customer.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                    customer.customer_number?.includes(searchTerm)
+                );
             }
 
             // Apply payment by filter (based on as_payer/responsible amount)
             if (paymentByFilter !== 'all') {
                 customers = customers.filter((customer) => {
                     if (paymentByFilter === 'sender') {
-                        return parseFloat(customer.summary.as_payer.total) > 0;
+                        return parseFloat(customer.summary?.as_payer?.total || 0) > 0;
                     } else {
-                        return parseFloat(customer.summary.as_recipient.total) > 0;
+                        return parseFloat(customer.summary?.as_recipient?.total || 0) > 0;
                     }
                 });
             }
 
             // Apply payment status filter (override the API filter if needed)
             if (paymentStatusFilter !== 'all') {
-                customers = customers.filter((customer) => customer.summary.payment_status === paymentStatusFilter);
+                customers = customers.filter((customer) => customer.summary?.payment_status === paymentStatusFilter);
             }
 
             setFilteredCustomers(customers);
@@ -99,7 +104,8 @@ const PendingPayments = () => {
         const filterParams = {
             page: filters.page,
             limit: filters.limit,
-            status: filters.status,
+            sortBy: filters.sortBy,
+            sortOrder: filters.sortOrder
         };
 
         if (filters.search) filterParams.search = filters.search;
@@ -108,7 +114,7 @@ const PendingPayments = () => {
         dispatch(getAllCustomersPaymentSummary(filterParams));
     };
 
-    const fetchCustomerBookings = async (customerId, type = 'sender') => {
+    const fetchCustomerBookings = async (customerId, type = 'all') => {
         setLoadingBookings(true);
         try {
             const result = await dispatch(
@@ -141,7 +147,7 @@ const PendingPayments = () => {
 
     // Handle record payment button click
     const handleRecordPayment = (customer) => {
-        if (parseFloat(customer.summary.responsible_pending) <= 0) {
+        if (parseFloat(customer.summary?.responsible_pending || 0) <= 0) {
             showMessage('error', 'No pending payments for this customer');
             return;
         }
@@ -150,11 +156,11 @@ const PendingPayments = () => {
             state: {
                 customer: {
                     ...customer,
-                    responsible_amount: customer.summary.responsible_amount,
-                    responsible_paid: customer.summary.responsible_paid,
-                    responsible_pending: customer.summary.responsible_pending,
-                    as_payer: customer.summary.as_payer,
-                    as_recipient: customer.summary.as_recipient,
+                    responsible_amount: customer.summary?.responsible_amount || 0,
+                    responsible_paid: customer.summary?.responsible_paid || 0,
+                    responsible_pending: customer.summary?.responsible_pending || 0,
+                    as_payer: customer.summary?.as_payer || { bookings: 0, total: 0, paid: 0, pending: 0 },
+                    as_recipient: customer.summary?.as_recipient || { bookings: 0, total: 0, paid: 0, pending: 0 },
                 },
             },
         });
@@ -164,15 +170,26 @@ const PendingPayments = () => {
     const handleViewShipments = async (customer) => {
         setSelectedCustomer(customer);
         setViewModal(true);
+        await fetchCustomerBookings(customer.customer_id, 'all');
+    };
 
-        // Determine which type to fetch based on who is responsible for payment
-        // You might want to fetch both sender and receiver bookings
-        await fetchCustomerBookings(customer.customer_id, 'sender');
+    // Handle print balance payment
+    const handlePrintBalancePayment = (customer) => {
+        navigate(`/documents/balance-payment-print/${customer.customer_id}`, {
+            state: {
+                customer: {
+                    customer_id: customer.customer_id,
+                    customer_name: customer.customer_name,
+                    customer_number: customer.customer_number,
+                    summary: customer.summary
+                }
+            }
+        });
     };
 
     // Handle row click
     const handleRowClick = (customer) => {
-        if (parseFloat(customer.summary.responsible_pending) > 0) {
+        if (parseFloat(customer.summary?.responsible_pending || 0) > 0) {
             handleRecordPayment(customer);
         } else {
             handleViewShipments(customer);
@@ -191,7 +208,8 @@ const PendingPayments = () => {
         setFilters({
             search: '',
             status: 'all',
-            status: 'customer_name',
+            sortBy: 'customer_name',
+            sortOrder: 'ASC',
             page: 1,
             limit: 20,
         });
@@ -209,7 +227,9 @@ const PendingPayments = () => {
                 <div className="space-y-1 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200" onClick={() => handleRowClick(row.original)}>
                     <div className="flex items-center justify-between">
                         <div className="font-bold text-gray-900 text-lg">{row.original.customer_name}</div>
-                        <div className="bg-primary text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">{row.original.summary.total_bookings}</div>
+                        <div className="bg-primary text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                            {row.original.summary?.total_bookings || 0}
+                        </div>
                     </div>
                     <div className="flex items-center text-sm text-gray-600">
                         <IconPhone className="w-4 h-4 mr-1" />
@@ -224,34 +244,36 @@ const PendingPayments = () => {
             Cell: ({ row }) => (
                 <div className="space-y-2 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors duration-200" onClick={() => handleRowClick(row.original)}>
                     <div className="flex justify-between items-center">
-                        <span className={`font-bold text-lg ${parseFloat(row.original.summary.responsible_pending) > 0 ? 'text-red-600 animate-pulse' : 'text-green-600'}`}>
-                            ₹{row.original.summary.responsible_pending}
+                        <span className={`font-bold text-lg ${parseFloat(row.original.summary?.responsible_pending || 0) > 0 ? 'text-red-600 animate-pulse' : 'text-green-600'}`}>
+                            ₹{parseFloat(row.original.summary?.responsible_pending || 0).toFixed(2)}
                         </span>
                         <div
                             className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                row.original.summary.payment_status === 'fully_paid'
+                                row.original.summary?.payment_status === 'fully_paid'
                                     ? 'bg-green-100 text-green-800'
-                                    : row.original.summary.payment_status === 'partial'
+                                    : row.original.summary?.payment_status === 'partial'
                                       ? 'bg-orange-100 text-orange-800'
-                                      : row.original.summary.payment_status === 'pending'
+                                      : row.original.summary?.payment_status === 'pending'
                                         ? 'bg-yellow-100 text-yellow-800'
                                         : 'bg-gray-100 text-gray-800'
                             }`}
                         >
-                            {row.original.summary.payment_status === 'fully_paid'
+                            {row.original.summary?.payment_status === 'fully_paid'
                                 ? 'Paid'
-                                : row.original.summary.payment_status === 'partial'
+                                : row.original.summary?.payment_status === 'partial'
                                   ? 'Partial'
-                                  : row.original.summary.payment_status === 'pending'
+                                  : row.original.summary?.payment_status === 'pending'
                                     ? 'Pending'
-                                    : 'No Bookings'}
+                                    : row.original.summary?.payment_status === 'not_responsible'
+                                      ? 'Not Responsible'
+                                      : 'No Bookings'}
                         </div>
                     </div>
                     <div className="text-sm text-gray-600">
-                        Total: ₹{row.original.summary.responsible_amount} • Paid: ₹{row.original.summary.responsible_paid}
+                        Total: ₹{parseFloat(row.original.summary?.responsible_amount || 0).toFixed(2)} • Paid: ₹{parseFloat(row.original.summary?.responsible_paid || 0).toFixed(2)}
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
-                        <div className="bg-primary h-1.5 rounded-full" style={{ width: `${row.original.summary.payment_progress}%` }}></div>
+                        <div className="bg-primary h-1.5 rounded-full" style={{ width: `${row.original.summary?.payment_progress || 0}%` }}></div>
                     </div>
                 </div>
             ),
@@ -262,10 +284,10 @@ const PendingPayments = () => {
             Cell: ({ row }) => (
                 <div className="text-sm">
                     <div className="mb-1">
-                        <span className="text-blue-600 font-medium">Sender:</span> ₹{row.original.summary.as_payer.total}
+                        <span className="text-blue-600 font-medium">Sender:</span> ₹{parseFloat(row.original.summary?.as_payer?.total || 0).toFixed(2)}
                     </div>
                     <div>
-                        <span className="text-green-600 font-medium">Receiver:</span> ₹{row.original.summary.as_recipient.total}
+                        <span className="text-green-600 font-medium">Receiver:</span> ₹{parseFloat(row.original.summary?.as_recipient?.total || 0).toFixed(2)}
                     </div>
                 </div>
             ),
@@ -275,8 +297,8 @@ const PendingPayments = () => {
             accessor: 'payments',
             Cell: ({ row }) => (
                 <div className="text-center">
-                    <div className="font-bold text-lg">{row.original.summary.payments.total_count}</div>
-                    <div className="text-xs text-gray-500">₹{row.original.summary.payments.total_amount}</div>
+                    <div className="font-bold text-lg">{row.original.summary?.payments?.total_count || 0}</div>
+                    <div className="text-xs text-gray-500">₹{parseFloat(row.original.summary?.payments?.total_amount || 0).toFixed(2)}</div>
                 </div>
             ),
         },
@@ -285,23 +307,33 @@ const PendingPayments = () => {
             accessor: 'actions',
             Cell: ({ row }) => (
                 <div className="flex space-x-2">
-                    {parseFloat(row.original.summary.responsible_pending) > 0 ? (
-                        <button
-                            onClick={() => handleRecordPayment(row.original)}
-                            className="btn btn-success btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
-                        >
-                            <IconDollarSign className="w-4 h-4 mr-1" />
-                            <span className="hidden md:inline">Record Payment</span>
-                            <span className="md:hidden">Pay</span>
-                        </button>
+                    {parseFloat(row.original.summary?.responsible_pending || 0) > 0 ? (
+                        <>
+                            <button
+                                onClick={() => handleRecordPayment(row.original)}
+                                className="btn btn-success btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
+                                title="Record Payment"
+                            >
+                                <IconDollarSign className="w-4 h-4 mr-1" />
+                                <span className="hidden md:inline">Pay</span>
+                            </button>
+                            <button
+                                onClick={() => handlePrintBalancePayment(row.original)}
+                                className="btn btn-info btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
+                                title="Print Balance Payment"
+                            >
+                                <IconPrinter className="w-4 h-4 mr-1" />
+                                <span className="hidden md:inline">Print</span>
+                            </button>
+                        </>
                     ) : (
                         <button
                             onClick={() => handleViewShipments(row.original)}
                             className="btn btn-info btn-sm flex items-center transform hover:scale-105 transition-all duration-300 hover:shadow-lg"
+                            title="View Details"
                         >
                             <IconEye className="w-4 h-4 mr-1" />
-                            <span className="hidden md:inline">View Details</span>
-                            <span className="md:hidden">View</span>
+                            <span className="hidden md:inline">View</span>
                         </button>
                     )}
                 </div>
@@ -415,7 +447,7 @@ const PendingPayments = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-sm font-medium text-gray-600">Total Due</p>
-                                <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.totalDueAmount}</p>
+                                <p className="text-3xl font-bold text-gray-900 mt-2">₹{stats.totalDueAmount.toFixed(2)}</p>
                             </div>
                             <div className="p-3 bg-gradient-to-r from-primary to-purple-600 rounded-full">
                                 <IconDollarSign className="w-8 h-8 text-white" />
@@ -485,7 +517,7 @@ const PendingPayments = () => {
                                 <p className="text-gray-600 mt-2 text-sm">
                                     <span className="font-semibold text-primary">{stats.totalShipments}</span> shipments across{' '}
                                     <span className="font-semibold text-primary">{stats.totalCustomers}</span> customers
-                                    {stats.totalDueAmount > 0 && <span className="ml-2 text-red-600 font-bold">• ₹{stats.totalDueAmount} total due</span>}
+                                    {stats.totalDueAmount > 0 && <span className="ml-2 text-red-600 font-bold">• ₹{stats.totalDueAmount.toFixed(2)} total due</span>}
                                 </p>
                             </div>
                             <div className="text-sm text-gray-500 bg-gray-100 px-3 py-2 rounded-lg">
@@ -554,7 +586,7 @@ const PendingPayments = () => {
                                         </div>
                                     </div>
                                     <div className="text-right">
-                                        <div className="text-3xl font-bold text-red-600">₹{selectedCustomer?.summary.responsible_pending}</div>
+                                        <div className="text-3xl font-bold text-red-600">₹{parseFloat(selectedCustomer?.summary?.responsible_pending || 0).toFixed(2)}</div>
                                         <div className="text-gray-600">Remaining Due Amount</div>
                                     </div>
                                 </div>
@@ -565,25 +597,25 @@ const PendingPayments = () => {
                                 <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                     <div className="text-center">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Total Shipments</div>
-                                        <div className="text-3xl font-bold text-primary">{customerBookings.summary.total_bookings}</div>
+                                        <div className="text-3xl font-bold text-primary">{customerBookings.summary?.total_bookings || 0}</div>
                                     </div>
                                 </div>
                                 <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                     <div className="text-center">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Total Amount</div>
-                                        <div className="text-3xl font-bold text-gray-900">₹{customerBookings.summary.total_amount}</div>
+                                        <div className="text-3xl font-bold text-gray-900">₹{parseFloat(customerBookings.summary?.total_amount || 0).toFixed(2)}</div>
                                     </div>
                                 </div>
                                 <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                     <div className="text-center">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Total Paid</div>
-                                        <div className="text-3xl font-bold text-green-600">₹{customerBookings.summary.total_paid}</div>
+                                        <div className="text-3xl font-bold text-green-600">₹{parseFloat(customerBookings.summary?.total_paid || 0).toFixed(2)}</div>
                                     </div>
                                 </div>
                                 <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                     <div className="text-center">
                                         <div className="text-sm font-medium text-gray-600 mb-2">Payment Count</div>
-                                        <div className="text-3xl font-bold text-blue-600">{customerBookings.summary.total_payments}</div>
+                                        <div className="text-3xl font-bold text-blue-600">{customerBookings.summary?.total_payments || 0}</div>
                                     </div>
                                 </div>
                             </div>
@@ -598,7 +630,7 @@ const PendingPayments = () => {
                                         </div>
                                         <div>
                                             <div className="text-sm text-gray-600">Pending</div>
-                                            <div className="text-xl font-bold text-yellow-700">{customerBookings.summary.pending_bookings}</div>
+                                            <div className="text-xl font-bold text-yellow-700">{customerBookings.summary?.pending_bookings || 0}</div>
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg">
@@ -607,7 +639,7 @@ const PendingPayments = () => {
                                         </div>
                                         <div>
                                             <div className="text-sm text-gray-600">Completed</div>
-                                            <div className="text-xl font-bold text-green-700">{customerBookings.summary.completed_bookings}</div>
+                                            <div className="text-xl font-bold text-green-700">{customerBookings.summary?.completed_bookings || 0}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -615,9 +647,9 @@ const PendingPayments = () => {
 
                             {/* Shipments List with Payment History */}
                             <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-4">📋 Shipment & Payment Details ({customerBookings.bookings.length})</h3>
+                                <h3 className="text-lg font-bold text-gray-900 mb-4">📋 Shipment & Payment Details ({customerBookings.bookings?.length || 0})</h3>
                                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                                    {customerBookings.bookings.map((booking, index) => (
+                                    {customerBookings.bookings?.map((booking, index) => (
                                         <div key={booking.booking_id} className="bg-white rounded-lg p-4 border border-gray-200">
                                             {/* Shipment Header */}
                                             <div className="flex justify-between items-start mb-3">
@@ -631,7 +663,7 @@ const PendingPayments = () => {
                                                     </div>
                                                 </div>
                                                 <div className="text-right">
-                                                    <div className="text-lg font-bold text-primary">₹{booking.total_amount}</div>
+                                                    <div className="text-lg font-bold text-primary">₹{parseFloat(booking.total_amount).toFixed(2)}</div>
                                                     <div
                                                         className={`mt-1 px-3 py-1 rounded-full text-sm font-medium ${
                                                             booking.payment_status === 'pending'
@@ -650,7 +682,7 @@ const PendingPayments = () => {
                                             <div className="mb-3">
                                                 <div className="text-sm font-medium text-gray-700 mb-1">Package Details:</div>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {booking.packages.map((pkg, idx) => (
+                                                    {booking.packages?.map((pkg, idx) => (
                                                         <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
                                                             {pkg.packageType?.package_type_name} × {pkg.quantity}
                                                         </span>
@@ -662,15 +694,15 @@ const PendingPayments = () => {
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                                                 <div className="text-center bg-gray-50 p-2 rounded">
                                                     <div className="text-sm text-gray-600">Total</div>
-                                                    <div className="font-bold text-gray-900">₹{booking.total_amount}</div>
+                                                    <div className="font-bold text-gray-900">₹{parseFloat(booking.total_amount).toFixed(2)}</div>
                                                 </div>
                                                 <div className="text-center bg-green-50 p-2 rounded">
                                                     <div className="text-sm text-green-600">Paid</div>
-                                                    <div className="font-bold text-green-700">₹{booking.paid_amount}</div>
+                                                    <div className="font-bold text-green-700">₹{parseFloat(booking.paid_amount).toFixed(2)}</div>
                                                 </div>
                                                 <div className="text-center bg-red-50 p-2 rounded">
                                                     <div className="text-sm text-red-600">Due</div>
-                                                    <div className="font-bold text-red-700">₹{booking.due_amount}</div>
+                                                    <div className="font-bold text-red-700">₹{parseFloat(booking.due_amount).toFixed(2)}</div>
                                                 </div>
                                                 <div className="text-center bg-blue-50 p-2 rounded">
                                                     <div className="text-sm text-blue-600">Payments</div>
@@ -691,7 +723,7 @@ const PendingPayments = () => {
                                                                     <span className="px-2 py-0.5 bg-white rounded text-xs">{payment.payment_mode}</span>
                                                                     <span className="text-xs text-gray-500">{payment.payment_number}</span>
                                                                 </div>
-                                                                <div className="font-bold text-green-700">₹{payment.amount}</div>
+                                                                <div className="font-bold text-green-700">₹{parseFloat(payment.amount).toFixed(2)}</div>
                                                             </div>
                                                         ))}
                                                     </div>

@@ -5,7 +5,8 @@ import {
     makeCustomerBulkPaymentApi,
     getAllCustomerPaymentRecordsApi,
     getCustomerPaymentSummaryApi,
-    getAllCustomersPaymentSummaryApi
+    getAllCustomersPaymentSummaryApi,
+    getCustomerPendingPaymentsApi
 } from '../api/PackageApi';
 
 // GET customer payments by date
@@ -86,6 +87,19 @@ export const getAllCustomersPaymentSummary = createAsyncThunk(
     }
 );
 
+// NEW: GET customer pending payments (only bookings with pending payment)
+export const getCustomerPendingPayments = createAsyncThunk(
+    'customerPayment/getCustomerPendingPayments', 
+    async (customerId, { rejectWithValue }) => {
+        try {
+            const response = await getCustomerPendingPaymentsApi(customerId);
+            return response;
+        } catch (error) {
+            return rejectWithValue(error.message);
+        }
+    }
+);
+
 const customerPaymentSlice = createSlice({
     name: 'customerPayment',
     initialState: {
@@ -96,6 +110,7 @@ const customerPaymentSlice = createSlice({
         allPaymentRecords: null,
         customerPaymentSummary: null,
         allCustomersPaymentSummary: null,
+        pendingPayments: null, // NEW
         
         // Loading states
         loading: false,
@@ -107,6 +122,7 @@ const customerPaymentSlice = createSlice({
         getAllPaymentRecordsSuccess: false,
         getPaymentSummarySuccess: false,
         getAllCustomersSummarySuccess: false,
+        getPendingPaymentsSuccess: false, // NEW
         
         // Error states
         error: null,
@@ -116,6 +132,7 @@ const customerPaymentSlice = createSlice({
         getAllPaymentRecordsFailed: false,
         getPaymentSummaryFailed: false,
         getAllCustomersSummaryFailed: false,
+        getPendingPaymentsFailed: false, // NEW
         
         // Filters for payment records
         filters: {
@@ -124,7 +141,6 @@ const customerPaymentSlice = createSlice({
             endDate: null,
             paymentStatus: null,
             search: null,
-            status: null, // for all customers summary
             status: '',
             page: 1,
             limit: 20
@@ -138,6 +154,7 @@ const customerPaymentSlice = createSlice({
             state.getAllPaymentRecordsSuccess = false;
             state.getPaymentSummarySuccess = false;
             state.getAllCustomersSummarySuccess = false;
+            state.getPendingPaymentsSuccess = false; // NEW
             
             state.getPaymentsByDateFailed = false;
             state.getCustomerBookingsPaymentsFailed = false;
@@ -145,6 +162,7 @@ const customerPaymentSlice = createSlice({
             state.getAllPaymentRecordsFailed = false;
             state.getPaymentSummaryFailed = false;
             state.getAllCustomersSummaryFailed = false;
+            state.getPendingPaymentsFailed = false; // NEW
             
             state.error = null;
             state.loading = false;
@@ -161,7 +179,6 @@ const customerPaymentSlice = createSlice({
                 endDate: null,
                 paymentStatus: null,
                 search: null,
-                status: null,
                 status: '',
                 page: 1,
                 limit: 20
@@ -175,12 +192,20 @@ const customerPaymentSlice = createSlice({
             state.allPaymentRecords = null;
             state.customerPaymentSummary = null;
             state.allCustomersPaymentSummary = null;
+            state.pendingPayments = null; // NEW
         },
         
         clearBulkPaymentResult: (state) => {
             state.bulkPaymentResult = null;
             state.makeBulkPaymentSuccess = false;
             state.makeBulkPaymentFailed = false;
+        },
+        
+        // NEW: Clear pending payments
+        clearPendingPayments: (state) => {
+            state.pendingPayments = null;
+            state.getPendingPaymentsSuccess = false;
+            state.getPendingPaymentsFailed = false;
         }
     },
     extraReducers: (builder) => {
@@ -303,6 +328,26 @@ const customerPaymentSlice = createSlice({
                 state.error = action.payload || 'Failed to fetch all customers payment summary';
                 state.getAllCustomersSummarySuccess = false;
                 state.getAllCustomersSummaryFailed = true;
+            })
+            
+            // NEW: GET CUSTOMER PENDING PAYMENTS
+            .addCase(getCustomerPendingPayments.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+                state.getPendingPaymentsSuccess = false;
+                state.getPendingPaymentsFailed = false;
+            })
+            .addCase(getCustomerPendingPayments.fulfilled, (state, action) => {
+                state.loading = false;
+                state.pendingPayments = action.payload.data || null;
+                state.getPendingPaymentsSuccess = true;
+                state.getPendingPaymentsFailed = false;
+            })
+            .addCase(getCustomerPendingPayments.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Failed to fetch pending payments';
+                state.getPendingPaymentsSuccess = false;
+                state.getPendingPaymentsFailed = true;
             });
     }
 });
@@ -312,7 +357,8 @@ export const {
     setPaymentFilters, 
     clearPaymentFilters,
     clearPaymentData,
-    clearBulkPaymentResult
+    clearBulkPaymentResult,
+    clearPendingPayments // NEW
 } = customerPaymentSlice.actions;
 
 export default customerPaymentSlice.reducer;
