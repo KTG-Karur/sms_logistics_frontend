@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Tippy from '@tippyjs/react';
-import { showMessage } from '../../util/AllFunction';
+import { showMessage, findArrObj } from '../../util/AllFunction';
 import Select from 'react-select';
 import IconPlus from '../../components/Icon/IconPlus';
 import IconUser from '../../components/Icon/IconUser';
@@ -17,55 +17,53 @@ import IconClock from '../../components/Icon/IconClock';
 import IconCheckCircle from '../../components/Icon/IconCheckCircle';
 import IconXCircle from '../../components/Icon/IconXCircle';
 import IconRoute from '../../components/Icon/Menu/IconMenuWidgets';
-import IconLayers from '../../components/Icon/IconLayers';
 import IconChevronDown from '../../components/Icon/IconChevronDown';
 import IconChevronUp from '../../components/Icon/IconChevronUp';
 import IconInfoCircle from '../../components/Icon/IconInfoCircle';
-import IconFlag from '../../components/Icon/IconAt';
 import IconSearch from '../../components/Icon/IconSearch';
 import IconFilter from '../../components/Icon/IconCoffee';
+import IconX from '../../components/Icon/IconX';
+import {
+    getTrips,
+    getAvailableBookings,
+    getAvailableVehicles,
+    getAvailableDrivers,
+    getAvailableLoadmen,
+    createTrip,
+    updateTripStatus,
+    updateTripBookings,
+    deleteTrip,
+    resetTripStatus,
+    clearAvailableData
+} from '../../redux/tripSlice';
+import { getOfficeCenters } from '../../redux/officeCenterSlice';
+import { getVehicles } from '../../redux/vehiclesSlice';
+import { getEmployee } from '../../redux/employeeSlice';
 
 // Custom responsive table component
-const ResponsiveTable = ({ 
-    columns, 
-    data, 
-    pageSize = 10,
-    pageIndex = 0,
-    totalCount,
-    totalPages,
-    onPaginationChange,
-    onSearchChange,
-    pagination = true,
-    isSearchable = true,
-    searchPlaceholder = "Search...",
-    showPageSize = true
-}) => {
+const ResponsiveTable = ({ columns, data, pageSize = 10, pageIndex = 0, onPaginationChange, onSearchChange, pagination = true, isSearchable = true, searchPlaceholder = "Search...", showPageSize = true }) => {
     const [currentPage, setCurrentPage] = useState(pageIndex);
     const [rowsPerPage, setRowsPerPage] = useState(pageSize);
     const [searchTerm, setSearchTerm] = useState('');
-    
-    // Handle search
+
     const handleSearch = useCallback((term) => {
         setSearchTerm(term);
         setCurrentPage(0);
         if (onSearchChange) onSearchChange(term);
     }, [onSearchChange]);
-    
-    // Handle page change
+
     const handlePageChange = useCallback((page) => {
         setCurrentPage(page);
         if (onPaginationChange) onPaginationChange(page, rowsPerPage);
     }, [onPaginationChange, rowsPerPage]);
-    
-    // Handle rows per page change
+
     const handleRowsPerPageChange = useCallback((e) => {
         const newRowsPerPage = parseInt(e.target.value);
         setRowsPerPage(newRowsPerPage);
         setCurrentPage(0);
         if (onPaginationChange) onPaginationChange(0, newRowsPerPage);
     }, [onPaginationChange]);
-    
-    // Filter data based on search term
+
     const filteredData = useMemo(() => {
         if (!searchTerm) return data;
         return data.filter(row => 
@@ -77,22 +75,19 @@ const ResponsiveTable = ({
             })
         );
     }, [data, searchTerm, columns]);
-    
-    // Calculate paginated data
+
     const paginatedData = useMemo(() => {
         const startIndex = currentPage * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
         return filteredData.slice(startIndex, endIndex);
     }, [filteredData, currentPage, rowsPerPage]);
 
-    // Calculate actual total pages
     const actualTotalPages = useMemo(() => {
         return Math.ceil(filteredData.length / rowsPerPage);
     }, [filteredData.length, rowsPerPage]);
-    
+
     return (
         <div className="w-full">
-            {/* Search Bar */}
             {isSearchable && (
                 <div className="mb-4">
                     <div className="relative">
@@ -109,8 +104,7 @@ const ResponsiveTable = ({
                     </div>
                 </div>
             )}
-            
-            {/* Desktop Table */}
+
             <div className="hidden md:block overflow-x-auto">
                 <div className="inline-block min-w-full align-middle">
                     <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
@@ -134,10 +128,7 @@ const ResponsiveTable = ({
                                     paginatedData.map((row, rowIndex) => (
                                         <tr key={rowIndex} className="hover:bg-gray-50 transition-colors">
                                             {columns.map((column, colIndex) => (
-                                                <td
-                                                    key={colIndex}
-                                                    className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap"
-                                                >
+                                                <td key={colIndex} className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">
                                                     {column.Cell ? column.Cell({ value: row[column.accessor], row: { original: row } }) : row[column.accessor]}
                                                 </td>
                                             ))}
@@ -155,8 +146,7 @@ const ResponsiveTable = ({
                     </div>
                 </div>
             </div>
-            
-            {/* Mobile Cards */}
+
             <div className="md:hidden space-y-3">
                 {paginatedData.length > 0 ? (
                     paginatedData.map((row, rowIndex) => (
@@ -181,8 +171,7 @@ const ResponsiveTable = ({
                     </div>
                 )}
             </div>
-            
-            {/* Pagination */}
+
             {pagination && filteredData.length > 0 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between mt-4 space-y-4 sm:space-y-0 pt-4 border-t border-gray-200">
                     <div className="text-sm text-gray-700">
@@ -192,7 +181,6 @@ const ResponsiveTable = ({
                         </span>{' '}
                         of <span className="font-medium">{filteredData.length}</span> results
                     </div>
-                    
                     <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
                         {showPageSize && (
                             <div className="flex items-center space-x-2">
@@ -208,7 +196,6 @@ const ResponsiveTable = ({
                                 </select>
                             </div>
                         )}
-                        
                         <div className="flex items-center space-x-1">
                             <button
                                 onClick={() => handlePageChange(currentPage - 1)}
@@ -221,7 +208,6 @@ const ResponsiveTable = ({
                             >
                                 Previous
                             </button>
-                            
                             {Array.from({ length: Math.min(5, actualTotalPages) }).map((_, i) => {
                                 let pageNum;
                                 if (actualTotalPages <= 5) {
@@ -233,7 +219,6 @@ const ResponsiveTable = ({
                                 } else {
                                     pageNum = currentPage - 2 + i;
                                 }
-                                
                                 return (
                                     <button
                                         key={pageNum}
@@ -248,7 +233,6 @@ const ResponsiveTable = ({
                                     </button>
                                 );
                             })}
-                            
                             <button
                                 onClick={() => handlePageChange(currentPage + 1)}
                                 disabled={currentPage >= actualTotalPages - 1}
@@ -271,378 +255,64 @@ const ResponsiveTable = ({
 const AssignTrip = () => {
     const dispatch = useDispatch();
 
-    // Dummy data for vehicles
-    const [dummyVehicles] = useState([
-        { id: 1, vehicleNo: 'TN01AB1234', vehicleType: 'Truck', capacity: '5000 kg', status: 'available' },
-        { id: 2, vehicleNo: 'KA02CD5678', vehicleType: 'Tempo', capacity: '2000 kg', status: 'available' },
-        { id: 3, vehicleNo: 'MH03EF9012', vehicleType: 'Mini Truck', capacity: '3000 kg', status: 'on_trip' },
-        { id: 4, vehicleNo: 'DL04GH3456', vehicleType: 'Container', capacity: '10000 kg', status: 'available' },
-        { id: 5, vehicleNo: 'GJ05IJ7890', vehicleType: 'Pickup', capacity: '1500 kg', status: 'available' },
-    ]);
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo || '{}');
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Assign Trip');
+    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
 
-    // Dummy data for drivers
-    const [dummyDrivers] = useState([
-        { id: 1, name: 'Rajesh Kumar', mobileNo: '9876543210', licenseNo: 'DL1234567890', status: 'available' },
-        { id: 2, name: 'Suresh Patel', mobileNo: '9876543211', licenseNo: 'DL2345678901', status: 'available' },
-        { id: 3, name: 'Mohan Singh', mobileNo: '9876543212', licenseNo: 'DL3456789012', status: 'on_trip' },
-        { id: 4, name: 'Amit Sharma', mobileNo: '9876543213', licenseNo: 'DL4567890123', status: 'available' },
-    ]);
+    // Redux state
+    const tripState = useSelector((state) => state.TripSlice || {});
+    const {
+        tripData = [],
+        availableBookings = [],
+        availableVehicles = [],
+        availableDrivers = [],
+        availableLoadmen = [],
+        loading = false,
+        error = null,
+        createTripSuccess = false,
+        updateTripStatusSuccess = false,
+        deleteTripSuccess = false,
+        updateTripBookingsSuccess = false
+    } = tripState;
 
-    // Dummy data for loadmen
-    const [dummyLoadmen] = useState([
-        { id: 1, name: 'Ramesh', mobileNo: '9876543220', status: 'available' },
-        { id: 2, name: 'Suresh', mobileNo: '9876543221', status: 'available' },
-        { id: 3, name: 'Ganesh', mobileNo: '9876543222', status: 'on_trip' },
-        { id: 4, name: 'Mahesh', mobileNo: '9876543223', status: 'available' },
-        { id: 5, name: 'Raju', mobileNo: '9876543224', status: 'available' },
-        { id: 6, name: 'Kumar', mobileNo: '9876543225', status: 'available' },
-    ]);
+    const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
+    const { officeCentersData = [], loading: officeCentersLoading = false } = officeCenterState;
 
-    // Enhanced dummy data for bookings with multiple packages
-    const [dummyBookings] = useState([
-        {
-            id: 1,
-            fromCenter: 'Chennai Central Hub',
-            toCenter: 'Bangalore South Terminal',
-            fromLocation: '123 Main Street, Chennai',
-            toLocation: '456 Park Avenue, Bangalore',
-            fromMobile: '9876543210',
-            fromName: 'John Doe',
-            toMobile: '8765432109',
-            toName: 'Robert Johnson',
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Box', 
-                    quantity: 2, 
-                    rate: 100, 
-                    pickupPrice: 30, 
-                    dropPrice: 45, 
-                    total: 275,
-                    weight: 25,
-                    dimensions: '30x30x30 cm',
-                    specialInstructions: 'Fragile'
-                },
-                { 
-                    id: 2, 
-                    packageType: 'Document', 
-                    quantity: 1, 
-                    rate: 50, 
-                    pickupPrice: 15, 
-                    dropPrice: 25, 
-                    total: 90,
-                    weight: 2,
-                    dimensions: 'A4 Envelope',
-                    specialInstructions: 'Handle with care'
-                }
-            ],
-            totalAmount: 365,
-            paymentBy: 'from',
-            paidAmount: 365,
-            status: 'pending',
-            deliveryStatus: 'in_transit',
-            date: '2024-01-15',
-            totalWeight: 27,
-            totalVolume: 0.6,
-        },
-        {
-            id: 2,
-            fromCenter: 'Bangalore South Terminal',
-            toCenter: 'Mumbai Port Facility',
-            fromLocation: 'Bangalore City Center',
-            toLocation: '789 Marine Drive, Mumbai',
-            fromMobile: '9876543211',
-            fromName: 'Rajesh Kumar',
-            toMobile: '8765432110',
-            toName: 'Suresh Patel',
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Document', 
-                    quantity: 3, 
-                    rate: 50, 
-                    pickupPrice: 15, 
-                    dropPrice: 25, 
-                    total: 270,
-                    weight: 3,
-                    dimensions: 'A4 Envelope',
-                    specialInstructions: 'Urgent delivery'
-                },
-                { 
-                    id: 2, 
-                    packageType: 'Small Package', 
-                    quantity: 2, 
-                    rate: 80, 
-                    pickupPrice: 20, 
-                    dropPrice: 35, 
-                    total: 270,
-                    weight: 8,
-                    dimensions: '20x20x20 cm',
-                    specialInstructions: 'Keep upright'
-                },
-                { 
-                    id: 3, 
-                    packageType: 'Parcel', 
-                    quantity: 1, 
-                    rate: 120, 
-                    pickupPrice: 25, 
-                    dropPrice: 40, 
-                    total: 185,
-                    weight: 15,
-                    dimensions: '40x30x20 cm',
-                    specialInstructions: 'Fragile contents'
-                }
-            ],
-            totalAmount: 725,
-            paymentBy: 'to',
-            paidAmount: 0,
-            status: 'pending',
-            deliveryStatus: 'not_started',
-            date: '2024-01-18',
-            totalWeight: 26,
-            totalVolume: 0.5,
-        },
-        {
-            id: 3,
-            fromCenter: 'Karur Hub',
-            toCenter: 'Hyderabad Distribution Center',
-            fromLocation: 'Karur Textile Market',
-            toLocation: '234 Banjara Hills, Hyderabad',
-            fromMobile: '9876543212',
-            fromName: 'Priya Sharma',
-            toMobile: '8765432111',
-            toName: 'Amit Verma',
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Small Package', 
-                    quantity: 5, 
-                    rate: 30, 
-                    pickupPrice: 20, 
-                    dropPrice: 35, 
-                    total: 425,
-                    weight: 3,
-                    dimensions: '15x15x15 cm',
-                    specialInstructions: 'Standard delivery'
-                }
-            ],
-            totalAmount: 425,
-            paymentBy: 'from',
-            paidAmount: 425,
-            status: 'pending',
-            deliveryStatus: 'not_started',
-            date: '2024-01-19',
-            totalWeight: 15,
-            totalVolume: 0.3,
-        },
-        {
-            id: 4,
-            fromCenter: 'Karur Hub',
-            toCenter: 'Pune Delivery Hub',
-            fromLocation: 'Karur IT Park',
-            toLocation: '123 MG Road, Pune',
-            fromMobile: '9876543214',
-            fromName: 'Vikram Singh',
-            toMobile: '8765432112',
-            toName: 'Anjali Mehta',
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Electronics', 
-                    quantity: 1, 
-                    rate: 300, 
-                    pickupPrice: 50, 
-                    dropPrice: 60, 
-                    total: 410,
-                    weight: 40,
-                    dimensions: '50x40x30 cm',
-                    specialInstructions: 'Handle with care, Fragile'
-                }
-            ],
-            totalAmount: 410,
-            paymentBy: 'from',
-            paidAmount: 410,
-            status: 'pending',
-            deliveryStatus: 'not_started',
-            date: '2024-01-20',
-            totalWeight: 40,
-            totalVolume: 0.06,
-        },
-        {
-            id: 5,
-            fromCenter: 'Pune Delivery Hub',
-            toCenter: 'Mumbai Port Facility',
-            fromLocation: '123 MG Road, Pune',
-            toLocation: '789 Marine Drive, Mumbai',
-            fromMobile: '9876543215',
-            fromName: 'Anjali Mehta',
-            toMobile: '8765432113',
-            toName: 'Raj Malhotra',
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Clothing', 
-                    quantity: 10, 
-                    rate: 40, 
-                    pickupPrice: 30, 
-                    dropPrice: 40, 
-                    total: 470,
-                    weight: 25,
-                    dimensions: '30x20x15 cm',
-                    specialInstructions: 'Keep dry'
-                }
-            ],
-            totalAmount: 470,
-            paymentBy: 'to',
-            paidAmount: 0,
-            status: 'pending',
-            deliveryStatus: 'not_started',
-            date: '2024-01-20',
-            totalWeight: 25,
-            totalVolume: 0.09,
-        },
-        {
-            id: 6,
-            fromCenter: 'Mumbai Port Facility',
-            toCenter: 'Ahmedabad Warehouse',
-            fromLocation: '789 Marine Drive, Mumbai',
-            toLocation: '456 Ring Road, Ahmedabad',
-            fromMobile: '9876543216',
-            fromName: 'Raj Malhotra',
-            toMobile: '8765432114',
-            toName: 'Sunil Patel',
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Machinery Parts', 
-                    quantity: 3, 
-                    rate: 200, 
-                    pickupPrice: 60, 
-                    dropPrice: 70, 
-                    total: 790,
-                    weight: 75,
-                    dimensions: '60x40x30 cm',
-                    specialInstructions: 'Heavy machinery, use forklift'
-                }
-            ],
-            totalAmount: 790,
-            paymentBy: 'from',
-            paidAmount: 790,
-            status: 'pending',
-            deliveryStatus: 'not_started',
-            date: '2024-01-21',
-            totalWeight: 75,
-            totalVolume: 0.216,
-        },
-        {
-            id: 7,
-            fromCenter: 'Karur Hub',
-            toCenter: 'Coimbatore Terminal',
-            fromLocation: 'Karur Bus Stand',
-            toLocation: 'Coimbatore City Center',
-            fromMobile: '9876543217',
-            fromName: 'Karthik Raj',
-            toMobile: '8765432115',
-            toName: 'Senthil Kumar',
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Textiles', 
-                    quantity: 8, 
-                    rate: 75, 
-                    pickupPrice: 25, 
-                    dropPrice: 35, 
-                    total: 660,
-                    weight: 32,
-                    dimensions: '40x30x20 cm',
-                    specialInstructions: 'Textile goods'
-                }
-            ],
-            totalAmount: 660,
-            paymentBy: 'from',
-            paidAmount: 660,
-            status: 'pending',
-            deliveryStatus: 'not_started',
-            date: '2024-01-22',
-            totalWeight: 32,
-            totalVolume: 0.192,
-        },
-    ]);
+    const vehicleState = useSelector((state) => state.VehicleSlice || {});
+    const { vehicleData = [], loading: vehiclesLoading = false } = vehicleState;
 
-    // States
+    const employeeState = useSelector((state) => state.EmployeeSlice || {});
+    const { employeeData = [], loading: employeesLoading = false } = employeeState;
+
+    // Debug logs
+    useEffect(() => {
+        console.log('=== Redux State Debug ===');
+        console.log('Available Bookings:', availableBookings);
+        console.log('Available Vehicles:', availableVehicles);
+        console.log('Available Drivers:', availableDrivers);
+        console.log('Available Loadmen:', availableLoadmen);
+        console.log('Loading:', loading);
+        console.log('Error:', error);
+        console.log('========================');
+    }, [availableBookings, availableVehicles, availableDrivers, availableLoadmen, loading, error]);
+
+    // Local states
     const [showAssignForm, setShowAssignForm] = useState(false);
-    const [trips, setTrips] = useState([
-        {
-            id: 1,
-            tripNo: 'TRIP0001',
-            bookings: [
-                {
-                    id: 1,
-                    fromCenter: 'Chennai Central Hub',
-                    toCenter: 'Bangalore South Terminal',
-                    fromLocation: '123 Main Street, Chennai',
-                    toLocation: '456 Park Avenue, Bangalore',
-                    fromName: 'John Doe',
-                    toName: 'Robert Johnson',
-                    totalWeight: 27,
-                    totalAmount: 365,
-                    deliveryStatus: 'in_transit',
-                    packageDetails: [
-                        { 
-                            id: 1, 
-                            packageType: 'Box', 
-                            quantity: 2, 
-                            rate: 100, 
-                            pickupPrice: 30, 
-                            dropPrice: 45, 
-                            total: 275,
-                            weight: 25,
-                            dimensions: '30x30x30 cm',
-                            specialInstructions: 'Fragile'
-                        },
-                        { 
-                            id: 2, 
-                            packageType: 'Document', 
-                            quantity: 1, 
-                            rate: 50, 
-                            pickupPrice: 15, 
-                            dropPrice: 25, 
-                            total: 90,
-                            weight: 2,
-                            dimensions: 'A4 Envelope',
-                            specialInstructions: 'Handle with care'
-                        }
-                    ]
-                }
-            ],
-            vehicle: dummyVehicles[0],
-            driver: dummyDrivers[0],
-            loadmen: [dummyLoadmen[0], dummyLoadmen[1]],
-            tripDate: '2024-01-20',
-            estimatedDeparture: '08:00',
-            estimatedArrival: '14:00',
-            actualDeparture: '08:15',
-            actualArrival: null,
-            remarks: 'Direct trip to Bangalore',
-            status: 'in_progress',
-            createdAt: '2024-01-19T10:00:00',
-            totalWeight: 27,
-            totalVolume: 0.6,
-            totalPackages: 2,
-            totalAmount: 365,
-            tripType: 'primary',
-            addonStages: [],
-            currentStage: 0,
-            expanded: false,
-        }
-    ]);
+    const [trips, setTrips] = useState([]);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [tripMode, setTripMode] = useState('new');
     const [selectedBranch, setSelectedBranch] = useState('all');
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState({
+        fromDate: '',
+        toDate: '',
+        status: ''
+    });
 
-    // Form states for trip assignment
+    // Form states
     const [selectedBookings, setSelectedBookings] = useState([]);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
     const [selectedDriver, setSelectedDriver] = useState(null);
@@ -653,7 +323,7 @@ const AssignTrip = () => {
     const [remarks, setRemarks] = useState('');
     const [errors, setErrors] = useState({});
 
-    // States for add-on trip
+    // Add-on trip states
     const [selectedParentTrip, setSelectedParentTrip] = useState(null);
     const [availableAddonBookings, setAvailableAddonBookings] = useState([]);
     const [selectedAddonBookings, setSelectedAddonBookings] = useState([]);
@@ -662,259 +332,373 @@ const AssignTrip = () => {
     const [addonArrival, setAddonArrival] = useState('22:00');
     const [addonRemarks, setAddonRemarks] = useState('');
 
-    // Get unique branches from dummyBookings
-    const branches = useMemo(() => {
-        const uniqueBranches = [...new Set(dummyBookings.map(booking => booking.fromCenter))];
-        const branchOptions = uniqueBranches.map(branch => ({
-            value: branch,
-            label: branch
-        }));
-        return [{ value: 'all', label: 'All Branches' }, ...branchOptions];
-    }, []);
+    // Load initial data
+    useEffect(() => {
+        dispatch(setPageTitle('Assign Trip Management'));
+        fetchInitialData();
+    }, [dispatch]);
 
-    // Filter available bookings by selected branch
-    const availableBookings = useMemo(() => {
-        let filtered = dummyBookings.filter(booking => booking.deliveryStatus === 'not_started');
-        
-        if (selectedBranch !== 'all') {
-            filtered = filtered.filter(booking => booking.fromCenter === selectedBranch);
+    // Handle API responses
+   // Add this to your useEffect that handles API responses
+useEffect(() => {
+    if (createTripSuccess) {
+        showMessage('success', 'Trip created successfully');
+        resetForm();
+        setShowAssignForm(false);
+        dispatch(resetTripStatus());
+        fetchTrips();
+    }
+    if (updateTripStatusSuccess) {
+        showMessage('success', 'Trip status updated successfully');
+        dispatch(resetTripStatus());
+        fetchTrips();
+    }
+    if (updateTripBookingsSuccess) {
+        showMessage('success', 'Add-on bookings added to trip successfully');
+        resetForm();
+        setShowAssignForm(false);
+        dispatch(resetTripStatus());
+        fetchTrips();
+    }
+    if (deleteTripSuccess) {
+        showMessage('success', 'Trip deleted successfully');
+        dispatch(resetTripStatus());
+        fetchTrips();
+    }
+    if (error) {
+        showMessage('error', error);
+        dispatch(resetTripStatus());
+    }
+}, [
+    createTripSuccess, 
+    updateTripStatusSuccess, 
+    updateTripBookingsSuccess,
+    deleteTripSuccess, 
+    error, 
+    dispatch
+]);
+    // Update trips data from Redux
+    useEffect(() => {
+        setTrips(tripData || []);
+    }, [tripData]);
+
+    const fetchInitialData = async () => {
+        try {
+            await Promise.all([
+                dispatch(getTrips({})).unwrap(),
+                dispatch(getOfficeCenters({})).unwrap(),
+                dispatch(getVehicles({})).unwrap(),
+                dispatch(getEmployee({})).unwrap()
+            ]);
+        } catch (error) {
+            showMessage('error', 'Failed to load initial data');
+        }
+    };
+
+    const fetchTrips = () => {
+        const filterParams = {};
+        if (filters.fromDate) filterParams.fromDate = filters.fromDate;
+        if (filters.toDate) filterParams.toDate = filters.toDate;
+        if (filters.status) filterParams.status = filters.status;
+        if (searchTerm) filterParams.search = searchTerm;
+        dispatch(getTrips(filterParams));
+    };
+
+    useEffect(() => {
+        fetchTrips();
+    }, [filters, searchTerm, dispatch]);
+
+    const fetchAvailableData = async (date) => {
+        try {
+            console.log('Fetching available data for date:', date);
+            
+            const [bookingsResult, vehiclesResult, driversResult, loadmenResult] = await Promise.all([
+                dispatch(getAvailableBookings()).unwrap(),
+                dispatch(getAvailableVehicles(date)).unwrap(),
+                dispatch(getAvailableDrivers(date)).unwrap(),
+                dispatch(getAvailableLoadmen(date)).unwrap()
+            ]);
+            
+            console.log('Available bookings API response:', bookingsResult);
+            console.log('Available vehicles API response:', vehiclesResult);
+            console.log('Available drivers API response:', driversResult);
+            console.log('Available loadmen API response:', loadmenResult);
+            
+        } catch (error) {
+            console.error('Failed to load available data:', error);
+            showMessage('error', 'Failed to load available data');
+        }
+    };
+
+    useEffect(() => {
+        if (showAssignForm) {
+            fetchAvailableData(tripDate);
+        } else {
+            dispatch(clearAvailableData());
+            // Reset add-on related states when form closes
+            setSelectedParentTrip(null);
+            setAvailableAddonBookings([]);
+            setSelectedAddonBookings([]);
+        }
+    }, [showAssignForm, tripDate, dispatch]);
+
+    // Get unique branches from available bookings
+    const branches = useMemo(() => {
+        if (!availableBookings || availableBookings.length === 0) {
+            return [{ value: 'all', label: 'All Branches' }];
         }
         
+        const uniqueBranches = [...new Set(
+            availableBookings
+                .map(booking => booking.fromCenter?.office_center_name || booking.from_center?.office_center_name)
+                .filter(Boolean)
+        )];
+        
+        const branchOptions = uniqueBranches.map(branch => ({ 
+            value: branch, 
+            label: branch 
+        }));
+        
+        return [{ value: 'all', label: 'All Branches' }, ...branchOptions];
+    }, [availableBookings]);
+
+    // Filter available bookings - only show bookings with delivery_status = 'not_started'
+    const filteredAvailableBookings = useMemo(() => {
+        console.log('Filtering available bookings. Total:', availableBookings?.length || 0);
+        
+        if (!availableBookings || availableBookings.length === 0) {
+            return [];
+        }
+        
+        // Log first booking to see structure
+        if (availableBookings.length > 0) {
+            console.log('Sample booking structure:', availableBookings[0]);
+        }
+        
+        // The API should return only bookings with delivery_status = 'not_started'
+        // But we'll filter to be safe
+        let filtered = availableBookings.filter(booking => {
+            // Check different possible locations of delivery_status
+            const status = booking.delivery_status || booking?.TripBooking?.delivery_status;
+            // If status is 'not_started' or undefined, include it
+            return status === 'not_started' || !status;
+        });
+        
+        console.log('After status filter:', filtered.length);
+        
+        // Filter by selected branch
+        if (selectedBranch !== 'all' && filtered.length > 0) {
+            filtered = filtered.filter(booking => {
+                const fromCenterName = booking.fromCenter?.office_center_name || 
+                                      booking.from_center?.office_center_name;
+                return fromCenterName === selectedBranch;
+            });
+        }
+        
+        console.log('Final filtered bookings:', filtered.length);
         return filtered;
-    }, [dummyBookings, selectedBranch]);
+    }, [availableBookings, selectedBranch]);
 
     const activeTrips = useMemo(() => 
-        trips.filter(trip => 
-            (trip.status === 'in_progress' || trip.status === 'multi_stop') && 
-            trip.tripType === 'primary'
-        ),
-        [trips]
-    );
+        trips.filter(trip => trip.status === 'in_progress' || trip.status === 'scheduled'),
+    [trips]);
 
     // Calculate totals
     const selectedTotals = useMemo(() => {
         const bookings = tripMode === 'addon' ? selectedAddonBookings : selectedBookings;
+        
         return bookings.reduce((totals, booking) => {
-            const bookingPackages = booking.data.packageDetails || [];
+            const bookingData = booking.data || booking;
+            const bookingPackages = bookingData.packages || [];
             const totalPackages = bookingPackages.reduce((sum, pkg) => sum + (pkg.quantity || 1), 0);
             
             return {
-                totalWeight: totals.totalWeight + (booking.data.totalWeight || 0),
-                totalVolume: totals.totalVolume + (booking.data.totalVolume || 0),
+                totalWeight: totals.totalWeight + (parseFloat(bookingData.total_weight) || 0),
                 totalPackages: totals.totalPackages + totalPackages,
-                totalAmount: totals.totalAmount + (booking.data.totalAmount || 0),
+                totalAmount: totals.totalAmount + (parseFloat(bookingData.total_amount) || 0),
             };
-        }, { totalWeight: 0, totalVolume: 0, totalPackages: 0, totalAmount: 0 });
+        }, { totalWeight: 0, totalPackages: 0, totalAmount: 0 });
     }, [tripMode, selectedAddonBookings, selectedBookings]);
 
-    useEffect(() => {
-        dispatch(setPageTitle('Assign Trip Management'));
-    }, [dispatch]);
-
-    // Initialize add-on trip date
+    // Initialize add-on trip data
     useEffect(() => {
         if (selectedParentTrip && tripMode === 'addon') {
-            setAddonTripDate(selectedParentTrip.tripDate);
+            setAddonTripDate(selectedParentTrip.trip_date);
         }
     }, [selectedParentTrip, tripMode]);
 
     // Update available addon bookings when parent trip changes
     useEffect(() => {
         if (selectedParentTrip && tripMode === 'addon') {
-            const allStages = [selectedParentTrip.bookings, ...selectedParentTrip.addonStages.map(stage => stage.bookings)].flat();
-            const lastDestination = allStages[allStages.length - 1]?.toCenter;
+            console.log('Parent Trip for Add-on:', selectedParentTrip);
             
-            let addonBookings = availableBookings.filter(booking => 
-                booking.fromCenter === lastDestination
-            );
+            // Get the last destination from the parent trip
+            const allBookings = selectedParentTrip.bookings || [];
+            const lastBooking = allBookings[allBookings.length - 1];
+            const lastDestinationId = lastBooking?.to_center_id;
+            const lastDestinationName = lastBooking?.toCenter?.office_center_name;
             
-            // Apply branch filter to addon bookings as well
-            if (selectedBranch !== 'all') {
-                addonBookings = addonBookings.filter(booking => booking.fromCenter === selectedBranch);
+            console.log('Last Destination ID:', lastDestinationId);
+            console.log('Last Destination Name:', lastDestinationName);
+            console.log('All available bookings:', availableBookings);
+            
+            if (!availableBookings || availableBookings.length === 0) {
+                setAvailableAddonBookings([]);
+                return;
             }
+            
+            // Filter bookings that are:
+            // 1. Available (delivery_status = 'not_started') AND
+            // 2. From center matches the last destination of parent trip
+            let addonBookings = availableBookings.filter(booking => {
+                // Check if booking is available
+                const status = booking.delivery_status || booking?.TripBooking?.delivery_status;
+                const isAvailable = status === 'not_started' || !status;
+                
+                // Get from center info
+                const fromCenterId = booking.from_center_id;
+                const fromCenterName = booking.fromCenter?.office_center_name || 
+                                      booking.from_center?.office_center_name;
+                
+                // Check if from center matches last destination
+                const fromCenterMatches = 
+                    fromCenterId === lastDestinationId ||
+                    fromCenterName === lastDestinationName;
+                
+                return isAvailable && fromCenterMatches;
+            });
+            
+            console.log('Filtered Add-on Bookings:', addonBookings);
             
             setAvailableAddonBookings(addonBookings);
             setSelectedAddonBookings([]);
-            setSelectedLoadmen([]);
         }
-    }, [selectedParentTrip, tripMode, availableBookings, selectedBranch]);
+    }, [selectedParentTrip, tripMode, availableBookings]);
 
-    // Get vehicle options
+    // Get options for selects
+    const getOfficeCenterOptions = useCallback(() => {
+        return (officeCentersData || [])
+            .filter(center => center.is_active)
+            .map(center => ({
+                value: center.office_center_id,
+                label: center.office_center_name,
+                data: center
+            }));
+    }, [officeCentersData]);
+
     const getVehicleOptions = useCallback(() => {
         if (tripMode === 'addon' && selectedParentTrip) {
-            const vehicleOption = {
-                value: selectedParentTrip.vehicle.id,
-                label: `${selectedParentTrip.vehicle.vehicleNo} - ${selectedParentTrip.vehicle.vehicleType} (${selectedParentTrip.vehicle.capacity})`,
-                data: selectedParentTrip.vehicle,
-            };
-            return [vehicleOption];
+            if (selectedParentTrip.vehicle) {
+                const vehicleOption = {
+                    value: selectedParentTrip.vehicle.vehicle_id,
+                    label: `${selectedParentTrip.vehicle.vehicle_number_plate}`,
+                    data: selectedParentTrip.vehicle,
+                };
+                return [vehicleOption];
+            }
+            return [];
         }
-        const availableVehicles = dummyVehicles.filter(vehicle => vehicle.status === 'available');
-        return availableVehicles.map(vehicle => ({
-            value: vehicle.id,
-            label: `${vehicle.vehicleNo} - ${vehicle.vehicleType} (${vehicle.capacity})`,
+        return (availableVehicles || []).map(vehicle => ({
+            value: vehicle.vehicle_id,
+            label: `${vehicle.vehicle_number_plate}`,
             data: vehicle,
         }));
-    }, [tripMode, selectedParentTrip, dummyVehicles]);
+    }, [tripMode, selectedParentTrip, availableVehicles]);
 
-    // Get driver options
     const getDriverOptions = useCallback(() => {
         if (tripMode === 'addon' && selectedParentTrip) {
-            const driverOption = {
-                value: selectedParentTrip.driver.id,
-                label: `${selectedParentTrip.driver.name} - ${selectedParentTrip.driver.licenseNo}`,
-                data: selectedParentTrip.driver,
-            };
-            return [driverOption];
+            if (selectedParentTrip.driver) {
+                const driverOption = {
+                    value: selectedParentTrip.driver.employee_id,
+                    label: `${selectedParentTrip.driver.employee_name}`,
+                    data: selectedParentTrip.driver,
+                };
+                return [driverOption];
+            }
+            return [];
         }
-        const availableDrivers = dummyDrivers.filter(driver => driver.status === 'available');
-        return availableDrivers.map(driver => ({
-            value: driver.id,
-            label: `${driver.name} - ${driver.licenseNo}`,
+        return (availableDrivers || []).map(driver => ({
+            value: driver.employee_id,
+            label: `${driver.employee_name} - ${driver.mobile_no}`,
             data: driver,
         }));
-    }, [tripMode, selectedParentTrip, dummyDrivers]);
+    }, [tripMode, selectedParentTrip, availableDrivers]);
 
-    // Get loadmen options
     const getLoadmenOptions = useCallback(() => {
-        const availableLoadmen = dummyLoadmen.filter(loadman => loadman.status === 'available');
-        return availableLoadmen.map(loadman => ({
-            value: loadman.id,
-            label: `${loadman.name} - ${loadman.mobileNo}`,
+        return (availableLoadmen || []).map(loadman => ({
+            value: loadman.employee_id,
+            label: `${loadman.employee_name} - ${loadman.mobile_no}`,
             data: loadman,
         }));
-    }, [dummyLoadmen]);
+    }, [availableLoadmen]);
 
-    // Get booking options
+    // Get booking options for new trip
     const getBookingOptions = useCallback(() => {
-        return availableBookings.map(booking => ({
-            value: booking.id,
-            label: `#${booking.id}: ${booking.fromCenter} → ${booking.toCenter} (${booking.totalWeight}kg, ${booking.packageDetails.length} items)`,
-            data: booking,
-        }));
-    }, [availableBookings]);
+        if (!filteredAvailableBookings || filteredAvailableBookings.length === 0) {
+            return [];
+        }
+        
+        console.log('Creating booking options from:', filteredAvailableBookings.length, 'bookings');
+        
+        return filteredAvailableBookings.map(booking => {
+            // Safely access nested properties
+            const fromCenterName = booking.fromCenter?.office_center_name || 
+                                  booking.from_center?.office_center_name || 
+                                  'N/A';
+            const toCenterName = booking.toCenter?.office_center_name || 
+                                booking.to_center?.office_center_name || 
+                                'N/A';
+            const bookingNumber = booking.booking_number || 'N/A';
+            const totalAmount = booking.total_amount || 0;
+            
+            return {
+                value: booking.booking_id,
+                label: `#${bookingNumber}: ${fromCenterName} → ${toCenterName} (₹${totalAmount})`,
+                data: booking,
+                from_center_id: booking.from_center_id,
+                to_center_id: booking.to_center_id
+            };
+        });
+    }, [filteredAvailableBookings]);
 
     // Get add-on booking options
     const getAddonBookingOptions = useCallback(() => {
-        if (!selectedParentTrip) return [];
+        if (!selectedParentTrip || !availableAddonBookings || availableAddonBookings.length === 0) {
+            return [];
+        }
         
-        return availableAddonBookings.map(booking => ({
-            value: booking.id,
-            label: `#${booking.id}: ${booking.fromCenter} → ${booking.toCenter} (${booking.totalWeight}kg, ${booking.packageDetails.length} items)`,
-            data: booking,
-        }));
+        console.log('Creating addon booking options from:', availableAddonBookings.length, 'bookings');
+        
+        return availableAddonBookings.map(booking => {
+            const fromCenterName = booking.fromCenter?.office_center_name || 
+                                  booking.from_center?.office_center_name || 
+                                  'N/A';
+            const toCenterName = booking.toCenter?.office_center_name || 
+                                booking.to_center?.office_center_name || 
+                                'N/A';
+            const bookingNumber = booking.booking_number || 'N/A';
+            const totalAmount = booking.total_amount || 0;
+            
+            return {
+                value: booking.booking_id,
+                label: `#${bookingNumber}: ${fromCenterName} → ${toCenterName} (₹${totalAmount})`,
+                data: booking,
+                from_center_id: booking.from_center_id,
+                to_center_id: booking.to_center_id
+            };
+        });
     }, [selectedParentTrip, availableAddonBookings]);
 
-    // Toggle view details for a trip
+    // Toggle view details
     const toggleTripDetails = useCallback((tripId) => {
-        setTrips(prevTrips => 
-            prevTrips.map(trip => 
-                trip.id === tripId 
+        setTrips(prevTrips =>
+            prevTrips.map(trip =>
+                trip.trip_id === tripId
                     ? { ...trip, expanded: !trip.expanded }
                     : { ...trip, expanded: false }
             )
         );
     }, []);
-
-    // Calculate if all stages are completed
-    const areAllStagesCompleted = useCallback((trip) => {
-        const mainCompleted = trip.bookings.every(b => b.deliveryStatus === 'delivered');
-        const addonsCompleted = trip.addonStages.every(stage => 
-            stage.status === 'completed' && 
-            stage.bookings.every(b => b.deliveryStatus === 'delivered')
-        );
-        
-        return mainCompleted && addonsCompleted;
-    }, []);
-
-    // Update stage status
-    const handleUpdateStageStatus = useCallback((tripId, stageIndex, newStatus) => {
-        setTrips(prevTrips => 
-            prevTrips.map(trip => {
-                if (trip.id === tripId) {
-                    const updatedTrip = { ...trip };
-                    
-                    if (stageIndex === 0) {
-                        updatedTrip.bookings = updatedTrip.bookings.map(booking => ({
-                            ...booking,
-                            deliveryStatus: newStatus
-                        }));
-                    } else {
-                        const addonStageIndex = stageIndex - 1;
-                        if (updatedTrip.addonStages[addonStageIndex]) {
-                            updatedTrip.addonStages[addonStageIndex] = {
-                                ...updatedTrip.addonStages[addonStageIndex],
-                                status: newStatus,
-                                bookings: updatedTrip.addonStages[addonStageIndex].bookings.map(booking => ({
-                                    ...booking,
-                                    deliveryStatus: newStatus
-                                }))
-                            };
-                        }
-                    }
-                    
-                    if (areAllStagesCompleted(updatedTrip)) {
-                        updatedTrip.status = 'completed';
-                        updatedTrip.actualArrival = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
-                    } else {
-                        updatedTrip.status = 'multi_stop';
-                    }
-                    
-                    return updatedTrip;
-                }
-                return trip;
-            })
-        );
-        
-        showMessage('success', `Stage ${stageIndex === 0 ? 'Main' : `Add-on ${stageIndex}`} status updated to ${newStatus}`);
-    }, [areAllStagesCompleted]);
-
-    // Complete specific stage
-    const handleCompleteStage = useCallback((tripId, stageIndex) => {
-        const now = new Date();
-        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        
-        setTrips(prevTrips => 
-            prevTrips.map(trip => {
-                if (trip.id === tripId) {
-                    const updatedTrip = { ...trip };
-                    
-                    if (stageIndex === 0) {
-                        updatedTrip.bookings = updatedTrip.bookings.map(booking => ({
-                            ...booking,
-                            deliveryStatus: 'delivered'
-                        }));
-                    } else {
-                        const addonStageIndex = stageIndex - 1;
-                        if (updatedTrip.addonStages[addonStageIndex]) {
-                            updatedTrip.addonStages[addonStageIndex] = {
-                                ...updatedTrip.addonStages[addonStageIndex],
-                                status: 'completed',
-                                actualArrival: currentTime,
-                                bookings: updatedTrip.addonStages[addonStageIndex].bookings.map(booking => ({
-                                    ...booking,
-                                    deliveryStatus: 'delivered'
-                                }))
-                            };
-                        }
-                    }
-                    
-                    if (areAllStagesCompleted(updatedTrip)) {
-                        updatedTrip.status = 'completed';
-                        updatedTrip.actualArrival = currentTime;
-                    } else {
-                        updatedTrip.status = 'multi_stop';
-                        updatedTrip.currentStage = stageIndex + 1;
-                    }
-                    
-                    return updatedTrip;
-                }
-                return trip;
-            })
-        );
-        
-        showMessage('success', `Stage ${stageIndex === 0 ? 'Main' : `Add-on ${stageIndex}`} marked as completed!`);
-    }, [areAllStagesCompleted]);
 
     // Validate form
     const validateForm = useCallback(() => {
@@ -927,197 +711,164 @@ const AssignTrip = () => {
         if (!selectedVehicle) newErrors.selectedVehicle = 'Vehicle is required';
         if (!selectedDriver) newErrors.selectedDriver = 'Driver is required';
         if (selectedLoadmen.length === 0) {
-            newErrors.loadmen = 'At least one loadman is required for the trip';
+            newErrors.loadmen = 'At least one loadman is required';
         }
-        
+
         const dateField = tripMode === 'addon' ? addonTripDate : tripDate;
         if (!dateField) newErrors.date = 'Trip date is required';
-        
+
         const departureField = tripMode === 'addon' ? addonDeparture : estimatedDeparture;
         if (!departureField) newErrors.departure = 'Departure time is required';
-        
+
         const arrivalField = tripMode === 'addon' ? addonArrival : estimatedArrival;
         if (!arrivalField) newErrors.arrival = 'Arrival time is required';
-
-        if (selectedVehicle && selectedVehicle.data && selectedVehicle.data.capacity) {
-            const capacityString = selectedVehicle.data.capacity;
-            const vehicleCapacity = parseFloat(capacityString.split(' ')[0]) || 0;
-            if (selectedTotals.totalWeight > vehicleCapacity) {
-                newErrors.selectedVehicle = `Total weight (${selectedTotals.totalWeight}kg) exceeds vehicle capacity (${capacityString})`;
-            }
-        }
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     }, [
-        tripMode, selectedAddonBookings, selectedBookings, 
+        tripMode, selectedAddonBookings, selectedBookings,
         selectedVehicle, selectedDriver, selectedLoadmen,
         addonTripDate, tripDate, addonDeparture, estimatedDeparture,
-        addonArrival, estimatedArrival, selectedTotals.totalWeight
+        addonArrival, estimatedArrival
     ]);
 
-    // Handle new trip assignment
-    const handleAssignTrip = (e) => {
-        e.preventDefault();
+  // Replace the handleAssignTrip function in your AssignTrip component with this:
 
-        if (!validateForm()) {
-            showMessage('error', 'Please fix all errors before assigning trip');
-            return;
-        }
+// Handle trip assignment
+const handleAssignTrip = (e) => {
+    e.preventDefault();
+    if (!validateForm()) {
+        showMessage('error', 'Please fix all errors before assigning trip');
+        return;
+    }
 
-        const tripId = trips.length + 1;
-        const bookings = tripMode === 'addon' ? selectedAddonBookings : selectedBookings;
-
-        // Prepare bookings with assigned loadmen
-        const bookingsWithLoadmen = bookings.map(booking => {
-            const bookingId = booking.data.id;
-            const packagesWithLoadmen = (booking.data.packageDetails || []).map(pkg => {
-                return {
-                    ...pkg,
-                    assignedLoadmen: selectedLoadmen.map(l => l.data),
-                    assignedLoadmenNames: selectedLoadmen.map(l => l.data.name).join(', ')
-                };
-            });
-
-            return {
-                ...booking.data,
-                packageDetails: packagesWithLoadmen,
-                deliveryStatus: 'scheduled',
-                assignedLoadmen: selectedLoadmen.map(l => l.data)
-            };
+    if (tripMode === 'addon' && selectedParentTrip) {
+        // For add-on stage, we need to:
+        // 1. Get existing booking IDs from the parent trip
+        // 2. Add new booking IDs to the trip
+        
+        const existingBookingIds = selectedParentTrip.bookings?.map(b => b.booking_id) || [];
+        const newBookingIds = selectedAddonBookings.map(b => b.value || b.booking_id);
+        
+        // We're only adding new bookings, not removing any
+        const bookingData = {
+            addBookingIds: newBookingIds,
+            removeBookingIds: [] // Empty array since we're not removing any bookings
+        };
+        
+        console.log('Adding add-on bookings to trip:', {
+            tripId: selectedParentTrip.trip_id,
+            existingBookings: existingBookingIds,
+            newBookings: newBookingIds,
+            bookingData
         });
+        
+        dispatch(updateTripBookings({
+            tripId: selectedParentTrip.trip_id,
+            bookingData: bookingData
+        }));
+        
+    } else {
+        // Create new trip
+        const bookings = selectedBookings;
+        const bookingIds = bookings.map(b => b.value || b.booking_id);
+        const loadmanIds = selectedLoadmen.map(l => l.value || l.employee_id);
 
-        if (tripMode === 'addon' && selectedParentTrip) {
-            // Add new add-on stage
-            const newAddonStage = {
-                stageNumber: (selectedParentTrip.addonStages?.length || 0) + 1,
-                bookings: bookingsWithLoadmen,
-                tripDate: addonTripDate,
-                estimatedDeparture: addonDeparture,
-                estimatedArrival: addonArrival,
-                actualDeparture: null,
-                actualArrival: null,
-                remarks: addonRemarks,
-                status: 'scheduled',
-                loadmen: selectedLoadmen.map(l => l.data),
-                createdAt: new Date().toISOString(),
-                totalWeight: selectedTotals.totalWeight,
-                totalPackages: selectedTotals.totalPackages,
-                totalAmount: selectedTotals.totalAmount,
-            };
+        const firstBooking = bookings[0]?.data || bookings[0];
+        const lastBooking = bookings[bookings.length - 1]?.data || bookings[bookings.length - 1];
 
-            setTrips(prevTrips => 
-                prevTrips.map(trip => 
-                    trip.id === selectedParentTrip.id 
-                        ? {
-                            ...trip,
-                            addonStages: [...(trip.addonStages || []), newAddonStage],
-                            totalWeight: trip.totalWeight + selectedTotals.totalWeight,
-                            totalPackages: trip.totalPackages + selectedTotals.totalPackages,
-                            totalAmount: trip.totalAmount + selectedTotals.totalAmount,
-                            status: 'multi_stop',
-                            currentStage: trip.currentStage
-                        }
-                        : trip
-                )
-            );
-            showMessage('success', `Add-on stage ${newAddonStage.stageNumber} added to trip #${selectedParentTrip.tripNo} successfully!`);
-        } else {
-            const newTrip = {
-                id: tripId,
-                tripNo: `TRIP${String(tripId).padStart(4, '0')}`,
-                bookings: bookingsWithLoadmen,
-                addonStages: [],
-                vehicle: selectedVehicle.data,
-                driver: selectedDriver.data,
-                loadmen: selectedLoadmen.map(l => l.data),
-                tripDate: tripDate,
-                estimatedDeparture: estimatedDeparture,
-                estimatedArrival: estimatedArrival,
-                actualDeparture: null,
-                actualArrival: null,
-                remarks: remarks,
-                status: 'scheduled',
-                createdAt: new Date().toISOString(),
-                totalWeight: selectedTotals.totalWeight,
-                totalVolume: selectedTotals.totalVolume,
-                totalPackages: selectedTotals.totalPackages,
-                totalAmount: selectedTotals.totalAmount,
-                tripType: 'primary',
-                currentStage: 0,
-                expanded: false,
-            };
+        const requestData = {
+            fromCenterId: firstBooking?.from_center_id,
+            toCenterId: lastBooking?.to_center_id,
+            vehicleId: selectedVehicle.value,
+            driverId: selectedDriver.value,
+            bookingIds: bookingIds,
+            loadmanIds: loadmanIds,
+            tripDate: tripDate,
+            estimatedDeparture: estimatedDeparture,
+            estimatedArrival: estimatedArrival,
+            remarks: remarks
+        };
 
-            setTrips([newTrip, ...trips]);
-            showMessage('success', `Trip #${tripId} assigned successfully!`);
-        }
-
-        resetForm();
-        setShowAssignForm(false);
-    };
+        console.log('Creating new trip:', requestData);
+        dispatch(createTrip(requestData));
+    }
+};
 
     // Handle add-on trip assignment
     const handleAssignAddonTrip = useCallback((parentTrip) => {
+        console.log('Selected Parent Trip for Add-on:', parentTrip);
+        
         setSelectedParentTrip(parentTrip);
         setTripMode('addon');
         setShowAssignForm(true);
-        
-        setSelectedVehicle({
-            value: parentTrip.vehicle.id,
-            label: `${parentTrip.vehicle.vehicleNo} - ${parentTrip.vehicle.vehicleType}`,
-            data: parentTrip.vehicle,
-        });
-        
-        setSelectedDriver({
-            value: parentTrip.driver.id,
-            label: `${parentTrip.driver.name} - ${parentTrip.driver.licenseNo}`,
-            data: parentTrip.driver,
-        });
 
-        // Set loadmen from parent trip
+        // Set vehicle (if available)
+        if (parentTrip.vehicle) {
+            setSelectedVehicle({
+                value: parentTrip.vehicle.vehicle_id,
+                label: `${parentTrip.vehicle.vehicle_number_plate}`,
+                data: parentTrip.vehicle,
+            });
+        }
+
+        // Set driver (if available)
+        if (parentTrip.driver) {
+            setSelectedDriver({
+                value: parentTrip.driver.employee_id,
+                label: `${parentTrip.driver.employee_name}`,
+                data: parentTrip.driver,
+            });
+        }
+
+        // Set loadmen (if available)
         if (parentTrip.loadmen && parentTrip.loadmen.length > 0) {
             setSelectedLoadmen(parentTrip.loadmen.map(loadman => ({
-                value: loadman.id,
-                label: `${loadman.name} - ${loadman.mobileNo}`,
+                value: loadman.employee_id,
+                label: `${loadman.employee_name} - ${loadman.mobile_no}`,
                 data: loadman,
             })));
         }
 
-        setAddonTripDate(parentTrip.tripDate);
+        // Set trip date and times
+        setAddonTripDate(parentTrip.trip_date);
         setAddonDeparture('15:00');
         setAddonArrival('22:00');
         setAddonRemarks('');
         setSelectedAddonBookings([]);
+        
+        // Clear any previous addon bookings
+        setAvailableAddonBookings([]);
     }, []);
 
     // Update trip status
     const handleUpdateStatus = (tripId, newStatus) => {
-        setTrips(trips.map(trip => 
-            trip.id === tripId 
-                ? { ...trip, status: newStatus }
-                : trip
-        ));
-        
-        showMessage('success', `Trip status updated to ${newStatus}`);
-    };
-
-    // Start main trip
-    const handleStartTrip = (tripId) => {
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        
-        setTrips(trips.map(trip => 
-            trip.id === tripId 
-                ? { 
-                    ...trip, 
-                    status: 'in_progress',
-                    actualDeparture: currentTime,
-                    currentStage: 0
-                }
-                : trip
-        ));
 
-        showMessage('success', `Trip #${tripId} started!`);
+        const statusData = {
+            status: newStatus
+        };
+
+        if (newStatus === 'in_progress') {
+            statusData.actual_departure = currentTime;
+        } else if (newStatus === 'completed') {
+            statusData.actual_arrival = currentTime;
+        }
+
+        dispatch(updateTripStatus({ tripId, statusData }));
+    };
+
+    // Delete trip
+    const handleDeleteTrip = (tripId) => {
+        showMessage(
+            'warning',
+            'Are you sure you want to delete this trip?',
+            () => {
+                dispatch(deleteTrip(tripId));
+            },
+            'Yes, delete it'
+        );
     };
 
     // Reset form
@@ -1141,618 +892,387 @@ const AssignTrip = () => {
         setAddonRemarks('');
     };
 
-    // Get filtered data for table
-    const getFilteredData = useCallback(() => {
-        let filteredData = trips;
-        if (searchTerm) {
-            filteredData = filteredData.filter(
-                (trip) =>
-                    trip.tripNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.vehicle?.vehicleNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.driver?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    trip.bookings.some(b => 
-                        b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
-                    ) ||
-                    (trip.addonStages && trip.addonStages.some(stage => 
-                        stage.bookings.some(b => 
-                            b.fromCenter?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            b.toCenter?.toLowerCase().includes(searchTerm.toLowerCase())
-                        )
-                    ))
-            );
+    // Handle filter changes
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const clearFilters = () => {
+        setFilters({ fromDate: '', toDate: '', status: '' });
+        setSearchTerm('');
+    };
+
+// Trip Details Component - Updated with center name mapping
+// Trip Details Component - Updated to show center names
+const TripDetails = ({ trip }) => {
+    if (!trip.expanded) return null;
+
+    // Helper function to get center name from ID
+    const getCenterName = (centerId, type) => {
+        if (!centerId) return 'N/A';
+        
+        // Try to get from trip's fromCenter or toCenter based on matching ID
+        if (trip.fromCenter?.office_center_id === centerId) {
+            return trip.fromCenter.office_center_name;
         }
-        return filteredData;
-    }, [trips, searchTerm]);
-
-    const filteredData = getFilteredData();
-
-    // Handle pagination change
-    const handlePaginationChange = (pageIndex, newPageSize) => {
-        setCurrentPage(pageIndex);
-        setPageSize(newPageSize);
+        if (trip.toCenter?.office_center_id === centerId) {
+            return trip.toCenter.office_center_name;
+        }
+        
+        // If no match found, return the ID as fallback
+        return centerId;
     };
 
-    // Handle search change
-    const handleSearch = (term) => {
-        setSearchTerm(term);
-        setCurrentPage(0);
-    };
-
-    // Component for view details
-    const TripDetails = ({ trip }) => {
-        if (!trip.expanded) return null;
-
-        const allStages = [
-            { stageNumber: 0, stageName: 'Main Trip', bookings: trip.bookings, status: trip.status, actualArrival: trip.actualArrival, loadmen: trip.loadmen },
-            ...(trip.addonStages || []).map(stage => ({ ...stage, stageName: `Add-on Stage ${stage.stageNumber}` }))
-        ];
-
-        const allLoadmen = new Set();
-        allStages.forEach(stage => {
-            if (stage.loadmen && stage.loadmen.length > 0) {
-                stage.loadmen.forEach(loadman => {
-                    allLoadmen.add(loadman.name);
-                });
-            }
-        });
-
-        return (
-            <div className="bg-gray-50 rounded-lg mt-4 p-6 border border-gray-200 animate-fadeIn">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
-                            <IconInfoCircle className="w-5 h-5 mr-2 text-blue-500" />
-                            Trip Information
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Trip No:</span>
-                                <span className="font-medium text-blue-600">{trip.tripNo}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Current Stage:</span>
-                                <span className="font-medium">
-                                    {trip.currentStage === 0 ? 'Main Trip' : `Add-on Stage ${trip.currentStage}`}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Date:</span>
-                                <span className="font-medium">{trip.tripDate}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Schedule:</span>
-                                <span className="font-medium">{trip.estimatedDeparture} - {trip.estimatedArrival}</span>
-                            </div>
-                            {trip.actualArrival && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Actual Arrival:</span>
-                                    <span className="font-medium text-green-600">{trip.actualArrival}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
-                            <IconTruck className="w-5 h-5 mr-2 text-blue-500" />
-                            Vehicle & Team
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Vehicle:</span>
-                                <span className="font-medium">{trip.vehicle?.vehicleNo} ({trip.vehicle?.vehicleType})</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Driver:</span>
-                                <span className="font-medium">{trip.driver?.name}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Loadmen:</span>
-                                <span className="font-medium">{Array.from(allLoadmen).join(', ') || 'None assigned'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Total Stages:</span>
-                                <span className="font-medium">{allStages.length}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
-                            <IconPackage className="w-5 h-5 mr-2 text-blue-500" />
-                            Load Summary
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Total Stages:</span>
-                                <span className="font-medium">{allStages.length}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Total Bookings:</span>
-                                <span className="font-medium">{trip.totalPackages}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Total Weight:</span>
-                                <span className="font-medium">{trip.totalWeight}kg</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Total Amount:</span>
-                                <span className="font-medium text-green-600">₹{trip.totalAmount}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Stages Timeline */}
-                <div className="mb-6">
-                    <h4 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-2 flex items-center">
-                        <IconRoute className="w-5 h-5 mr-2" />
-                        Trip Stages Timeline
+    return (
+        <div className="bg-gray-50 rounded-lg mt-4 p-6 border border-gray-200 animate-fadeIn">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
+                        <IconInfoCircle className="w-5 h-5 mr-2 text-blue-500" />
+                        Trip Information
                     </h4>
-                    <div className="relative">
-                        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-blue-200"></div>
-                        
-                        <div className="space-y-6">
-                            {allStages.map((stage, index) => (
-                                <div key={index} className="relative pl-12">
-                                    <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center z-10 ${
-                                        stage.status === 'completed' ? 'bg-green-500' :
-                                        stage.status === 'in_progress' ? 'bg-yellow-500' :
-                                        index === trip.currentStage ? 'bg-blue-500' :
-                                        'bg-gray-300'
-                                    }`}>
-                                        {stage.status === 'completed' ? (
-                                            <IconCheckCircle className="w-4 h-4 text-white" />
-                                        ) : (
-                                            <span className="text-white text-xs font-bold">{index + 1}</span>
-                                        )}
-                                    </div>
-                                    
-                                    <div className={`p-4 rounded-lg border ${
-                                        index === trip.currentStage ? 'border-blue-300 bg-blue-50' :
-                                        stage.status === 'completed' ? 'border-green-200 bg-green-50' :
-                                        stage.status === 'in_progress' ? 'border-yellow-200 bg-yellow-50' :
-                                        'border-gray-200 bg-white'
-                                    }`}>
-                                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-3">
-                                            <div className="mb-2 md:mb-0">
-                                                <h5 className="font-semibold text-gray-800 flex items-center">
-                                                    {stage.stageName}
-                                                    {index === 0 && (
-                                                        <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Primary</span>
-                                                    )}
-                                                    {index > 0 && (
-                                                        <span className="ml-2 text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded">Add-on</span>
-                                                    )}
-                                                </h5>
-                                                <div className="text-sm text-gray-600 mt-1">
-                                                    {stage.bookings?.length || 0} bookings • {stage.bookings?.reduce((sum, b) => sum + b.packageDetails?.length, 0) || 0} packages
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="flex flex-col sm:flex-row gap-2">
-                                                <div className="mb-2 sm:mb-0">
-                                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                                        stage.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                                        stage.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                        {stage.status === 'completed' ? 'Completed' :
-                                                         stage.status === 'in_progress' ? 'In Progress' :
-                                                         'Scheduled'}
-                                                    </span>
-                                                </div>
-                                                
-                                                <div className="flex gap-2">
-                                                    {index === trip.currentStage && stage.status !== 'completed' && (
-                                                        <>
-                                                            {stage.status === 'scheduled' && (
-                                                                <button
-                                                                    onClick={() => index === 0 ? handleStartTrip(trip.id) : handleUpdateStageStatus(trip.id, index, 'in_progress')}
-                                                                    className="btn btn-outline-success btn-sm"
-                                                                >
-                                                                    Start
-                                                                </button>
-                                                            )}
-                                                            {stage.status === 'in_progress' && (
-                                                                <button
-                                                                    onClick={() => handleCompleteStage(trip.id, index)}
-                                                                    className="btn btn-outline-success btn-sm"
-                                                                >
-                                                                    Complete
-                                                                </button>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                    {stage.status === 'in_progress' && (
-                                                        <button
-                                                            onClick={() => handleUpdateStageStatus(trip.id, index, 'delayed')}
-                                                            className="btn btn-outline-warning btn-sm"
-                                                        >
-                                                            Delay
-                                                        </button>
-                                                    )}
-                                                    {index === 0 && stage.status === 'scheduled' && (
-                                                        <button
-                                                            onClick={() => handleUpdateStatus(trip.id, 'cancelled')}
-                                                            className="btn btn-outline-danger btn-sm"
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                                            <div>
-                                                <span className="text-gray-600">From:</span>
-                                                <div className="font-medium">{stage.bookings?.[0]?.fromCenter}</div>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">To:</span>
-                                                <div className="font-medium">{stage.bookings?.[stage.bookings?.length - 1]?.toCenter}</div>
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Schedule:</span>
-                                                <div className="font-medium">
-                                                    {stage.estimatedDeparture} - {stage.estimatedArrival}
-                                                    {stage.actualArrival && (
-                                                        <span className="text-green-600 ml-2">(Arrived: {stage.actualArrival})</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        {stage.loadmen && stage.loadmen.length > 0 && (
-                                            <div className="mt-3 pt-3 border-t border-gray-200">
-                                                <div className="text-sm text-gray-700">
-                                                    <span className="font-medium">Loadmen for this stage:</span> {stage.loadmen.map(l => l.name).join(', ')}
-                                                </div>
-                                            </div>
-                                        )}
-                                        
-                                        {stage.remarks && (
-                                            <div className="mt-3 pt-3 border-t border-gray-200">
-                                                <div className="text-sm text-gray-700">
-                                                    <span className="font-medium">Remarks:</span> {stage.remarks}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Trip No:</span>
+                            <span className="font-medium text-blue-600">{trip.trip_number}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">From Center:</span>
+                            <span className="font-medium">{trip.fromCenter?.office_center_name || trip.from_center_id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">To Center:</span>
+                            <span className="font-medium">{trip.toCenter?.office_center_name || trip.to_center_id}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Date:</span>
+                            <span className="font-medium">{trip.trip_date}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Schedule:</span>
+                            <span className="font-medium">{trip.estimated_departure} - {trip.estimated_arrival}</span>
+                        </div>
+                        {trip.actual_arrival && (
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Actual Arrival:</span>
+                                <span className="font-medium text-green-600">{trip.actual_arrival}</span>
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
+                        <IconTruck className="w-5 h-5 mr-2 text-blue-500" />
+                        Vehicle & Team
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Vehicle:</span>
+                            <span className="font-medium">{trip.vehicle?.vehicle_number_plate}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Driver:</span>
+                            <span className="font-medium">{trip.driver?.employee_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Loadmen:</span>
+                            <span className="font-medium">
+                                {trip.loadmen?.map(l => l.employee_name).join(', ') || 'None'}
+                            </span>
                         </div>
                     </div>
                 </div>
-
-                <div className="mb-6">
-                    <h4 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-2">All Bookings</h4>
-                    <div className="space-y-4">
-                        {allStages.map((stage, stageIndex) => (
-                            <div key={stageIndex} className="mb-6">
-                                <h5 className="font-medium text-gray-700 mb-3 text-lg flex items-center">
-                                    <IconFlag className="w-4 h-4 mr-2" />
-                                    {stage.stageName} Bookings ({stage.bookings?.length || 0})
-                                </h5>
-                                <div className="space-y-3">
-                                    {stage.bookings?.map((booking, bookingIndex) => (
-                                        <div key={bookingIndex} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4">
-                                                <div className="mb-3 sm:mb-0">
-                                                    <div className="font-medium text-gray-800 text-lg">
-                                                        Booking #{booking.id}: {booking.fromCenter} → {booking.toCenter}
-                                                    </div>
-                                                    <div className="text-sm text-gray-600 mt-1">
-                                                        Customer: {booking.fromName} • Contact: {booking.fromMobile}
-                                                    </div>
-                                                    <div className="text-sm text-gray-600">
-                                                        Receiver: {booking.toName} • Contact: {booking.toMobile}
-                                                    </div>
-                                                </div>
-                                                <div className="flex flex-col sm:items-end">
-                                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                                        booking.deliveryStatus === 'delivered' ? 'bg-green-100 text-green-800' :
-                                                        booking.deliveryStatus === 'in_transit' ? 'bg-yellow-100 text-yellow-800' :
-                                                        booking.deliveryStatus === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                                                        'bg-gray-100 text-gray-800'
-                                                    }`}>
-                                                        {booking.deliveryStatus}
-                                                    </span>
-                                                    <div className="text-sm text-gray-600 mt-2">
-                                                        Amount: <span className="font-medium">₹{booking.totalAmount}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="mt-4 pt-4 border-t border-gray-100">
-                                                <div className="text-sm font-medium text-gray-700 mb-3">Packages ({booking.packageDetails?.length || 0}):</div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    {booking.packageDetails?.map((pkg, pkgIndex) => (
-                                                        <div key={pkgIndex} className="bg-gray-50 p-3 rounded border border-gray-100 hover:bg-gray-100 transition-colors">
-                                                            <div className="flex justify-between items-start">
-                                                                <div>
-                                                                    <div className="font-medium text-gray-800">{pkg.packageType} × {pkg.quantity}</div>
-                                                                    <div className="text-xs text-gray-600 mt-1">
-                                                                        Weight: {pkg.weight}kg • Size: {pkg.dimensions}
-                                                                    </div>
-                                                                    <div className="text-xs text-gray-600">
-                                                                        Amount: ₹{pkg.total}
-                                                                    </div>
-                                                                </div>
-                                                                <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
-                                                                    {stage.loadmen?.map(l => l.name).join(', ') || 'No loadmen'}
-                                                                </div>
-                                                            </div>
-                                                            {pkg.specialInstructions && (
-                                                                <div className="text-xs text-yellow-600 mt-2 flex items-start">
-                                                                    <span className="font-medium mr-1">Note:</span>
-                                                                    {pkg.specialInstructions}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between">
-                        <div>
-                            <h4 className="font-semibold text-gray-800 mb-2">Trip Status Summary</h4>
-                            <div className="text-sm text-gray-600">
-                                {trip.status === 'completed' ? (
-                                    <span className="text-green-600 font-medium">✓ All stages completed successfully!</span>
-                                ) : (
-                                    <span>
-                                        Stage {trip.currentStage + 1} of {allStages.length} • 
-                                        {trip.addonStages?.length > 0 && ` ${trip.addonStages.length} add-on stage(s)`}
-                                    </span>
-                                )}
-                            </div>
+                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
+                        <IconPackage className="w-5 h-5 mr-2 text-blue-500" />
+                        Load Summary
+                    </h4>
+                    <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Total Bookings:</span>
+                            <span className="font-medium">{trip.total_packages}</span>
                         </div>
-                        <div className="mt-2 md:mt-0">
-                            {trip.status !== 'completed' && trip.currentStage > 0 && (
-                                <button
-                                    onClick={() => handleAssignAddonTrip(trip)}
-                                    className="btn btn-purple btn-sm"
-                                >
-                                    <IconPlus className="w-4 h-4 mr-1" />
-                                    Add Another Stage
-                                </button>
-                            )}
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Total Weight:</span>
+                            <span className="font-medium">{trip.total_weight}kg</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Total Amount:</span>
+                            <span className="font-medium text-green-600">₹{trip.total_amount}</span>
                         </div>
                     </div>
                 </div>
             </div>
-        );
-    };
 
-    // Table configuration
-    const columns = useMemo(() => [
-        {
-            Header: '#',
-            accessor: 'tripNo',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="font-medium text-gray-600">
-                        <div className="inline-flex flex-col items-center">
-                            <span className="text-xs text-gray-500 hidden sm:block">Trip No</span>
-                            <span className="font-bold text-primary text-sm sm:text-base">{trip.tripNo}</span>
-                            {trip.addonStages?.length > 0 && (
-                                <span className="text-xs text-purple-600 bg-purple-50 px-1 rounded mt-1">
-                                    {trip.addonStages.length} add-on(s)
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                );
-            },
-            width: 100,
-            mobileFull: false,
-        },
-        {
-            Header: 'Route & Bookings',
-            accessor: 'route',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                const allStages = [
-                    { bookings: trip.bookings },
-                    ...(trip.addonStages || []).map(stage => ({ bookings: stage.bookings }))
-                ];
-                
-                const firstBooking = allStages[0]?.bookings?.[0];
-                const lastStage = allStages[allStages.length - 1];
-                const lastBooking = lastStage?.bookings?.[lastStage.bookings?.length - 1];
-                
-                return (
-                    <div className="space-y-1">
-                        <div className="flex items-center text-sm">
-                            <IconMapPin className="w-3 h-3 mr-1 text-blue-500 flex-shrink-0" />
-                            <span className="font-medium truncate">
-                                {firstBooking?.fromCenter} → {lastBooking?.toCenter}
-                            </span>
-                            {trip.addonStages?.length > 0 && (
-                                <span className="ml-1 text-xs text-purple-600">
-                                    ({trip.addonStages.length + 1} stops)
-                                </span>
-                            )}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                            {allStages.reduce((sum, stage) => sum + (stage.bookings?.length || 0), 0)} bookings • {trip.totalPackages} packages
-                        </div>
-                        <div className="text-xs text-gray-500">
-                            Current: {trip.currentStage === 0 ? 'Main Trip' : `Add-on Stage ${trip.currentStage}`}
-                        </div>
-                    </div>
-                );
-            },
-            width: 200,
-            mobileFull: true,
-        },
-        {
-            Header: 'Vehicle & Team',
-            accessor: 'team',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                const allStages = [
-                    { bookings: trip.bookings },
-                    ...(trip.addonStages || []).map(stage => ({ bookings: stage.bookings }))
-                ];
-                
-                const allLoadmen = new Set();
-                allStages.forEach(stage => {
-                    if (stage.loadmen && stage.loadmen.length > 0) {
-                        stage.loadmen.forEach(loadman => {
-                            allLoadmen.add(loadman.name);
-                        });
-                    }
-                });
-                
-                return (
-                    <div className="space-y-1">
-                        <div className="flex items-center text-sm">
-                            <IconTruck className="w-3 h-3 mr-1 text-primary flex-shrink-0" />
-                            <span className="font-medium truncate">{trip.vehicle?.vehicleNo}</span>
-                        </div>
-                        <div className="flex items-center text-xs text-gray-600">
-                            <IconDriver className="w-3 h-3 mr-1 flex-shrink-0" />
-                            <span className="truncate">{trip.driver?.name}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                            {allLoadmen.size} loadmen • {allStages.length} stages
-                        </div>
-                    </div>
-                );
-            },
-            width: 150,
-            mobileFull: false,
-        },
-        {
-            Header: 'Load Summary',
-            accessor: 'load',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="space-y-1">
-                        <div className="text-sm">
-                            <span className="font-medium">{trip.totalPackages}</span> Items
-                        </div>
-                        <div className="text-xs text-gray-600">
-                            Weight: {trip.totalWeight}kg
-                        </div>
-                        <div className="text-xs text-gray-500">
-                            Amount: ₹{trip.totalAmount}
-                        </div>
-                    </div>
-                );
-            },
-            width: 120,
-            mobileFull: false,
-        },
-        {
-            Header: 'Status',
-            accessor: 'status',
-            Cell: ({ value, row }) => {
-                const trip = row.original;
-                const statusConfig = {
-                    scheduled: { color: 'bg-blue-100 text-blue-800', icon: '⏰', label: 'Scheduled' },
-                    in_progress: { color: 'bg-yellow-100 text-yellow-800', icon: '🚚', label: 'In Progress' },
-                    multi_stop: { color: 'bg-purple-100 text-purple-800', icon: '🔄', label: 'Multi-stop' },
-                    completed: { color: 'bg-green-100 text-green-800', icon: '✓', label: 'Completed' },
-                    cancelled: { color: 'bg-red-100 text-red-800', icon: '✗', label: 'Cancelled' },
-                };
-                const config = statusConfig[value] || statusConfig.scheduled;
-
-                return (
-                    <div className="space-y-1">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-                            {config.icon} {config.label}
-                        </span>
-                        {trip.addonStages?.length > 0 && (
-                            <div className="text-xs text-gray-500 mt-1">
-                                {trip.addonStages.length} add-on stage(s)
+            <div className="mb-6">
+                <h4 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-2">Bookings</h4>
+                <div className="space-y-3">
+                    {trip.bookings?.map((booking, index) => {
+                        // Get from center name - try to match with trip's fromCenter or toCenter
+                        const fromCenterName = 
+                            // First check if booking has fromCenter object
+                            booking.fromCenter?.office_center_name ||
+                            // Then try to match with trip's fromCenter
+                            (booking.from_center_id === trip.fromCenter?.office_center_id ? trip.fromCenter?.office_center_name :
+                            // Then try to match with trip's toCenter
+                            booking.from_center_id === trip.toCenter?.office_center_id ? trip.toCenter?.office_center_name :
+                            // If no match, return the ID
+                            booking.from_center_id);
+                        
+                        // Get to center name - try to match with trip's fromCenter or toCenter
+                        const toCenterName = 
+                            // First check if booking has toCenter object
+                            booking.toCenter?.office_center_name ||
+                            // Then try to match with trip's fromCenter
+                            (booking.to_center_id === trip.fromCenter?.office_center_id ? trip.fromCenter?.office_center_name :
+                            // Then try to match with trip's toCenter
+                            booking.to_center_id === trip.toCenter?.office_center_id ? trip.toCenter?.office_center_name :
+                            // If no match, return the ID
+                            booking.to_center_id);
+                        
+                        // Get delivery status - check multiple possible locations
+                        const deliveryStatus = booking.TripBooking?.delivery_status || 
+                                              booking.delivery_status || 
+                                              'pending';
+                        
+                        // Determine status color
+                        const statusColor = deliveryStatus === 'delivered' ? 'bg-green-100 text-green-800' :
+                                           deliveryStatus === 'in_transit' ? 'bg-yellow-100 text-yellow-800' :
+                                           deliveryStatus === 'pending' ? 'bg-blue-100 text-blue-800' :
+                                           'bg-gray-100 text-gray-800';
+                        
+                        return (
+                            <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3">
+                                    <div>
+                                        <div className="font-medium text-gray-800 text-base">
+                                            Booking #{booking.booking_number}: {fromCenterName} → {toCenterName}
+                                        </div>
+                                        <div className="text-sm text-gray-600 mt-1">
+                                            Amount: <span className="font-medium">₹{booking.total_amount}</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+                                            {deliveryStatus}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                        )}
+                        );
+                    })}
+                    
+                    {/* Show message if no bookings */}
+                    {(!trip.bookings || trip.bookings.length === 0) && (
+                        <div className="text-center py-4 text-gray-500">
+                            No bookings found for this trip
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {trip.remarks && (
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <h4 className="font-semibold text-gray-800 mb-2">Remarks</h4>
+                    <p className="text-sm text-gray-600">{trip.remarks}</p>
+                </div>
+            )}
+        </div>
+    );
+};
+    // Table columns
+ // Table columns - Updated version
+const columns = useMemo(() => [
+    {
+        Header: '#',
+        accessor: 'trip_number',
+        Cell: ({ row }) => {
+            const trip = row.original;
+            return (
+                <div className="font-medium text-gray-600">
+                    <div className="inline-flex flex-col items-center">
+                        <span className="text-xs text-gray-500 hidden sm:block">Trip No</span>
+                        <span className="font-bold text-primary text-sm sm:text-base">{trip.trip_number}</span>
                     </div>
-                );
-            },
-            width: 120,
-            mobileFull: false,
+                </div>
+            );
         },
-        {
-            Header: 'Actions',
-            accessor: 'actions',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="flex flex-wrap gap-1">
-                        <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
-                            <button 
-                                onClick={() => toggleTripDetails(trip.id)} 
-                                className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
+        width: 100,
+        mobileFull: false,
+    },
+ {
+    Header: 'Route',
+    accessor: 'route',
+    Cell: ({ row }) => {
+        const trip = row.original;
+        const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
+        const { officeCentersData = [] } = officeCenterState;
+        
+        const getCenterName = (centerId) => {
+            if (!centerId) return 'N/A';
+            if (typeof centerId === 'string' && !centerId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                return centerId;
+            }
+            const center = officeCentersData.find(c => c.office_center_id === centerId);
+            return center?.office_center_name || centerId;
+        };
+        
+        const fromCenterName = trip.fromCenter?.office_center_name || 
+                               getCenterName(trip.from_center_id);
+        const toCenterName = trip.toCenter?.office_center_name || 
+                             getCenterName(trip.to_center_id);
+        
+        return (
+            <div className="space-y-1">
+                <div className="flex items-center text-sm">
+                    <IconMapPin className="w-3 h-3 mr-1 text-blue-500 flex-shrink-0" />
+                    <span className="font-medium truncate">
+                        {fromCenterName} → {toCenterName}
+                    </span>
+                </div>
+                <div className="text-xs text-gray-600">
+                    {trip.bookings?.length || 0} bookings • {trip.total_packages} packages
+                </div>
+            </div>
+        );
+    },
+    width: 200,
+    mobileFull: true,
+},
+    {
+        Header: 'Vehicle & Team',
+        accessor: 'team',
+        Cell: ({ row }) => {
+            const trip = row.original;
+            return (
+                <div className="space-y-1">
+                    <div className="flex items-center text-sm">
+                        <IconTruck className="w-3 h-3 mr-1 text-primary flex-shrink-0" />
+                        <span className="font-medium truncate">{trip.vehicle?.vehicle_number_plate}</span>
+                    </div>
+                    <div className="flex items-center text-xs text-gray-600">
+                        <IconDriver className="w-3 h-3 mr-1 flex-shrink-0" />
+                        <span className="truncate">{trip.driver?.employee_name}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                        {trip.loadmen?.length || 0} loadmen
+                    </div>
+                </div>
+            );
+        },
+        width: 150,
+        mobileFull: false,
+    },
+    {
+        Header: 'Load Summary',
+        accessor: 'load',
+        Cell: ({ row }) => {
+            const trip = row.original;
+            return (
+                <div className="space-y-1">
+                    <div className="text-sm">
+                        <span className="font-medium">{trip.total_packages}</span> Items
+                    </div>
+                    <div className="text-xs text-gray-600">
+                        Weight: {trip.total_weight}kg
+                    </div>
+                    <div className="text-xs text-gray-500">
+                        Amount: ₹{trip.total_amount}
+                    </div>
+                </div>
+            );
+        },
+        width: 120,
+        mobileFull: false,
+    },
+    {
+        Header: 'Status',
+        accessor: 'status',
+        Cell: ({ value }) => {
+            const statusConfig = {
+                scheduled: { color: 'bg-blue-100 text-blue-800', icon: '⏰', label: 'Scheduled' },
+                in_progress: { color: 'bg-yellow-100 text-yellow-800', icon: '🚚', label: 'In Progress' },
+                completed: { color: 'bg-green-100 text-green-800', icon: '✓', label: 'Completed' },
+                cancelled: { color: 'bg-red-100 text-red-800', icon: '✗', label: 'Cancelled' },
+            };
+            const config = statusConfig[value] || statusConfig.scheduled;
+            return (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+                    {config.icon} {config.label}
+                </span>
+            );
+        },
+        width: 120,
+        mobileFull: false,
+    },
+    {
+        Header: 'Actions',
+        accessor: 'actions',
+        Cell: ({ row }) => {
+            const trip = row.original;
+            return (
+                <div className="flex flex-wrap gap-1">
+                    <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
+                        <button
+                            onClick={() => toggleTripDetails(trip.trip_id)}
+                            className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
+                        >
+                            {trip.expanded ? <IconChevronUp className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
+                        </button>
+                    </Tippy>
+                    {(trip.status === 'in_progress' || trip.status === 'scheduled') && (
+                        <Tippy content="Add Another Stage">
+                            <button
+                                onClick={() => handleAssignAddonTrip(trip)}
+                                className="btn btn-outline-purple btn-sm p-1.5 rounded-lg hover:bg-purple-500 hover:text-white transition-colors"
                             >
-                                {trip.expanded ? <IconChevronUp className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
+                                <IconPlus className="w-4 h-4" />
                             </button>
                         </Tippy>
-                        
-                        {(trip.status === 'in_progress' || trip.status === 'multi_stop') && (
-                            <Tippy content="Add Another Stage">
-                                <button 
-                                    onClick={() => handleAssignAddonTrip(trip)} 
-                                    className="btn btn-outline-purple btn-sm p-1.5 rounded-lg hover:bg-purple-500 hover:text-white transition-colors"
+                    )}
+                    {trip.status === 'scheduled' && (
+                        <>
+                            <Tippy content="Start Trip">
+                                <button
+                                    onClick={() => handleUpdateStatus(trip.trip_id, 'in_progress')}
+                                    className="btn btn-outline-success btn-sm p-1.5 rounded-lg hover:bg-success hover:text-white transition-colors"
                                 >
-                                    <IconPlus className="w-4 h-4" />
+                                    <IconClock className="w-4 h-4" />
                                 </button>
                             </Tippy>
-                        )}
-                        
-                        {trip.status === 'scheduled' && (
-                            <>
-                                <Tippy content="Start Trip">
-                                    <button 
-                                        onClick={() => handleStartTrip(trip.id)} 
-                                        className="btn btn-outline-success btn-sm p-1.5 rounded-lg hover:bg-success hover:text-white transition-colors"
-                                    >
-                                        <IconClock className="w-4 h-4" />
-                                    </button>
-                                </Tippy>
-                                <Tippy content="Cancel Trip">
-                                    <button 
-                                        onClick={() => handleUpdateStatus(trip.id, 'cancelled')} 
-                                        className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors"
-                                    >
-                                        <IconXCircle className="w-4 h-4" />
-                                    </button>
-                                </Tippy>
-                            </>
-                        )}
-                    </div>
-                );
-            },
-            width: 140,
-            mobileFull: false,
+                            <Tippy content="Cancel Trip">
+                                <button
+                                    onClick={() => handleUpdateStatus(trip.trip_id, 'cancelled')}
+                                    className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors"
+                                >
+                                    <IconXCircle className="w-4 h-4" />
+                                </button>
+                            </Tippy>
+                            <Tippy content="Delete Trip">
+                                <button
+                                    onClick={() => handleDeleteTrip(trip.trip_id)}
+                                    className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors"
+                                >
+                                    <IconX className="w-4 h-4" />
+                                </button>
+                            </Tippy>
+                        </>
+                    )}
+                </div>
+            );
         },
-    ], [handleAssignAddonTrip, toggleTripDetails]);
-
-    // Get stats
+        width: 140,
+        mobileFull: false,
+    },
+], [handleAssignAddonTrip, toggleTripDetails]);
+    // Stats
     const stats = {
         total: trips.length,
         scheduled: trips.filter((t) => t.status === 'scheduled').length,
         inProgress: trips.filter((t) => t.status === 'in_progress').length,
         completed: trips.filter((t) => t.status === 'completed').length,
-        multiStop: trips.filter((t) => t.status === 'multi_stop').length,
-        totalBookings: trips.reduce((sum, t) => sum + t.totalPackages, 0),
-        totalAddonStages: trips.reduce((sum, t) => sum + (t.addonStages?.length || 0), 0),
+        totalBookings: trips.reduce((sum, t) => sum + (t.total_packages || 0), 0),
     };
 
     return (
@@ -1768,8 +1288,8 @@ const AssignTrip = () => {
                     </div>
                 </div>
 
-                {/* Stats Cards - Responsive Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
                     <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
                         <div className="flex items-center justify-between">
                             <div>
@@ -1781,19 +1301,28 @@ const AssignTrip = () => {
                             </div>
                         </div>
                     </div>
-
                     <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs sm:text-sm font-medium text-gray-600">Multi-stop</p>
-                                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{stats.multiStop}</p>
+                                <p className="text-xs sm:text-sm font-medium text-gray-600">Scheduled</p>
+                                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{stats.scheduled}</p>
                             </div>
-                            <div className="p-2 sm:p-3 bg-purple-100 rounded-full">
-                                <IconRoute className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                            <div className="p-2 sm:p-3 bg-blue-100 rounded-full">
+                                <IconCalendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                             </div>
                         </div>
                     </div>
-
+                    <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-xs sm:text-sm font-medium text-gray-600">In Progress</p>
+                                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{stats.inProgress}</p>
+                            </div>
+                            <div className="p-2 sm:p-3 bg-yellow-100 rounded-full">
+                                <IconClock className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600" />
+                            </div>
+                        </div>
+                    </div>
                     <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
                         <div className="flex items-center justify-between">
                             <div>
@@ -1805,36 +1334,11 @@ const AssignTrip = () => {
                             </div>
                         </div>
                     </div>
-
-                    <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Items</p>
-                                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{stats.totalBookings}</p>
-                            </div>
-                            <div className="p-2 sm:p-3 bg-primary/10 rounded-full">
-                                <IconPackage className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs sm:text-sm font-medium text-gray-600">Add-on Stages</p>
-                                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{stats.totalAddonStages}</p>
-                            </div>
-                            <div className="p-2 sm:p-3 bg-green-100 rounded-full">
-                                <IconPlus className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="bg-white rounded-lg shadow-sm p-3 sm:p-4 border border-gray-200 col-span-2 sm:col-span-1">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs sm:text-sm font-medium text-gray-600">Available</p>
-                                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{availableBookings.length}</p>
+                                <p className="text-xs sm:text-sm font-medium text-gray-600">Available Bookings</p>
+                                <p className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mt-1">{filteredAvailableBookings.length}</p>
                             </div>
                             <div className="p-2 sm:p-3 bg-green-100 rounded-full">
                                 <IconPackage className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
@@ -1843,40 +1347,113 @@ const AssignTrip = () => {
                     </div>
                 </div>
 
-                {/* Action Buttons - Responsive with Branch Filter */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                    <div className="w-full sm:w-auto">
-                        <div className="flex items-center space-x-2">
-                            <IconFilter className="w-4 h-4 text-gray-500" />
-                            <span className="text-xs sm:text-sm font-medium text-gray-700">Filter by Branch:</span>
+                {/* Search and Filter Bar */}
+                <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-200 mb-3">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="relative flex-1">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search by trip number, vehicle, driver..."
+                                    className="form-input w-full pl-10"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            </div>
                         </div>
-                        <Select
-                            options={branches}
-                            value={branches.find(branch => branch.value === selectedBranch)}
-                            onChange={(option) => setSelectedBranch(option.value)}
-                            className="react-select mt-2 w-full sm:w-48 lg:w-64"
-                            classNamePrefix="select"
-                            styles={{
-                                control: (base) => ({
-                                    ...base,
-                                    minHeight: '38px',
-                                    fontSize: window.innerWidth < 640 ? '12px' : '14px',
-                                }),
-                            }}
-                        />
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="btn btn-outline-primary"
+                            >
+                                <IconFilter className="w-4 h-4 mr-2" />
+                                Filters
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    resetForm();
+                                    setShowAssignForm(!showAssignForm);
+                                }}
+                                className={`btn ${showAssignForm ? 'btn-outline-primary' : 'btn-primary'} shadow-md hover:shadow-lg transition-all duration-300 flex items-center text-xs sm:text-sm py-2 px-4`}
+                            >
+                                {showAssignForm ? (
+                                    <>
+                                        <IconX className="w-3 h-3 mr-1" />
+                                        Close Form
+                                        <IconChevronUp className="w-3 h-3 ml-1" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <IconPlus className="w-3 h-3 mr-1" />
+                                        Assign New Trip
+                                        <IconChevronDown className="w-3 h-3 ml-1" />
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
-                    
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setTripMode('new');
-                            setShowAssignForm(!showAssignForm);
-                        }}
-                        className={`btn ${showAssignForm && tripMode === 'new' ? 'btn-outline-primary' : 'btn-primary'} shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center text-xs sm:text-sm lg:text-base py-2 sm:py-3 px-4 sm:px-6 w-full sm:w-auto`}
-                    >
-                        <IconPlus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                        {showAssignForm && tripMode === 'new' ? 'Close Form' : 'Assign New Trip'}
-                    </button>
+
+                    {/* Filter Panel */}
+                    {showFilters && (
+                        <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium">From Date</label>
+                                    <input
+                                        type="date"
+                                        name="fromDate"
+                                        value={filters.fromDate}
+                                        onChange={handleFilterChange}
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium">To Date</label>
+                                    <input
+                                        type="date"
+                                        name="toDate"
+                                        value={filters.toDate}
+                                        onChange={handleFilterChange}
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium">Status</label>
+                                    <select
+                                        name="status"
+                                        value={filters.status}
+                                        onChange={handleFilterChange}
+                                        className="form-select"
+                                    >
+                                        <option value="">All</option>
+                                        <option value="scheduled">Scheduled</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex justify-end mt-4">
+                                <button
+                                    type="button"
+                                    onClick={clearFilters}
+                                    className="btn btn-outline-secondary mr-2"
+                                >
+                                    Clear Filters
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFilters(false)}
+                                    className="btn btn-primary"
+                                >
+                                    Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1898,7 +1475,6 @@ const AssignTrip = () => {
                             )}
                         </h2>
                     </div>
-
                     <form onSubmit={handleAssignTrip} className="p-3 sm:p-4 lg:p-6">
                         <div className="space-y-4 sm:space-y-6 lg:space-y-8">
                             {/* Parent Trip Info for Add-on */}
@@ -1911,37 +1487,51 @@ const AssignTrip = () => {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                                         <div>
                                             <div className="text-xs sm:text-sm text-gray-600">Trip No</div>
-                                            <div className="font-bold text-purple-600 text-sm sm:text-base">{selectedParentTrip.tripNo}</div>
+                                            <div className="font-bold text-purple-600 text-sm sm:text-base">{selectedParentTrip.trip_number}</div>
                                         </div>
                                         <div>
-                                            <div className="text-xs sm:text-sm text-gray-600">Current Stage</div>
+                                            <div className="text-xs sm:text-sm text-gray-600">Status</div>
                                             <div className="font-medium text-sm sm:text-base">
-                                                {selectedParentTrip.currentStage === 0 ? 'Main Trip' : `Add-on Stage ${selectedParentTrip.currentStage}`}
+                                                {selectedParentTrip.status}
                                             </div>
                                         </div>
                                         <div>
-                                            <div className="text-xs sm:text-sm text-gray-600">Existing Stages</div>
+                                            <div className="text-xs sm:text-sm text-gray-600">Bookings</div>
                                             <div className="font-medium text-sm sm:text-base">
-                                                {(selectedParentTrip.addonStages?.length || 0) + 1}
+                                                {selectedParentTrip.bookings?.length || 0}
                                             </div>
                                         </div>
                                         <div>
                                             <div className="text-xs sm:text-sm text-gray-600">Current Destination</div>
                                             <div className="font-medium text-sm sm:text-base">
-                                                {(() => {
-                                                    const allStages = [
-                                                        { bookings: selectedParentTrip.bookings },
-                                                        ...(selectedParentTrip.addonStages || []).map(stage => ({ bookings: stage.bookings }))
-                                                    ];
-                                                    const lastStage = allStages[allStages.length - 1];
-                                                    const lastBooking = lastStage?.bookings?.[lastStage.bookings?.length - 1];
-                                                    return lastBooking?.toCenter || selectedParentTrip.bookings[0]?.toCenter;
-                                                })()}
+                                                {selectedParentTrip.bookings?.[selectedParentTrip.bookings?.length - 1]?.toCenter?.office_center_name}
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
+
+                            {/* Branch Filter */}
+                            <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
+                                <div className="flex items-center space-x-2 mb-3">
+                                    <IconFilter className="w-4 h-4 text-gray-500" />
+                                    <span className="text-xs sm:text-sm font-medium text-gray-700">Filter by Branch:</span>
+                                </div>
+                                <Select
+                                    options={branches}
+                                    value={branches.find(branch => branch.value === selectedBranch)}
+                                    onChange={(option) => setSelectedBranch(option.value)}
+                                    className="react-select w-full sm:w-48 lg:w-64"
+                                    classNamePrefix="select"
+                                    styles={{
+                                        control: (base) => ({
+                                            ...base,
+                                            minHeight: '38px',
+                                            fontSize: window.innerWidth < 640 ? '12px' : '14px',
+                                        }),
+                                    }}
+                                />
+                            </div>
 
                             {/* Select Bookings */}
                             <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
@@ -1956,23 +1546,78 @@ const AssignTrip = () => {
                                             <span className="text-primary ml-2">(Filtered by: {selectedBranch})</span>
                                         )}
                                     </label>
-                                    <Select
-                                        isMulti
-                                        options={tripMode === 'addon' ? getAddonBookingOptions() : getBookingOptions()}
-                                        value={tripMode === 'addon' ? selectedAddonBookings : selectedBookings}
-                                        onChange={tripMode === 'addon' ? setSelectedAddonBookings : setSelectedBookings}
-                                        placeholder={`Select bookings ${tripMode === 'addon' ? 'from destination' : 'for this trip'}`}
-                                        className="react-select"
-                                        classNamePrefix="select"
-                                        styles={{
-                                            control: (base) => ({
-                                                ...base,
-                                                borderColor: errors.bookings ? '#ef4444' : '#d1d5db',
-                                                minHeight: '40px',
-                                                fontSize: window.innerWidth < 640 ? '12px' : '14px',
-                                            }),
-                                        }}
-                                    />
+                                    
+                                    {tripMode === 'addon' ? (
+                                        // Add-on mode booking selector
+                                        <>
+                                            <Select
+                                                isMulti
+                                                options={getAddonBookingOptions()}
+                                                value={selectedAddonBookings}
+                                                onChange={setSelectedAddonBookings}
+                                                placeholder="Select bookings from destination"
+                                                className="react-select"
+                                                classNamePrefix="select"
+                                                isLoading={loading}
+                                                styles={{
+                                                    control: (base) => ({
+                                                        ...base,
+                                                        borderColor: errors.bookings ? '#ef4444' : '#d1d5db',
+                                                        minHeight: '40px',
+                                                        fontSize: window.innerWidth < 640 ? '12px' : '14px',
+                                                    }),
+                                                }}
+                                                noOptionsMessage={() => {
+                                                    if (!selectedParentTrip) return 'Select a parent trip first';
+                                                    if (availableAddonBookings.length === 0) {
+                                                        return 'No available bookings at the destination';
+                                                    }
+                                                    return 'No options';
+                                                }}
+                                            />
+                                            
+                                            {selectedParentTrip && availableAddonBookings.length === 0 && (
+                                                <div className="mt-3 p-3 bg-yellow-50 rounded border border-yellow-200">
+                                                    <p className="text-xs sm:text-sm text-yellow-700">
+                                                        No available bookings found at {selectedParentTrip.bookings?.[selectedParentTrip.bookings?.length - 1]?.toCenter?.office_center_name || 'the destination'}. 
+                                                        Please create bookings from this center first.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        // New trip mode booking selector
+                                        <>
+                                            <Select
+                                                isMulti
+                                                options={getBookingOptions()}
+                                                value={selectedBookings}
+                                                onChange={setSelectedBookings}
+                                                placeholder="Select bookings for this trip"
+                                                className="react-select"
+                                                classNamePrefix="select"
+                                                isLoading={loading}
+                                                styles={{
+                                                    control: (base) => ({
+                                                        ...base,
+                                                        borderColor: errors.bookings ? '#ef4444' : '#d1d5db',
+                                                        minHeight: '40px',
+                                                        fontSize: window.innerWidth < 640 ? '12px' : '14px',
+                                                    }),
+                                                }}
+                                                noOptionsMessage={() => filteredAvailableBookings.length === 0 ? 'No available bookings found' : 'No options'}
+                                            />
+                                            
+                                            {filteredAvailableBookings.length === 0 && (
+                                                <div className="mt-3 p-3 bg-yellow-50 rounded border border-yellow-200">
+                                                    <p className="text-xs sm:text-sm text-yellow-700">
+                                                        No available bookings found. Please create some bookings first or check the branch filter.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                    
                                     {errors.bookings && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.bookings}</p>}
                                     
                                     {(tripMode === 'addon' ? selectedAddonBookings : selectedBookings).length > 0 && (
@@ -1993,14 +1638,6 @@ const AssignTrip = () => {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-
-                                    {tripMode === 'addon' && availableAddonBookings.length === 0 && selectedParentTrip && (
-                                        <div className="mt-3 p-3 bg-yellow-50 rounded border border-yellow-200">
-                                            <p className="text-xs sm:text-sm text-yellow-700">
-                                                No available bookings found at current destination
-                                            </p>
                                         </div>
                                     )}
                                 </div>
@@ -2024,6 +1661,7 @@ const AssignTrip = () => {
                                         className="react-select"
                                         classNamePrefix="select"
                                         isDisabled={tripMode === 'addon' && selectedParentTrip}
+                                        isLoading={vehiclesLoading}
                                         styles={{
                                             control: (base) => ({
                                                 ...base,
@@ -2032,19 +1670,14 @@ const AssignTrip = () => {
                                                 fontSize: window.innerWidth < 640 ? '12px' : '14px',
                                             }),
                                         }}
+                                        noOptionsMessage={() => 'No vehicles available'}
                                     />
                                     {errors.selectedVehicle && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.selectedVehicle}</p>}
-                                    
                                     {selectedVehicle && (
                                         <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
                                             <div className="text-xs sm:text-sm text-gray-700">
-                                                <div className="font-medium text-sm sm:text-base">{selectedVehicle.data.vehicleNo}</div>
-                                                <div className="mt-1">{selectedVehicle.data.vehicleType} • Capacity: {selectedVehicle.data.capacity}</div>
-                                                {selectedTotals.totalWeight > 0 && selectedVehicle.data.capacity && (
-                                                    <div className={`mt-2 text-sm ${selectedTotals.totalWeight > parseFloat(selectedVehicle.data.capacity.split(' ')[0]) ? 'text-red-600' : 'text-green-600'}`}>
-                                                        Total Load: {selectedTotals.totalWeight}kg / {selectedVehicle.data.capacity}
-                                                    </div>
-                                                )}
+                                                <div className="font-medium text-sm sm:text-base">{selectedVehicle.data.vehicle_number_plate}</div>
+                                                <div className="mt-1">{selectedVehicle.data.vehicle_type}</div>
                                             </div>
                                         </div>
                                     )}
@@ -2069,6 +1702,7 @@ const AssignTrip = () => {
                                         className="react-select"
                                         classNamePrefix="select"
                                         isDisabled={tripMode === 'addon' && selectedParentTrip}
+                                        isLoading={employeesLoading}
                                         styles={{
                                             control: (base) => ({
                                                 ...base,
@@ -2077,26 +1711,25 @@ const AssignTrip = () => {
                                                 fontSize: window.innerWidth < 640 ? '12px' : '14px',
                                             }),
                                         }}
+                                        noOptionsMessage={() => 'No drivers available'}
                                     />
                                     {errors.selectedDriver && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.selectedDriver}</p>}
-                                    
                                     {selectedDriver && (
                                         <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
                                             <div className="text-xs sm:text-sm text-gray-700">
-                                                <div className="font-medium text-sm sm:text-base">{selectedDriver.data.name}</div>
-                                                <div className="mt-1">License: {selectedDriver.data.licenseNo}</div>
-                                                <div className="mt-1">Mobile: {selectedDriver.data.mobileNo}</div>
+                                                <div className="font-medium text-sm sm:text-base">{selectedDriver.data.employee_name}</div>
+                                                <div className="mt-1">Mobile: {selectedDriver.data.mobile_no}</div>
                                             </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Loadmen Selection - Common for entire trip */}
+                            {/* Loadmen Selection */}
                             <div className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
                                 <h3 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
                                     <IconUsers className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-500" />
-                                    Select Loadmen for Trip *
+                                    Select Loadmen *
                                 </h3>
                                 <div>
                                     <label className="block text-xs sm:text-sm lg:text-base font-medium text-gray-700 mb-2">
@@ -2110,6 +1743,7 @@ const AssignTrip = () => {
                                         placeholder="Select loadmen for this trip"
                                         className="react-select"
                                         classNamePrefix="select"
+                                        isLoading={employeesLoading}
                                         styles={{
                                             control: (base) => ({
                                                 ...base,
@@ -2118,9 +1752,9 @@ const AssignTrip = () => {
                                                 fontSize: window.innerWidth < 640 ? '12px' : '14px',
                                             }),
                                         }}
+                                        noOptionsMessage={() => 'No loadmen available'}
                                     />
                                     {errors.loadmen && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.loadmen}</p>}
-                                    
                                     {selectedLoadmen.length > 0 && (
                                         <div className="mt-3 p-3 bg-green-50 rounded border border-green-200">
                                             <div className="text-xs sm:text-sm text-gray-700">
@@ -2128,13 +1762,10 @@ const AssignTrip = () => {
                                                 <div className="mt-1">
                                                     {selectedLoadmen.map((loadman, index) => (
                                                         <span key={loadman.value} className="inline-block bg-white px-2 py-1 rounded text-xs mr-1 mb-1 border">
-                                                            {loadman.data.name}
+                                                            {loadman.data.employee_name}
                                                         </span>
                                                     ))}
                                                 </div>
-                                                <p className="text-xs text-green-600 mt-2">
-                                                    These loadmen will be assigned to handle all packages in the selected bookings
-                                                </p>
                                             </div>
                                         </div>
                                     )}
@@ -2155,11 +1786,10 @@ const AssignTrip = () => {
                                             value={tripMode === 'addon' ? addonTripDate : tripDate}
                                             onChange={(e) => tripMode === 'addon' ? setAddonTripDate(e.target.value) : setTripDate(e.target.value)}
                                             className={`form-input w-full ${errors.date ? 'border-red-500' : ''}`}
-                                            min={tripMode === 'addon' ? selectedParentTrip?.tripDate : new Date().toISOString().split('T')[0]}
+                                            min={tripMode === 'addon' ? selectedParentTrip?.trip_date : new Date().toISOString().split('T')[0]}
                                         />
                                         {errors.date && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.date}</p>}
                                     </div>
-
                                     <div>
                                         <label className="block text-xs sm:text-sm lg:text-base font-medium text-gray-700 mb-2">Departure Time *</label>
                                         <input
@@ -2167,16 +1797,9 @@ const AssignTrip = () => {
                                             value={tripMode === 'addon' ? addonDeparture : estimatedDeparture}
                                             onChange={(e) => tripMode === 'addon' ? setAddonDeparture(e.target.value) : setEstimatedDeparture(e.target.value)}
                                             className={`form-input w-full ${errors.departure ? 'border-red-500' : ''}`}
-                                            min={tripMode === 'addon' ? selectedParentTrip?.estimatedArrival : undefined}
                                         />
                                         {errors.departure && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.departure}</p>}
-                                        {tripMode === 'addon' && selectedParentTrip && (
-                                            <p className="mt-1 text-xs sm:text-sm text-gray-500">
-                                                Must be after previous stage arrival
-                                            </p>
-                                        )}
                                     </div>
-
                                     <div>
                                         <label className="block text-xs sm:text-sm lg:text-base font-medium text-gray-700 mb-2">Arrival Time *</label>
                                         <input
@@ -2198,7 +1821,7 @@ const AssignTrip = () => {
                                     onChange={(e) => tripMode === 'addon' ? setAddonRemarks(e.target.value) : setRemarks(e.target.value)}
                                     className="form-textarea w-full"
                                     rows="3"
-                                    placeholder="Add any special instructions for this stage..."
+                                    placeholder="Add any special instructions for this trip..."
                                 />
                             </div>
 
@@ -2241,19 +1864,9 @@ const AssignTrip = () => {
                                         </div>
                                     </div>
                                 </div>
-                                {tripMode === 'addon' && selectedParentTrip && (
-                                    <div className="mt-3 p-3 bg-purple-50 rounded border border-purple-200">
-                                        <p className="text-xs sm:text-sm text-purple-700 text-center">
-                                            This will be Stage {(selectedParentTrip.addonStages?.length || 0) + 2} of Trip #{selectedParentTrip.tripNo}
-                                        </p>
-                                        <p className="text-xs text-gray-600 text-center mt-1">
-                                            Total stages after addition: {(selectedParentTrip.addonStages?.length || 0) + 2}
-                                        </p>
-                                    </div>
-                                )}
                             </div>
 
-                            {/* Action Buttons - Responsive */}
+                            {/* Action Buttons */}
                             <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 sm:pt-6 border-t border-gray-200">
                                 <button
                                     type="button"
@@ -2265,18 +1878,19 @@ const AssignTrip = () => {
                                 >
                                     Cancel
                                 </button>
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     onClick={resetForm}
                                     className="btn btn-outline-primary hover:shadow-md transition-all duration-300 text-xs sm:text-sm lg:text-base py-2 sm:py-3 px-4 w-full sm:w-auto"
                                 >
                                     Clear Form
                                 </button>
-                                <button 
-                                    type="submit" 
+                                <button
+                                    type="submit"
                                     className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm lg:text-base py-2 sm:py-3 px-4 sm:px-6 w-full sm:w-auto"
+                                    disabled={loading}
                                 >
-                                    {tripMode === 'addon' ? 'Add Stage' : 'Assign Trip'}
+                                    {loading ? 'Processing...' : (tripMode === 'addon' ? 'Add Stage' : 'Assign Trip')}
                                 </button>
                             </div>
                         </div>
@@ -2291,34 +1905,50 @@ const AssignTrip = () => {
                         <div className="w-full lg:w-auto">
                             <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800">Trip Assignments</h2>
                             <p className="text-gray-600 mt-1 text-xs sm:text-sm lg:text-base">
-                                View and manage all assigned trips with multiple stages
+                                View and manage all assigned trips
                             </p>
                         </div>
                         <div className="text-xs sm:text-sm text-gray-500">
-                            Showing {Math.min((currentPage + 1) * pageSize, filteredData.length)} of {filteredData.length} trips
+                            Showing {trips.length} trips
                         </div>
                     </div>
                 </div>
                 <div className="p-3 sm:p-4">
-                    <ResponsiveTable
-                        columns={columns}
-                        data={filteredData}
-                        pageSize={pageSize}
-                        pageIndex={currentPage}
-                        totalCount={filteredData.length}
-                        totalPages={Math.ceil(filteredData.length / pageSize)}
-                        onPaginationChange={handlePaginationChange}
-                        onSearchChange={handleSearch}
-                        pagination={true}
-                        isSearchable={true}
-                        searchPlaceholder="Search trips by trip number, vehicle, driver, or destination..."
-                        showPageSize={true}
-                    />
-                    
-                    {/* Render Trip Details for expanded rows */}
-                    {trips.filter(trip => trip.expanded).map(trip => (
-                        <TripDetails key={trip.id} trip={trip} />
-                    ))}
+                    {loading && !showAssignForm ? (
+                        <div className="flex items-center justify-center h-64">
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                            <span className="ml-3">Loading trips...</span>
+                        </div>
+                    ) : error ? (
+                        <div className="text-center py-8 text-danger">
+                            Error loading trips: {error}
+                        </div>
+                    ) : trips.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                            No trips found. Click "Assign New Trip" to get started.
+                        </div>
+                    ) : (
+                        <>
+                            <ResponsiveTable
+                                columns={columns}
+                                data={trips}
+                                pageSize={pageSize}
+                                pageIndex={currentPage}
+                                onPaginationChange={(pageIndex, newPageSize) => {
+                                    setCurrentPage(pageIndex);
+                                    setPageSize(newPageSize);
+                                }}
+                                onSearchChange={setSearchTerm}
+                                pagination={true}
+                                isSearchable={true}
+                                searchPlaceholder="Search trips by trip number, vehicle, driver, or destination..."
+                                showPageSize={true}
+                            />
+                            {trips.filter(trip => trip.expanded).map(trip => (
+                                <TripDetails key={trip.trip_id} trip={trip} />
+                            ))}
+                        </>
+                    )}
                 </div>
             </div>
         </div>

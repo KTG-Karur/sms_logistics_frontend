@@ -29,6 +29,7 @@ import PackageSlice from '../packageSlice';
 import ExpenseSlice from '../expenseSlice';
 import ExpensePaymentSlice from '../expensePaymentSlice';
 import OpeningBalanceSlice from '../openingBalanceSlice';
+import TripSlice from '../tripSlice'
 
 const rootReducer = combineReducers({
     themeConfig: themeConfigSlice,
@@ -61,6 +62,7 @@ const rootReducer = combineReducers({
     LocationSlice,
     ExpenceTypeSlice,
     PackageSlice,
+    TripSlice
 });
 
 const store = configureStore({

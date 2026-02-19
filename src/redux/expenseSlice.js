@@ -164,7 +164,7 @@ const expenseSlice = createSlice({
                 state.getPaymentsFailed = true;
             })
 
-            // CREATE EXPENSE
+           // CREATE EXPENSE - FIXED
             .addCase(createExpense.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -173,16 +173,35 @@ const expenseSlice = createSlice({
             })
             .addCase(createExpense.fulfilled, (state, action) => {
                 state.loading = false;
-                if (action.payload.data) {
-                    state.expenseData.unshift(action.payload.data);
-                    state.filteredData.unshift(action.payload.data);
+                
+                // Handle response structure
+                let newExpense = null;
+                if (action.payload?.data) {
+                    newExpense = action.payload.data;
+                } else if (action.payload) {
+                    newExpense = action.payload;
                 }
+                
+                if (newExpense) {
+                    // Ensure arrays exist
+                    if (!Array.isArray(state.expenseData)) {
+                        state.expenseData = [];
+                    }
+                    if (!Array.isArray(state.filteredData)) {
+                        state.filteredData = [];
+                    }
+                    
+                    // Add to beginning of arrays
+                    state.expenseData = [newExpense, ...state.expenseData];
+                    state.filteredData = [newExpense, ...state.filteredData];
+                }
+                
                 state.createExpenseSuccess = true;
                 state.createExpenseFailed = false;
             })
             .addCase(createExpense.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Create failed';
+                state.error = action.error?.message || 'Create failed';
                 state.createExpenseSuccess = false;
                 state.createExpenseFailed = true;
             })
