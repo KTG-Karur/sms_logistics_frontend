@@ -1,555 +1,602 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import IconPrinter from '../../../components/Icon/IconPrinter';
+import IconBack from '../../../components/Icon/IconArrowLeft';
 import moment from 'moment';
 
-const AuditReportPaper = () => {
+const PackageReportPrint = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const [auditData, setAuditData] = useState(null);
-    const [allAudits, setAllAudits] = useState([]);
-    const [isPrinting, setIsPrinting] = useState(false);
+    const [filteredData, setFilteredData] = useState([]);
+    const [filters, setFilters] = useState(null);
+    const [stats, setStats] = useState(null);
+    const [generatedDate, setGeneratedDate] = useState('');
+    const [totalRecords, setTotalRecords] = useState(0);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [allShipments, setAllShipments] = useState([]);
 
     useEffect(() => {
-        if (location.state?.auditData) {
-            setAuditData(location.state.auditData);
-        }
-        if (location.state?.allAudits) {
-            setAllAudits(location.state.allAudits);
+        if (location.state) {
+            const { filteredData = [], filters = null, stats = null, generatedDate = '', totalRecords = 0 } = location.state;
+            
+            setFilteredData(filteredData);
+            setFilters(filters);
+            setStats(stats);
+            setGeneratedDate(generatedDate);
+            setTotalRecords(totalRecords);
+            
+            // Group by customer - for demo, using first customer as selected
+            if (filteredData.length > 0) {
+                // In real scenario, you'd have a selected customer ID
+                // For demo, group by fromName (sender)
+                const customerShipments = filteredData.filter(item => 
+                    item.fromName === filteredData[0].fromName
+                );
+                setAllShipments(customerShipments);
+                setSelectedCustomer({
+                    name: filteredData[0].fromName,
+                    mobile: filteredData[0].fromMobile
+                });
+            }
+        } else {
+            // Comprehensive dummy data for ONE customer with multiple shipments
+            const customerName = 'John Doe';
+            const customerMobile = '9876543210';
+            
+            const dummyShipments = [
+                {
+                    id: 1,
+                    packageId: 'PKG001',
+                    fromCenter: 'Karur',
+                    toCenter: 'Erode',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '456 Park Avenue, Erode',
+                    fromMobile: customerMobile,
+                    fromName: customerName,
+                    toMobile: '8765432109',
+                    toName: 'Robert Johnson',
+                    tripName: 'RRR',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 6, rate: 70 }
+                    ],
+                    totalAmount: 420,
+                    paidAmount: 420,
+                    dueAmount: 0,
+                    paymentBy: 'from',
+                    paymentStatus: 'completed',
+                    date: '2025-11-17',
+                    tripId: 'TRP001'
+                },
+                {
+                    id: 2,
+                    packageId: 'PKG002',
+                    fromCenter: 'Karur',
+                    toCenter: 'Salem',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '789 Market Road, Salem',
+                    fromMobile: customerMobile,
+                    fromName: customerName,
+                    toMobile: '7654321098',
+                    toName: 'Mike Brown',
+                    tripName: 'VSK',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 1, rate: 70 }
+                    ],
+                    totalAmount: 70,
+                    paidAmount: 0,
+                    dueAmount: 70,
+                    paymentBy: 'from',
+                    paymentStatus: 'pending',
+                    date: '2025-11-17',
+                    tripId: 'TRP002'
+                },
+                {
+                    id: 3,
+                    packageId: 'PKG003',
+                    fromCenter: 'Karur',
+                    toCenter: 'Coimbatore',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '456 Cross Cut Road, Coimbatore',
+                    fromMobile: customerMobile,
+                    fromName: customerName,
+                    toMobile: '9988776655',
+                    toName: 'David Wilson',
+                    tripName: 'Export',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 24, rate: 70 }
+                    ],
+                    totalAmount: 1680,
+                    paidAmount: 500,
+                    dueAmount: 1180,
+                    paymentBy: 'from',
+                    paymentStatus: 'partial',
+                    date: '2025-11-18',
+                    tripId: 'TRP003'
+                },
+                {
+                    id: 4,
+                    packageId: 'PKG004',
+                    fromCenter: 'Karur',
+                    toCenter: 'Chennai',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '456 Anna Salai, Chennai',
+                    fromMobile: customerMobile,
+                    fromName: customerName,
+                    toMobile: '8877665544',
+                    toName: 'Sarah Williams',
+                    tripName: 'KPN',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 10, rate: 70 }
+                    ],
+                    totalAmount: 700,
+                    paidAmount: 200,
+                    dueAmount: 500,
+                    paymentBy: 'from',
+                    paymentStatus: 'partial',
+                    date: '2025-11-19',
+                    tripId: 'TRP004'
+                },
+                {
+                    id: 5,
+                    packageId: 'PKG005',
+                    fromCenter: 'Karur',
+                    toCenter: 'Madurai',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '789 North Veli Street, Madurai',
+                    fromMobile: customerMobile,
+                    fromName: customerName,
+                    toMobile: '7788996655',
+                    toName: 'Priya Kumar',
+                    tripName: 'VRL',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 15, rate: 70 }
+                    ],
+                    totalAmount: 1050,
+                    paidAmount: 1050,
+                    dueAmount: 0,
+                    paymentBy: 'from',
+                    paymentStatus: 'completed',
+                    date: '2025-11-20',
+                    tripId: 'TRP005'
+                },
+                {
+                    id: 6,
+                    packageId: 'PKG006',
+                    fromCenter: 'Karur',
+                    toCenter: 'Trichy',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '456 Cantonment, Trichy',
+                    fromMobile: '9988776655', // Different sender - received by customer
+                    fromName: 'Ramesh Kumar',
+                    toMobile: customerMobile,
+                    toName: customerName,
+                    tripName: 'SRS',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 8, rate: 70 }
+                    ],
+                    totalAmount: 560,
+                    paidAmount: 0,
+                    dueAmount: 560,
+                    paymentBy: 'to', // Receiver pays (customer receives)
+                    paymentStatus: 'pending',
+                    date: '2025-11-21',
+                    tripId: 'TRP006'
+                },
+                {
+                    id: 7,
+                    packageId: 'PKG007',
+                    fromCenter: 'Karur',
+                    toCenter: 'Tirupur',
+                    fromLocation: '123 Main Street, Karur',
+                    toLocation: '456 Avinashi Road, Tirupur',
+                    fromMobile: '8877665544', // Different sender - received by customer
+                    fromName: 'Suresh Reddy',
+                    toMobile: customerMobile,
+                    toName: customerName,
+                    tripName: 'GATI',
+                    packageDetails: [
+                        { packageType: 'bag', quantity: 12, rate: 70 }
+                    ],
+                    totalAmount: 840,
+                    paidAmount: 300,
+                    dueAmount: 540,
+                    paymentBy: 'to', // Receiver pays (customer receives)
+                    paymentStatus: 'partial',
+                    date: '2025-11-22',
+                    tripId: 'TRP007'
+                }
+            ];
+            
+            setAllShipments(dummyShipments);
+            setSelectedCustomer({
+                name: customerName,
+                mobile: customerMobile
+            });
         }
     }, [location.state]);
 
     const handlePrint = () => {
-        setIsPrinting(true);
-        setTimeout(() => {
-            window.print();
-            setIsPrinting(false);
-        }, 100);
+        window.print();
     };
 
     const handleBack = () => {
         navigate(-1);
     };
 
-    // Sample data structure for demonstration
-    const getCategoryData = () => {
-        return [
-            { key: 'childLabourScore', label: '1. Child Labour', totalItems: 10 },
-            { key: 'forcedLabourScore', label: '2. Forced Labour', totalItems: 8 },
-            { key: 'freedomOfAssociationScore', label: '3. Freedom of Association', totalItems: 6 },
-            { key: 'discriminationScore', label: '4. Discrimination', totalItems: 9 },
-            { key: 'disciplinaryPracticesScore', label: '5. Disciplinary Practices', totalItems: 7 },
-            { key: 'mgmtSystemScore', label: '6. Management System', totalItems: 12 },
-            { key: 'businessEthicsScore', label: '7. Business Ethics', totalItems: 8 },
-            { key: 'envMgmtScore', label: '8. Environmental Management', totalItems: 10 },
-            { key: 'healthSafetyScore', label: '9. Health & Safety', totalItems: 15 },
-            { key: 'workingHoursScore', label: '10. Working Hours & Wages', totalItems: 11 },
-            { key: 'accidentInsuranceScore', label: '11. Accident Insurance', totalItems: 5 },
-            { key: 'licensesPermitsScore', label: '12. Licenses & Permits', totalItems: 8 },
-            { key: 'housekeepingScore', label: '13. Housekeeping & Training', totalItems: 10 },
-            { key: 'recruitmentScore', label: '14. Recruitment & Accommodation', totalItems: 9 },
-            { key: 'accommodationScore', label: '15. Accommodation', totalItems: 12 }
-        ];
+    const formatDate = (date) => {
+        if (!date) return 'N/A';
+        return moment(date).format('DD-MM-YY');
     };
 
-    const calculateCategoryTotals = () => {
-        const categories = getCategoryData();
+    const formatFullDate = (date) => {
+        if (!date) return moment().format('DD-MM-YYYY');
+        return moment(date).format('DD-MM-YYYY');
+    };
 
-        return categories.map((category, index) => {
-            const score = auditData?.[category.key] || Math.floor(Math.random() * 100);
-            const okCount = Math.round((score / 100) * category.totalItems);
-            const notOkCount = Math.max(0, Math.round(((100 - score) / 100) * category.totalItems));
-            const naCount = Math.max(0, category.totalItems - okCount - notOkCount);
-            const applicableCount = category.totalItems - naCount;
-            const percentage = applicableCount > 0 ? Math.round((okCount / applicableCount) * 100) : 0;
+    // Format quantity with fractions
+    const formatQuantity = (qty) => {
+        if (!qty) return '0';
+        const num = parseFloat(qty);
+        if (Number.isInteger(num)) return num.toString();
+        
+        const whole = Math.floor(num);
+        const fraction = num - whole;
+        
+        if (Math.abs(fraction - 0.5) < 0.01) return whole > 0 ? `${whole}½` : '½';
+        if (Math.abs(fraction - 0.25) < 0.01) return whole > 0 ? `${whole}¼` : '¼';
+        if (Math.abs(fraction - 0.75) < 0.01) return whole > 0 ? `${whole}¾` : '¾';
+        
+        return num.toString();
+    };
+
+    // Prepare table rows from all shipments
+    const prepareTableRows = () => {
+        if (!allShipments || allShipments.length === 0) return [];
+
+        return allShipments.map((shipment, index) => {
+            // Determine payment indicator
+            let paymentIndicator;
+            if (shipment.fromName === selectedCustomer?.name) {
+                paymentIndicator = 'S';
+            } else {
+                paymentIndicator = 'R';
+            }
+
+            // Get the full mobile number
+            const mobile = shipment.fromName === selectedCustomer?.name 
+                ? shipment.toMobile 
+                : shipment.fromMobile;
+
+            const tripName = shipment.tripName || 'GEN';
             
+            // Format: Date - Particular (with full mobile)
+            const dateParticular = `${formatDate(shipment.date)} - ${tripName}-${mobile}(${paymentIndicator})`;
+
+            // Get package details
+            const packageDetail = shipment.packageDetails && shipment.packageDetails[0] 
+                ? shipment.packageDetails[0] 
+                : { packageType: 'bag', quantity: 0, rate: 0 };
+
             return {
-                sNo: index + 1,
-                requirement: category.label,
-                ok: okCount,
-                notOk: notOkCount,
-                na: naCount,
-                total: category.totalItems,
-                applicable: applicableCount,
-                percentage: percentage
+                id: shipment.id,
+                sno: index + 1,
+                dateParticular: dateParticular,
+                qty: packageDetail.quantity || 0,
+                rate: packageDetail.rate || 0,
+                amount: (packageDetail.quantity || 0) * (packageDetail.rate || 0)
             };
         });
     };
 
-    const calculateSummary = () => {
-        const categoryData = calculateCategoryTotals();
-        const totalItems = categoryData.reduce((sum, item) => sum + item.total, 0);
-        const totalOk = categoryData.reduce((sum, item) => sum + item.ok, 0);
-        const totalNotOk = categoryData.reduce((sum, item) => sum + item.notOk, 0);
-        const totalNA = categoryData.reduce((sum, item) => sum + item.na, 0);
-        const totalApplicable = totalItems - totalNA;
-        const overallPercentage = totalApplicable > 0 ? Math.round((totalOk / totalApplicable) * 100) : 0;
+    const tableRows = prepareTableRows();
 
-        return {
-            totalOk,
-            totalNotOk,
-            totalNA,
-            totalItems,
-            totalApplicable,
-            overallPercentage
-        };
-    };
-
-    const categoryData = calculateCategoryTotals();
-    const summary = calculateSummary();
-
-    if (!auditData && allAudits.length === 0) {
-        return (
-            <div className="p-4">
-                <div className="text-center py-8">No audit data available</div>
-            </div>
-        );
-    }
+    // Calculate totals
+    const totalAmount = tableRows.reduce((sum, row) => sum + row.amount, 0);
 
     return (
         <div className="p-4 bg-gray-100 min-h-screen">
-            {/* Printable Area */}
-            <div 
-                id="audit-report-to-print"
-                className="print-report"
+            {/* Printable Ledger Bill - A5 Portrait */}
+            <div
+                id="ledger-bill-to-print"
+                className="bg-white mx-auto ledger-container"
             >
-                {/* Header */}
-                <div className="print-header">
-                    <h1>
-                        ASIAN FABRICX - SUB SUPPLIER AUDIT REPORT
-                    </h1>
-                    <div className="header-info">
-                        <div className="left-info">
-                            <div><strong>Supplier Name:</strong> {auditData?.supplierName || 'N/A'}</div>
-                            <div><strong>Supplier Type:</strong> {auditData?.supplierType || 'N/A'}</div>
-                            <div><strong>Location:</strong> {auditData?.location || 'N/A'}</div>
-                        </div>
-                        <div className="right-info">
-                            <div><strong>Audit Date:</strong> {auditData ? moment(auditData.auditDate).format('DD/MM/YYYY') : 'N/A'}</div>
-                            <div><strong>Auditor:</strong> {auditData?.auditorName || 'N/A'}</div>
-                            <div><strong>Report ID:</strong> {auditData?.auditId || 'AUD-REPORT'}</div>
-                            <div><strong>Generated On:</strong> {moment().format('DD/MM/YYYY HH:mm')}</div>
-                        </div>
+                {/* Header with Phone Numbers on Right */}
+                <div className="header-top">
+                    <div className="header-left">
+                        <span className="cash-bill">CASH BILL</span>
                     </div>
-                    
-                    {/* Highlighted Total Applicable Requirements */}
-                    <div className="applicable-requirements">
-                        <strong>Total Applicable Requirements: <span>{summary.totalApplicable}</span></strong>
+                    <div className="header-right">
+                        <div>cell:95002 43118</div>
+                        <div>95665 27118</div>
                     </div>
                 </div>
 
-                {/* Main Audit Table */}
-                <table className="audit-table">
+                {/* Company Name and Address */}
+                <div className="company-header">
+                    <h1>SMS REGULAR SERVICE</h1>
+                    <p className="address">M.G Road, Amman Petrol Bunk Near, Karur – 639002</p>
+                </div>
+
+                {/* Customer Info and Bill Date */}
+                <div className="info-bar">
+                    <span>M/s: {selectedCustomer?.name || '__________'} - {selectedCustomer?.mobile || '__________'}</span>
+                    <span>Bill Date: {formatFullDate()}</span>
+                </div>
+
+                {/* Main Table */}
+                <table className="ledger-table">
                     <thead>
                         <tr>
-                            <th className="sno">S.No</th>
-                            <th className="requirements">Requirements</th>
-                            <th className="basic" colSpan="3">
-                                Basic
-                                <div className="basic-sub">
-                                    OK &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Not OK &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; N/A
-                                </div>
-                            </th>
-                            <th className="total">Total</th>
-                            <th className="percentage">%</th>
+                            <th className="col-sno">S.No</th>
+                            <th className="col-particular">Date - Particular</th>
+                            <th className="col-rate">Rate</th>
+                            <th className="col-qty">Qty</th>
+                            <th className="col-amount">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {categoryData.map((item) => (
-                            <tr key={item.sNo}>
-                                <td className="sno">{item.sNo}</td>
-                                <td className="requirements">{item.requirement}</td>
-                                <td className="ok">{item.ok}</td>
-                                <td className="not-ok">{item.notOk}</td>
-                                <td className="na">{item.na}</td>
-                                <td className="total">{item.total}</td>
-                                <td className="percentage">{item.percentage}%</td>
+                        {tableRows.length > 0 ? (
+                            tableRows.map((row) => (
+                                <tr key={row.id}>
+                                    <td className="col-sno">{row.sno}</td>
+                                    <td className="col-particular">{row.dateParticular}</td>
+                                    <td className="col-rate">{row.rate}</td>
+                                    <td className="col-qty">{formatQuantity(row.qty)}</td>
+                                    <td className="col-amount">{row.amount}</td>
+                                </tr>
+                            ))
+                        ) : (
+                            <tr>
+                                <td colSpan="5" className="no-data">No transactions</td>
                             </tr>
-                        ))}
-                        
-                        {/* Summary Row */}
-                        <tr className="summary-row">
-                            <td colSpan="2">TOTAL</td>
-                            <td>{summary.totalOk}</td>
-                            <td>{summary.totalNotOk}</td>
-                            <td>{summary.totalNA}</td>
-                            <td>{summary.totalItems}</td>
-                            <td>{summary.overallPercentage}%</td>
-                        </tr>
+                        )}
                     </tbody>
                 </table>
 
-                {/* Compliance Summary Table */}
-                <table className="compliance-table">
-                    <thead>
-                        <tr>
-                            <th colSpan="6">COMPLIANCE SUMMARY</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td><strong>Total OK Items:</strong></td>
-                            <td>{summary.totalOk}</td>
-                            <td><strong>Total Not OK Items:</strong></td>
-                            <td>{summary.totalNotOk}</td>
-                            <td><strong>Total N/A Items:</strong></td>
-                            <td>{summary.totalNA}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Total Items Checked:</strong></td>
-                            <td>{summary.totalItems}</td>
-                            <td><strong>Total Applicable Requirements:</strong></td>
-                            <td>{summary.totalApplicable}</td>
-                            <td><strong>Overall Compliance Rate:</strong></td>
-                            <td>{summary.overallPercentage}%</td>
-                        </tr>
-                    </tbody>
-                </table>
+                {/* Total Amount */}
+                <div className="total-section">
+                    <span>Total Amount: ₹{totalAmount.toFixed(2)}</span>
+                </div>
 
-                {/* Footer */}
-                <div className="print-footer">
-                    <p><strong>ASIAN FABRICX QUALITY ASSURANCE DEPARTMENT</strong></p>
-                    <p>Factory Audit Checklist - Form No: AFX-QA-003 Rev. 2.1</p>
-                    <p className="footer-note">Page 1 of 1 • This document shall not be reproduced without authorization</p>
+                {/* Footer with Thank You and Signature */}
+                <div className="ledger-footer">
+                    <div className="thankyou">
+                        Thank You Visit Again
+                    </div>
+                    <div className="signature-area">
+                        <div className="signature-text">Signature</div>
+                    </div>
                 </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="action-buttons">
-                <button 
+            <div className="mt-6 flex justify-center gap-4 no-print">
+                <button
                     onClick={handleBack}
-                    className="back-btn"
+                    className="px-6 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors flex items-center"
                 >
-                    ← Back
+                    <IconBack className="w-4 h-4 mr-2" />
+                    Back
                 </button>
-                <button 
+                <button
                     onClick={handlePrint}
-                    className="print-btn"
-                    disabled={isPrinting}
+                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center"
                 >
-                    {isPrinting ? 'Printing...' : '🖨️ Print Report'}
+                    <IconPrinter className="w-4 h-4 mr-2" />
+                    Print Ledger Bill
                 </button>
             </div>
 
+            {/* Styles */}
             <style jsx>{`
-                /* Screen styles */
-                .print-report {
-                    width: 210mm;
-                    min-height: 297mm;
-                    padding: 15mm;
-                    font-family: 'Times New Roman', serif;
-                    font-size: 11px;
-                    line-height: 1.2;
-                    background: white;
+                /* Ledger Container - A5 Portrait */
+                .ledger-container {
+                    width: 148mm;
+                    max-width: 148mm;
+                    min-width: 148mm;
                     margin: 0 auto;
-                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                    border-radius: 4px;
-                    overflow: auto;
-                    max-height: calc(100vh - 150px);
+                    padding: 3mm 4mm;
+                    background: white;
+                    font-family: 'Times New Roman', Times, serif;
+                    border: 2px solid #333;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                    box-sizing: border-box;
                 }
 
-                .print-header {
-                    text-align: center;
-                    margin-bottom: 16px;
-                    border-bottom: 1px solid #000;
-                    padding-bottom: 12px;
-                }
-
-                .print-header h1 {
-                    font-size: 18px;
-                    font-weight: bold;
-                    margin-bottom: 12px;
-                }
-
-                .header-info {
+                /* Header Top with Phone Numbers */
+                .header-top {
                     display: flex;
                     justify-content: space-between;
-                    font-size: 11px;
-                    margin-bottom: 8px;
+                    align-items: center;
+                    margin-bottom: 2mm;
+                    border-bottom: 1px dotted #333;
+                    padding-bottom: 1mm;
                 }
 
-                .left-info {
-                    text-align: left;
+                .header-left {
+                    font-size: 14pt;
+                    font-weight: bold;
+                    text-transform: uppercase;
                 }
 
-                .right-info {
+                .header-right {
+                    font-size: 9pt;
+                    text-align: right;
+                    line-height: 1.2;
+                }
+
+                /* Company Header */
+                .company-header {
+                    text-align: center;
+                    margin-bottom: 2mm;
+                    border-bottom: 2px solid #333;
+                    padding-bottom: 1mm;
+                }
+
+                .company-header h1 {
+                    font-size: 16pt;
+                    font-weight: bold;
+                    margin: 0;
+                    line-height: 1.2;
+                    text-transform: uppercase;
+                }
+
+                .company-header .address {
+                    font-size: 9pt;
+                    margin: 0;
+                    line-height: 1.2;
+                }
+
+                /* Info Bar */
+                .info-bar {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 2mm;
+                    font-size: 10pt;
+                    padding-bottom: 1mm;
+                }
+
+                /* Table Styles - Reduced font by 3px (from 8pt to 5pt) */
+                .ledger-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 2mm;
+                    font-size: 5pt;
+                    table-layout: fixed;
+                }
+
+                .ledger-table th {
+                    border: 1px solid #333;
+                    padding: 1pt 0.5pt;
+                    font-weight: bold;
+                    text-align: center;
+                    background: #f0f0f0;
+                    font-size: 5pt;
+                    white-space: nowrap;
+                }
+
+                .ledger-table td {
+                    padding: 1pt 0.5pt;
+                    vertical-align: middle;
+                    border-left: 1px solid #333;
+                    border-right: 1px solid #333;
+                    border-bottom: none;
+                    border-top: none;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    font-size: 5pt;
+                }
+
+                .ledger-table td.col-rate,
+                .ledger-table td.col-qty,
+                .ledger-table td.col-amount {
                     text-align: right;
                 }
 
-                .applicable-requirements {
-                    margin-top: 8px;
-                }
-
-                .applicable-requirements span {
-                    background-color: #ffff00;
-                    padding: 2px 6px;
-                }
-
-                .audit-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    border: 1px solid #000;
-                    margin-bottom: 16px;
-                    font-size: 11px;
-                }
-
-                .audit-table th,
-                .audit-table td {
-                    border: 1px solid #000;
-                    padding: 3px 5px;
-                    vertical-align: top;
-                }
-
-                .audit-table th {
-                    font-weight: bold;
-                    text-align: center;
-                    background-color: #f5f5f5;
-                }
-
-                .sno {
-                    width: 5%;
+                .ledger-table td.col-sno {
                     text-align: center;
                 }
 
-                .requirements {
-                    width: 45%;
+                .ledger-table td.col-particular {
                     text-align: left;
                 }
 
-                .basic {
-                    width: 25%;
+                /* Column widths */
+                .col-sno { width: 8%; }
+                .col-particular { width: 52%; }
+                .col-rate { width: 12%; }
+                .col-qty { width: 10%; }
+                .col-amount { width: 18%; }
+
+                .no-data {
                     text-align: center;
+                    padding: 2pt;
+                    font-style: italic;
+                    border-bottom: 1px solid #333 !important;
                 }
 
-                .basic-sub {
-                    font-weight: normal;
-                    font-size: 10px;
-                    margin-top: 2px;
-                }
-
-                .total {
-                    width: 8%;
-                    text-align: center;
-                }
-
-                .percentage {
-                    width: 8%;
-                    text-align: center;
-                }
-
-                .ok,
-                .not-ok,
-                .na {
-                    text-align: center;
-                }
-
-                .summary-row {
+                /* Total Section */
+                .total-section {
+                    margin: 1.5mm 0;
+                    padding: 1mm 0;
+                    border-top: 2px solid #333;
+                    border-bottom: 2px solid #333;
+                    text-align: right;
+                    font-size: 11pt;
                     font-weight: bold;
                 }
 
-                .compliance-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    border: 1px solid #000;
-                    margin-bottom: 16px;
-                    font-size: 11px;
-                }
-
-                .compliance-table th,
-                .compliance-table td {
-                    border: 1px solid #000;
-                    padding: 3px 5px;
-                    text-align: left;
-                }
-
-                .compliance-table th {
-                    font-weight: bold;
-                    text-align: center;
-                    background-color: #f5f5f5;
-                }
-
-                .compliance-table td:nth-child(even) {
-                    text-align: center;
-                }
-
-                .print-footer {
-                    margin-top: 24px;
-                    padding-top: 8px;
-                    border-top: 1px solid #000;
-                    text-align: center;
-                    font-size: 11px;
-                }
-
-                .footer-note {
-                    margin-top: 4px;
-                }
-
-                .action-buttons {
-                    margin-top: 24px;
+                /* Footer with Signature */
+                .ledger-footer {
                     display: flex;
-                    justify-content: center;
-                    gap: 16px;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                    margin-top: 1.5mm;
                 }
 
-                .back-btn,
-                .print-btn {
-                    padding: 8px 24px;
-                    color: white;
-                    border: none;
-                    font-family: Arial, sans-serif;
-                    font-weight: 500;
-                    cursor: pointer;
-                    transition: background-color 0.2s;
-                    min-width: 120px;
+                .thankyou {
+                    font-size: 10pt;
+                    font-style: italic;
+                    font-weight: bold;
                 }
 
-                .back-btn {
-                    background-color: #6b7280;
+                .signature-area {
+                    text-align: center;
                 }
 
-                .back-btn:hover {
-                    background-color: #4b5563;
+                .signature-text {
+                    font-size: 8pt;
                 }
 
-                .print-btn {
-                    background-color: #1f2937;
-                }
-
-                .print-btn:hover {
-                    background-color: #111827;
-                }
-
-                .print-btn:disabled {
-                    opacity: 0.7;
-                    cursor: not-allowed;
-                }
-
-                /* Print styles */
+                /* Print Styles */
                 @media print {
                     body, html {
                         margin: 0 !important;
                         padding: 0 !important;
                         background: white !important;
-                        width: 210mm !important;
-                        height: auto !important;
+                        width: 148mm !important;
+                        height: 210mm !important;
                     }
 
                     body * {
                         visibility: hidden;
-                        margin: 0 !important;
-                        padding: 0 !important;
                     }
 
-                    #audit-report-to-print,
-                    #audit-report-to-print * {
+                    #ledger-bill-to-print,
+                    #ledger-bill-to-print * {
                         visibility: visible;
                     }
 
-                    .print-report {
-                        position: absolute !important;
-                        left: 0 !important;
-                        top: 0 !important;
-                        width: 210mm !important;
-                        min-height: 297mm !important;
+                    #ledger-bill-to-print {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 148mm;
+                        height: 210mm;
                         margin: 0 !important;
-                        padding: 15mm !important;
-                        background: white !important;
+                        padding: 3mm 4mm !important;
+                        border: 2px solid #333 !important;
                         box-shadow: none !important;
-                        border: none !important;
-                        border-radius: 0 !important;
-                        max-height: none !important;
-                        overflow: visible !important;
+                        page-break-after: avoid;
+                        page-break-inside: avoid;
+                        box-sizing: border-box;
                     }
 
-                    .action-buttons,
-                    header,
-                    nav,
-                    .navbar,
-                    .sidebar {
+                    .no-print {
                         display: none !important;
                     }
 
                     @page {
-                        size: A4 portrait;
-                        margin: 15mm;
+                        size: A5 portrait;
+                        margin: 0;
                     }
 
-                    @media print and (color) {
-                        * {
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
-                            color-adjust: exact !important;
-                        }
-                    }
-
-                    .audit-table,
-                    .compliance-table {
-                        width: 100% !important;
-                        border-collapse: collapse !important;
-                        font-size: 11px !important;
-                        line-height: 1.2 !important;
-                        page-break-inside: avoid !important;
-                    }
-
-                    .audit-table th,
-                    .audit-table td,
-                    .compliance-table th,
-                    .compliance-table td {
-                        padding: 3px 4px !important;
-                        border: 1px solid #000 !important;
-                        font-size: 11px !important;
-                        line-height: 1.2 !important;
-                        vertical-align: top !important;
-                    }
-
-                    .audit-table th {
-                        background-color: #f5f5f5 !important;
-                    }
-
-                    .compliance-table th {
-                        background-color: #f5f5f5 !important;
-                    }
-
-                    .applicable-requirements span {
-                        background-color: #ffff00 !important;
-                    }
-
-                    .print-footer {
-                        position: relative !important;
-                        bottom: 0 !important;
-                        margin-top: 10mm !important;
-                    }
-
-                    /* Fix table header colors */
-                    div[style*="background-color: #1e40af"] {
-                        background-color: #1e40af !important;
-                        color: white !important;
-                    }
-                    
-                    div[style*="background-color: #059669"] {
-                        background-color: #059669 !important;
-                        color: white !important;
-                    }
-                }
-
-                /* Scrollbar for screen view */
-                @media screen {
-                    .print-report::-webkit-scrollbar {
-                        width: 8px;
-                    }
-
-                    .print-report::-webkit-scrollbar-track {
-                        background: #f1f1f1;
-                        border-radius: 4px;
-                    }
-
-                    .print-report::-webkit-scrollbar-thumb {
-                        background: #c1c1c1;
-                        border-radius: 4px;
-                    }
-
-                    .print-report::-webkit-scrollbar-thumb:hover {
-                        background: #a1a1a1;
+                    .ledger-table th {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                 }
             `}</style>
@@ -557,4 +604,4 @@ const AuditReportPaper = () => {
     );
 };
 
-export default AuditReportPaper;
+export default PackageReportPrint;

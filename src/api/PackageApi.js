@@ -159,3 +159,145 @@ export async function addPackagePaymentApi(packageId, paymentData) {
         throw error;
     }
 }
+
+// GET customer payments by date range
+export async function getCustomerPaymentsByDateApi(customerId, startDate, endDate, type = 'sender') {
+    try {
+        const response = await apiReturnCallBack('GET', `/customers/${customerId}/payments/by-date?startDate=${startDate}&endDate=${endDate}&type=${type}`);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// GET customer bookings and payments list
+export async function getCustomerBookingsAndPaymentsApi(customerId) {
+    try {
+        const response = await apiReturnCallBack('GET', `/customers/${customerId}/bookings-payments`);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// POST make bulk payment for customer
+export async function makeCustomerBulkPaymentApi(customerId, paymentData) {
+    try {
+        const response = await apiReturnCallBack('POST', `/customers/${customerId}/bulk-payment`, paymentData);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// GET all customer payment records
+export async function getAllCustomerPaymentRecordsApi(filters = {}) {
+    try {
+        const queryParams = new URLSearchParams(filters).toString();
+        const response = await apiReturnCallBack('GET', `/customer-payments/records?${queryParams}`);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// GET customer payment summary
+export async function getCustomerPaymentSummaryApi(customerId) {
+    try {
+        const response = await apiReturnCallBack('GET', `/customers/${customerId}/payment-summary`);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// GET all customers payment summary
+export async function getAllCustomersPaymentSummaryApi(filters = {}) {
+    try {
+        const queryParams = new URLSearchParams(filters).toString();
+        const response = await apiReturnCallBack('GET', `/customers/payment-summary/all?${queryParams}`);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
+
+// GET customer pending payments (only bookings with pending payment)
+export async function getCustomerPendingPaymentsApi(customerId) {
+    try {
+        const response = await apiReturnCallBack('GET', `/customers/${customerId}/pending-payments`);
+        const data = await response.json();
+        if (!response.ok) {
+            if (data.code == 401) {
+                localStorage.clear();
+                window.location.href = '/auth/boxed-signin';
+                throw new Error('Unauthorized');
+            }
+            throw new Error(data.message || JSON.stringify(data));
+        }
+        return data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}

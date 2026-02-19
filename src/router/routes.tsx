@@ -9,7 +9,6 @@ import {
     Employee,
     Role,
     CompanyInfo,
-    ExpenseSettlementDetails,
     //new asf - ev
     Package,
     //new VMS
@@ -33,7 +32,7 @@ import {
     PackageReportPrint,
     AuditReSchedule,
     PdfSubAuditChecklistBarChart,
-    PdfSubAuditChecklistImages,
+    PaymentPrintPdf,
     ProfitLossReportPDF,
     DailyProfitLossReport,
     AttendanceReport,
@@ -275,10 +274,6 @@ const routes = [
         element: <PakagePaymentScreen />,
     },
     {
-        path: '/expenses/settlement/details',
-        element: <ExpenseSettlementDetails />,
-    },
-    {
         path: '/staff/salary',
         element: <StaffSalary />,
     },
@@ -366,8 +361,8 @@ const routes = [
         element: <PdfSubAuditChecklistBarChart />,
     },
     {
-        path: '/documents/print-sub-checklist-sub-audit-images',
-        element: <PdfSubAuditChecklistImages />,
+        path: '/documents/balance-payment-print/:customerId',
+        element: <PaymentPrintPdf />,
     },
     {
         path: '/documents/audit-report-pdf',
@@ -443,10 +438,6 @@ const routes = [
 const dontCkeckRouts = [
     //new VMS
     {
-        path: '/master/sub-checklist-audit',
-        element: <ExpenseSettlementDetails />,
-    },
-    {
         path: '/payments/record/:id',
         element: <PakagePaymentScreen />,
     },
@@ -460,8 +451,8 @@ const dontCkeckRouts = [
         element: <PdfSubAuditChecklist />,
     },
     {
-        path: '/documents/print-sub-checklist-sub-audit-images',
-        element: <PdfSubAuditChecklistImages />,
+        path: '/documents/balance-payment-print/:customerId',
+        element: <PaymentPrintPdf />,
     },
     {
         path: '/documents/audit-report-pdf',
@@ -521,10 +512,6 @@ const dontCkeckRouts = [
     {
         path: '/audit/report-pdf',
         element: <PackageReportPrint />,
-    },
-    {
-        path: '/expenses/settlement/details',
-        element: <ExpenseSettlementDetails />,
     },
 ];
 
