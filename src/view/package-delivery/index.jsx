@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Tippy from '@tippyjs/react';
-import { showMessage } from '../../util/AllFunction';
+import { showMessage, findArrObj } from '../../util/AllFunction';
 import Select from 'react-select';
 import IconPlus from '../../components/Icon/IconPlus';
 import IconUser from '../../components/Icon/IconUser';
@@ -16,65 +16,47 @@ import IconCalendar from '../../components/Icon/IconCalendar';
 import IconClock from '../../components/Icon/IconClock';
 import IconCheckCircle from '../../components/Icon/IconCheckCircle';
 import IconXCircle from '../../components/Icon/IconXCircle';
-import IconRoute from '../../components/Icon/Menu/IconMenuWidgets';
-import IconLayers from '../../components/Icon/IconLayers';
 import IconChevronDown from '../../components/Icon/IconChevronDown';
 import IconChevronUp from '../../components/Icon/IconChevronUp';
 import IconInfoCircle from '../../components/Icon/IconInfoCircle';
-import IconFlag from '../../components/Icon/IconAt';
 import IconSearch from '../../components/Icon/IconSearch';
 import IconFilter from '../../components/Icon/IconCoffee';
 import IconCheck from '../../components/Icon/IconCheck';
 import IconEdit from '../../components/Icon/IconEdit';
-import IconClipboardList from '../../components/Icon/IconClipboardText';
-import IconTruckDelivery from '../../components/Icon/IconTruck';
-import IconHome from '../../components/Icon/IconHome';
-import IconBuilding from '../../components/Icon/IconBuilding';
+import IconX from '../../components/Icon/IconX';
+import {
+    getDeliveries,
+    updateDeliveryStatus,
+    resetDeliveryStatus,
+    setDeliveryFilters,
+    clearDeliveryFilters
+} from '../../redux/deliverySlice';
+import { getOfficeCenters } from '../../redux/officeCenterSlice';
 
 // Custom responsive table component
-const ResponsiveTable = ({ 
-    columns, 
-    data, 
-    pageSize = 10,
-    pageIndex = 0,
-    totalCount,
-    totalPages,
-    onPaginationChange,
-    onSearchChange,
-    pagination = true,
-    isSearchable = true,
-    searchPlaceholder = "Search...",
-    showPageSize = true,
-    showStatusFilter = false,
-    statusFilterValue = 'all',
-    onStatusFilterChange
-}) => {
+const ResponsiveTable = ({ columns, data, pageSize = 10, pageIndex = 0, onPaginationChange, onSearchChange, pagination = true, isSearchable = true, searchPlaceholder = "Search...", showPageSize = true, showStatusFilter = false, statusFilterValue = 'all', onStatusFilterChange }) => {
     const [currentPage, setCurrentPage] = useState(pageIndex);
     const [rowsPerPage, setRowsPerPage] = useState(pageSize);
     const [searchTerm, setSearchTerm] = useState('');
-    
-    // Handle search
+
     const handleSearch = useCallback((term) => {
         setSearchTerm(term);
         setCurrentPage(0);
         if (onSearchChange) onSearchChange(term);
     }, [onSearchChange]);
-    
-    // Handle page change
+
     const handlePageChange = useCallback((page) => {
         setCurrentPage(page);
         if (onPaginationChange) onPaginationChange(page, rowsPerPage);
     }, [onPaginationChange, rowsPerPage]);
-    
-    // Handle rows per page change
+
     const handleRowsPerPageChange = useCallback((e) => {
         const newRowsPerPage = parseInt(e.target.value);
         setRowsPerPage(newRowsPerPage);
         setCurrentPage(0);
         if (onPaginationChange) onPaginationChange(0, newRowsPerPage);
     }, [onPaginationChange]);
-    
-    // Filter data based on search term
+
     const filteredData = useMemo(() => {
         if (!searchTerm) return data;
         return data.filter(row => 
@@ -86,19 +68,17 @@ const ResponsiveTable = ({
             })
         );
     }, [data, searchTerm, columns]);
-    
-    // Calculate paginated data
+
     const paginatedData = useMemo(() => {
         const startIndex = currentPage * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
         return filteredData.slice(startIndex, endIndex);
     }, [filteredData, currentPage, rowsPerPage]);
 
-    // Calculate actual total pages
     const actualTotalPages = useMemo(() => {
         return Math.ceil(filteredData.length / rowsPerPage);
     }, [filteredData.length, rowsPerPage]);
-    
+
     return (
         <div className="w-full">
             {/* Search and Filter Bar */}
@@ -119,7 +99,6 @@ const ResponsiveTable = ({
                         </div>
                     </div>
                 )}
-                
                 {showStatusFilter && (
                     <div className="sm:w-48">
                         <div className="relative">
@@ -129,12 +108,12 @@ const ResponsiveTable = ({
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
                             >
                                 <option value="all">All Status</option>
-                                <option value="scheduled">Scheduled</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="at_warehouse">At Warehouse</option>
+                                <option value="not_started">Not Started</option>
+                                <option value="pickup_assigned">Pickup Assigned</option>
+                                <option value="picked_up">Picked Up</option>
+                                <option value="in_transit">In Transit</option>
                                 <option value="out_for_delivery">Out for Delivery</option>
                                 <option value="delivered">Delivered</option>
-                                <option value="delayed">Delayed</option>
                                 <option value="cancelled">Cancelled</option>
                             </select>
                             <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -144,7 +123,7 @@ const ResponsiveTable = ({
                     </div>
                 )}
             </div>
-            
+
             {/* Desktop Table */}
             <div className="hidden md:block overflow-x-auto">
                 <div className="inline-block min-w-full align-middle">
@@ -169,10 +148,7 @@ const ResponsiveTable = ({
                                     paginatedData.map((row, rowIndex) => (
                                         <tr key={rowIndex} className="hover:bg-gray-50 transition-colors">
                                             {columns.map((column, colIndex) => (
-                                                <td
-                                                    key={colIndex}
-                                                    className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap"
-                                                >
+                                                <td key={colIndex} className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">
                                                     {column.Cell ? column.Cell({ value: row[column.accessor], row: { original: row } }) : row[column.accessor]}
                                                 </td>
                                             ))}
@@ -190,7 +166,7 @@ const ResponsiveTable = ({
                     </div>
                 </div>
             </div>
-            
+
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
                 {paginatedData.length > 0 ? (
@@ -216,7 +192,7 @@ const ResponsiveTable = ({
                     </div>
                 )}
             </div>
-            
+
             {/* Pagination */}
             {pagination && filteredData.length > 0 && (
                 <div className="flex flex-col sm:flex-row items-center justify-between mt-4 space-y-4 sm:space-y-0 pt-4 border-t border-gray-200">
@@ -227,7 +203,6 @@ const ResponsiveTable = ({
                         </span>{' '}
                         of <span className="font-medium">{filteredData.length}</span> results
                     </div>
-                    
                     <div className="flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
                         {showPageSize && (
                             <div className="flex items-center space-x-2">
@@ -243,7 +218,6 @@ const ResponsiveTable = ({
                                 </select>
                             </div>
                         )}
-                        
                         <div className="flex items-center space-x-1">
                             <button
                                 onClick={() => handlePageChange(currentPage - 1)}
@@ -256,7 +230,6 @@ const ResponsiveTable = ({
                             >
                                 Previous
                             </button>
-                            
                             {Array.from({ length: Math.min(5, actualTotalPages) }).map((_, i) => {
                                 let pageNum;
                                 if (actualTotalPages <= 5) {
@@ -268,7 +241,6 @@ const ResponsiveTable = ({
                                 } else {
                                     pageNum = currentPage - 2 + i;
                                 }
-                                
                                 return (
                                     <button
                                         key={pageNum}
@@ -283,7 +255,6 @@ const ResponsiveTable = ({
                                     </button>
                                 );
                             })}
-                            
                             <button
                                 onClick={() => handlePageChange(currentPage + 1)}
                                 disabled={currentPage >= actualTotalPages - 1}
@@ -306,547 +277,224 @@ const ResponsiveTable = ({
 const DeliveryManagement = () => {
     const dispatch = useDispatch();
 
-    // Dummy trips data with various statuses
-    const [trips, setTrips] = useState([
-        {
-            id: 1,
-            tripNo: 'TRIP0001',
-            bookingId: 'BK001',
-            customerName: 'John Doe',
-            customerPhone: '9876543210',
-            fromBranch: 'Chennai Central Hub',
-            toBranch: 'Bangalore South Terminal',
-            fromAddress: '123 Main Street, Chennai',
-            toAddress: '456 Park Avenue, Bangalore',
-            receiverName: 'Robert Johnson',
-            receiverPhone: '8765432109',
-            vehicleNo: 'TN01AB1234',
-            driverName: 'Rajesh Kumar',
-            driverPhone: '9876543210',
-            loadmen: ['Ramesh', 'Suresh'],
-            totalPackages: 3,
-            totalWeight: 27,
-            totalAmount: 365,
-            tripDate: '2024-01-20',
-            scheduledTime: '08:00 - 14:00',
-            currentStatus: 'out_for_delivery',
-            deliveryStatus: 'in_transit',
-            lastUpdated: '2024-01-20 09:30',
-            estimatedDelivery: '2024-01-20 14:00',
-            actualDelivery: null,
-            deliveryNotes: 'Call before delivery',
-            paymentStatus: 'paid',
-            paymentMethod: 'cash',
-            expanded: false,
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Box', 
-                    quantity: 2, 
-                    weight: 25,
-                    dimensions: '30x30x30 cm',
-                    specialInstructions: 'Fragile',
-                    status: 'out_for_delivery'
-                },
-                { 
-                    id: 2, 
-                    packageType: 'Document', 
-                    quantity: 1, 
-                    weight: 2,
-                    dimensions: 'A4 Envelope',
-                    specialInstructions: 'Handle with care',
-                    status: 'out_for_delivery'
-                }
-            ]
-        },
-        {
-            id: 2,
-            tripNo: 'TRIP0002',
-            bookingId: 'BK002',
-            customerName: 'Rajesh Kumar',
-            customerPhone: '9876543211',
-            fromBranch: 'Bangalore South Terminal',
-            toBranch: 'Mumbai Port Facility',
-            fromAddress: 'Bangalore City Center',
-            toAddress: '789 Marine Drive, Mumbai',
-            receiverName: 'Suresh Patel',
-            receiverPhone: '8765432110',
-            vehicleNo: 'KA02CD5678',
-            driverName: 'Suresh Patel',
-            driverPhone: '9876543211',
-            loadmen: ['Ganesh', 'Mahesh'],
-            totalPackages: 3,
-            totalWeight: 26,
-            totalAmount: 725,
-            tripDate: '2024-01-18',
-            scheduledTime: '09:00 - 17:00',
-            currentStatus: 'at_warehouse',
-            deliveryStatus: 'not_started',
-            lastUpdated: '2024-01-18 08:45',
-            estimatedDelivery: '2024-01-19 17:00',
-            actualDelivery: null,
-            deliveryNotes: 'Wait for confirmation',
-            paymentStatus: 'pending',
-            paymentMethod: 'card',
-            expanded: false,
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Document', 
-                    quantity: 3, 
-                    weight: 3,
-                    dimensions: 'A4 Envelope',
-                    specialInstructions: 'Urgent delivery',
-                    status: 'at_warehouse'
-                },
-                { 
-                    id: 2, 
-                    packageType: 'Small Package', 
-                    quantity: 2, 
-                    weight: 8,
-                    dimensions: '20x20x20 cm',
-                    specialInstructions: 'Keep upright',
-                    status: 'at_warehouse'
-                },
-                { 
-                    id: 3, 
-                    packageType: 'Parcel', 
-                    quantity: 1, 
-                    weight: 15,
-                    dimensions: '40x30x20 cm',
-                    specialInstructions: 'Fragile contents',
-                    status: 'at_warehouse'
-                }
-            ]
-        },
-        {
-            id: 3,
-            tripNo: 'TRIP0003',
-            bookingId: 'BK003',
-            customerName: 'Priya Sharma',
-            customerPhone: '9876543212',
-            fromBranch: 'Karur Hub',
-            toBranch: 'Hyderabad Distribution Center',
-            fromAddress: 'Karur Textile Market',
-            toAddress: '234 Banjara Hills, Hyderabad',
-            receiverName: 'Amit Verma',
-            receiverPhone: '8765432111',
-            vehicleNo: 'MH03EF9012',
-            driverName: 'Mohan Singh',
-            driverPhone: '9876543212',
-            loadmen: ['Raju', 'Kumar'],
-            totalPackages: 5,
-            totalWeight: 15,
-            totalAmount: 425,
-            tripDate: '2024-01-19',
-            scheduledTime: '10:00 - 16:00',
-            currentStatus: 'in_progress',
-            deliveryStatus: 'in_transit',
-            lastUpdated: '2024-01-19 11:15',
-            estimatedDelivery: '2024-01-19 16:00',
-            actualDelivery: null,
-            deliveryNotes: 'Textile goods, keep dry',
-            paymentStatus: 'paid',
-            paymentMethod: 'online',
-            expanded: false,
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Small Package', 
-                    quantity: 5, 
-                    weight: 3,
-                    dimensions: '15x15x15 cm',
-                    specialInstructions: 'Standard delivery',
-                    status: 'in_progress'
-                }
-            ]
-        },
-        {
-            id: 4,
-            tripNo: 'TRIP0004',
-            bookingId: 'BK004',
-            customerName: 'Vikram Singh',
-            customerPhone: '9876543214',
-            fromBranch: 'Karur Hub',
-            toBranch: 'Pune Delivery Hub',
-            fromAddress: 'Karur IT Park',
-            toAddress: '123 MG Road, Pune',
-            receiverName: 'Anjali Mehta',
-            receiverPhone: '8765432112',
-            vehicleNo: 'DL04GH3456',
-            driverName: 'Amit Sharma',
-            driverPhone: '9876543213',
-            loadmen: ['Ramesh', 'Suresh'],
-            totalPackages: 1,
-            totalWeight: 40,
-            totalAmount: 410,
-            tripDate: '2024-01-20',
-            scheduledTime: '07:00 - 13:00',
-            currentStatus: 'delivered',
-            deliveryStatus: 'delivered',
-            lastUpdated: '2024-01-20 12:45',
-            estimatedDelivery: '2024-01-20 13:00',
-            actualDelivery: '2024-01-20 12:45',
-            deliveryNotes: 'Electronics - handled carefully',
-            paymentStatus: 'paid',
-            paymentMethod: 'cash',
-            expanded: false,
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Electronics', 
-                    quantity: 1, 
-                    weight: 40,
-                    dimensions: '50x40x30 cm',
-                    specialInstructions: 'Handle with care, Fragile',
-                    status: 'delivered'
-                }
-            ]
-        },
-        {
-            id: 5,
-            tripNo: 'TRIP0005',
-            bookingId: 'BK005',
-            customerName: 'Anjali Mehta',
-            customerPhone: '9876543215',
-            fromBranch: 'Pune Delivery Hub',
-            toBranch: 'Mumbai Port Facility',
-            fromAddress: '123 MG Road, Pune',
-            toAddress: '789 Marine Drive, Mumbai',
-            receiverName: 'Raj Malhotra',
-            receiverPhone: '8765432113',
-            vehicleNo: 'GJ05IJ7890',
-            driverName: 'Rajesh Kumar',
-            driverPhone: '9876543210',
-            loadmen: ['Ganesh', 'Mahesh'],
-            totalPackages: 10,
-            totalWeight: 25,
-            totalAmount: 470,
-            tripDate: '2024-01-20',
-            scheduledTime: '14:00 - 20:00',
-            currentStatus: 'delayed',
-            deliveryStatus: 'delayed',
-            lastUpdated: '2024-01-20 16:30',
-            estimatedDelivery: '2024-01-20 20:00',
-            actualDelivery: null,
-            deliveryNotes: 'Traffic congestion on highway',
-            paymentStatus: 'pending',
-            paymentMethod: 'card',
-            expanded: false,
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Clothing', 
-                    quantity: 10, 
-                    weight: 25,
-                    dimensions: '30x20x15 cm',
-                    specialInstructions: 'Keep dry',
-                    status: 'delayed'
-                }
-            ]
-        },
-        {
-            id: 6,
-            tripNo: 'TRIP0006',
-            bookingId: 'BK006',
-            customerName: 'Raj Malhotra',
-            customerPhone: '9876543216',
-            fromBranch: 'Mumbai Port Facility',
-            toBranch: 'Ahmedabad Warehouse',
-            fromAddress: '789 Marine Drive, Mumbai',
-            toAddress: '456 Ring Road, Ahmedabad',
-            receiverName: 'Sunil Patel',
-            receiverPhone: '8765432114',
-            vehicleNo: 'TN01AB1234',
-            driverName: 'Suresh Patel',
-            driverPhone: '9876543211',
-            loadmen: ['Raju', 'Kumar'],
-            totalPackages: 3,
-            totalWeight: 75,
-            totalAmount: 790,
-            tripDate: '2024-01-21',
-            scheduledTime: '06:00 - 14:00',
-            currentStatus: 'scheduled',
-            deliveryStatus: 'scheduled',
-            lastUpdated: '2024-01-20 18:00',
-            estimatedDelivery: '2024-01-21 14:00',
-            actualDelivery: null,
-            deliveryNotes: 'Heavy machinery parts',
-            paymentStatus: 'paid',
-            paymentMethod: 'online',
-            expanded: false,
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Machinery Parts', 
-                    quantity: 3, 
-                    weight: 75,
-                    dimensions: '60x40x30 cm',
-                    specialInstructions: 'Heavy machinery, use forklift',
-                    status: 'scheduled'
-                }
-            ]
-        },
-        {
-            id: 7,
-            tripNo: 'TRIP0007',
-            bookingId: 'BK007',
-            customerName: 'Karthik Raj',
-            customerPhone: '9876543217',
-            fromBranch: 'Karur Hub',
-            toBranch: 'Coimbatore Terminal',
-            fromAddress: 'Karur Bus Stand',
-            toAddress: 'Coimbatore City Center',
-            receiverName: 'Senthil Kumar',
-            receiverPhone: '8765432115',
-            vehicleNo: 'KA02CD5678',
-            driverName: 'Mohan Singh',
-            driverPhone: '9876543212',
-            loadmen: ['Ramesh', 'Suresh'],
-            totalPackages: 8,
-            totalWeight: 32,
-            totalAmount: 660,
-            tripDate: '2024-01-22',
-            scheduledTime: '09:00 - 13:00',
-            currentStatus: 'cancelled',
-            deliveryStatus: 'cancelled',
-            lastUpdated: '2024-01-21 10:00',
-            estimatedDelivery: '2024-01-22 13:00',
-            actualDelivery: null,
-            deliveryNotes: 'Customer requested cancellation',
-            paymentStatus: 'refunded',
-            paymentMethod: 'online',
-            expanded: false,
-            packageDetails: [
-                { 
-                    id: 1, 
-                    packageType: 'Textiles', 
-                    quantity: 8, 
-                    weight: 32,
-                    dimensions: '40x30x20 cm',
-                    specialInstructions: 'Textile goods',
-                    status: 'cancelled'
-                }
-            ]
-        }
-    ]);
+    // Get login info for permissions
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo || '{}');
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Delivery Management');
+    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
 
-    // States
+    // Redux state
+    const deliveryState = useSelector((state) => state.DeliverySlice || {});
+    const {
+        deliveryData = [],
+        loading = false,
+        error = null,
+        updateDeliveryStatusSuccess = false
+    } = deliveryState;
+
+    const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
+    const { officeCentersData = [] } = officeCenterState;
+
+    // Local states
+    const [deliveries, setDeliveries] = useState([]);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedBranch, setSelectedBranch] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');
+    const [showFilters, setShowFilters] = useState(false);
+    const [filters, setFilters] = useState({
+        fromDate: '',
+        toDate: '',
+    });
     const [showUpdateModal, setShowUpdateModal] = useState(false);
-    const [selectedTrip, setSelectedTrip] = useState(null);
+    const [selectedDelivery, setSelectedDelivery] = useState(null);
     const [updateStatus, setUpdateStatus] = useState('');
     const [deliveryNotes, setDeliveryNotes] = useState('');
-    const [packageStatuses, setPackageStatuses] = useState({});
+    const [actualDeliveryDate, setActualDeliveryDate] = useState('');
     const [showPackageModal, setShowPackageModal] = useState(false);
     const [selectedPackage, setSelectedPackage] = useState(null);
 
-    // Get unique branches
-    const branches = useMemo(() => {
-        const uniqueBranches = [...new Set(trips.map(trip => trip.fromBranch))];
-        const branchOptions = uniqueBranches.map(branch => ({
-            value: branch,
-            label: branch
-        }));
-        return [{ value: 'all', label: 'All Branches' }, ...branchOptions];
-    }, [trips]);
+    // Load initial data
+    useEffect(() => {
+        dispatch(setPageTitle('Delivery Management'));
+        fetchInitialData();
+    }, [dispatch]);
 
-    // Filter trips based on branch and status
-    const filteredTrips = useMemo(() => {
-        let filtered = trips;
+    // Handle API responses
+    useEffect(() => {
+        if (updateDeliveryStatusSuccess) {
+            showMessage('success', 'Delivery status updated successfully');
+            setShowUpdateModal(false);
+            setSelectedDelivery(null);
+            setUpdateStatus('');
+            setDeliveryNotes('');
+            setActualDeliveryDate('');
+            dispatch(resetDeliveryStatus());
+            fetchDeliveries();
+        }
+        if (error) {
+            showMessage('error', error);
+            dispatch(resetDeliveryStatus());
+        }
+    }, [updateDeliveryStatusSuccess, error, dispatch]);
+
+    // Update deliveries data from Redux
+    useEffect(() => {
+        if (deliveryData && deliveryData.length > 0) {
+            setDeliveries(deliveryData);
+        } else {
+            setDeliveries([]);
+        }
+    }, [deliveryData]);
+
+    const fetchInitialData = async () => {
+        try {
+            await Promise.all([
+                dispatch(getDeliveries({})).unwrap(),
+                dispatch(getOfficeCenters({})).unwrap()
+            ]);
+        } catch (error) {
+            showMessage('error', 'Failed to load initial data');
+        }
+    };
+
+    const fetchDeliveries = () => {
+        const filterParams = {};
+        if (filters.fromDate) filterParams.fromDate = filters.fromDate;
+        if (filters.toDate) filterParams.toDate = filters.toDate;
+        if (selectedStatus !== 'all') filterParams.deliveryStatus = selectedStatus;
+        if (searchTerm) filterParams.search = searchTerm;
         
-        // Filter by branch
+        dispatch(getDeliveries(filterParams));
+    };
+
+    useEffect(() => {
+        fetchDeliveries();
+    }, [filters, selectedStatus, searchTerm, dispatch]);
+
+    // Get unique branches from deliveries
+    const branches = useMemo(() => {
+        if (!deliveries || deliveries.length === 0) {
+            return [{ value: 'all', label: 'All Branches' }];
+        }
+        
+        const uniqueBranches = [...new Set(
+            deliveries
+                .map(delivery => delivery.fromCenter?.office_center_name)
+                .filter(Boolean)
+        )];
+        
+        const branchOptions = uniqueBranches.map(branch => ({ 
+            value: branch, 
+            label: branch 
+        }));
+        
+        return [{ value: 'all', label: 'All Branches' }, ...branchOptions];
+    }, [deliveries]);
+
+    // Filter deliveries by branch
+    const filteredDeliveries = useMemo(() => {
+        if (!deliveries || deliveries.length === 0) return [];
+        
+        let filtered = deliveries;
+        
         if (selectedBranch !== 'all') {
-            filtered = filtered.filter(trip => trip.fromBranch === selectedBranch);
-        }
-        
-        // Filter by status
-        if (selectedStatus !== 'all') {
-            filtered = filtered.filter(trip => trip.currentStatus === selectedStatus);
-        }
-        
-        // Filter by search term
-        if (searchTerm) {
-            const term = searchTerm.toLowerCase();
-            filtered = filtered.filter(trip =>
-                trip.tripNo.toLowerCase().includes(term) ||
-                trip.bookingId.toLowerCase().includes(term) ||
-                trip.customerName.toLowerCase().includes(term) ||
-                trip.customerPhone.includes(term) ||
-                trip.fromBranch.toLowerCase().includes(term) ||
-                trip.toBranch.toLowerCase().includes(term) ||
-                trip.vehicleNo.toLowerCase().includes(term) ||
-                trip.driverName.toLowerCase().includes(term)
+            filtered = filtered.filter(delivery => 
+                delivery.fromCenter?.office_center_name === selectedBranch
             );
         }
         
         return filtered;
-    }, [trips, selectedBranch, selectedStatus, searchTerm]);
-
-    useEffect(() => {
-        dispatch(setPageTitle('Delivery Management'));
-    }, [dispatch]);
+    }, [deliveries, selectedBranch]);
 
     // Get status counts for stats
     const statusCounts = useMemo(() => {
         const counts = {
-            total: trips.length,
-            scheduled: trips.filter(t => t.currentStatus === 'scheduled').length,
-            in_progress: trips.filter(t => t.currentStatus === 'in_progress').length,
-            at_warehouse: trips.filter(t => t.currentStatus === 'at_warehouse').length,
-            out_for_delivery: trips.filter(t => t.currentStatus === 'out_for_delivery').length,
-            delivered: trips.filter(t => t.currentStatus === 'delivered').length,
-            delayed: trips.filter(t => t.currentStatus === 'delayed').length,
-            cancelled: trips.filter(t => t.currentStatus === 'cancelled').length,
+            total: deliveries.length,
+            not_started: deliveries.filter(d => d.delivery_status === 'not_started').length,
+            pickup_assigned: deliveries.filter(d => d.delivery_status === 'pickup_assigned').length,
+            picked_up: deliveries.filter(d => d.delivery_status === 'picked_up').length,
+            in_transit: deliveries.filter(d => d.delivery_status === 'in_transit').length,
+            out_for_delivery: deliveries.filter(d => d.delivery_status === 'out_for_delivery').length,
+            delivered: deliveries.filter(d => d.delivery_status === 'delivered').length,
+            cancelled: deliveries.filter(d => d.delivery_status === 'cancelled').length,
         };
         return counts;
-    }, [trips]);
+    }, [deliveries]);
 
-    // Toggle trip details
-    const toggleTripDetails = (tripId) => {
-        setTrips(prevTrips => 
-            prevTrips.map(trip => 
-                trip.id === tripId 
-                    ? { ...trip, expanded: !trip.expanded }
-                    : { ...trip, expanded: false }
+    // Toggle delivery details
+    const toggleDeliveryDetails = (deliveryId) => {
+        setDeliveries(prevDeliveries =>
+            prevDeliveries.map(delivery =>
+                delivery.booking_id === deliveryId
+                    ? { ...delivery, expanded: !delivery.expanded }
+                    : { ...delivery, expanded: false }
             )
         );
     };
 
     // Handle status update
-    const handleStatusUpdate = (trip) => {
-        setSelectedTrip(trip);
-        setUpdateStatus(trip.currentStatus);
-        setDeliveryNotes(trip.deliveryNotes || '');
+    const handleStatusUpdate = (delivery) => {
+        setSelectedDelivery(delivery);
+        setUpdateStatus(delivery.delivery_status || 'not_started');
+        setDeliveryNotes(delivery.special_instructions || '');
+        setActualDeliveryDate(delivery.actual_delivery_date || new Date().toISOString().split('T')[0]);
         setShowUpdateModal(true);
-        
-        // Initialize package statuses
-        const packageStatusMap = {};
-        trip.packageDetails.forEach(pkg => {
-            packageStatusMap[pkg.id] = pkg.status;
-        });
-        setPackageStatuses(packageStatusMap);
-    };
-
-    // Update package status
-    const handleUpdatePackageStatus = (packageId, newStatus) => {
-        setPackageStatuses(prev => ({
-            ...prev,
-            [packageId]: newStatus
-        }));
     };
 
     // Submit status update
     const submitStatusUpdate = () => {
-        if (!selectedTrip || !updateStatus) return;
+        if (!selectedDelivery || !updateStatus) return;
 
-        const now = new Date();
-        const currentDateTime = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        
-        // Update all packages to the new status
-        const updatedPackages = selectedTrip.packageDetails.map(pkg => ({
-            ...pkg,
-            status: packageStatuses[pkg.id] || updateStatus
+        const statusData = {
+            deliveryStatus: updateStatus,
+        };
+
+        if (actualDeliveryDate) {
+            statusData.actualDeliveryDate = actualDeliveryDate;
+        }
+
+        dispatch(updateDeliveryStatus({
+            bookingId: selectedDelivery.booking_id,
+            statusData: statusData
         }));
-
-        // Check if all packages are delivered
-        const allPackagesDelivered = updatedPackages.every(pkg => pkg.status === 'delivered');
-        
-        setTrips(prevTrips => 
-            prevTrips.map(trip => 
-                trip.id === selectedTrip.id 
-                    ? {
-                        ...trip,
-                        currentStatus: allPackagesDelivered ? 'delivered' : updateStatus,
-                        deliveryStatus: allPackagesDelivered ? 'delivered' : updateStatus,
-                        lastUpdated: currentDateTime,
-                        deliveryNotes: deliveryNotes,
-                        actualDelivery: updateStatus === 'delivered' ? currentDateTime.split(' ')[1] : trip.actualDelivery,
-                        packageDetails: updatedPackages
-                    }
-                    : trip
-            )
-        );
-
-        showMessage('success', `Status updated to ${updateStatus} for Trip ${selectedTrip.tripNo}`);
-        setShowUpdateModal(false);
-        setSelectedTrip(null);
-        setUpdateStatus('');
-        setDeliveryNotes('');
-        setPackageStatuses({});
     };
 
     // Handle quick status update
-    const handleQuickStatusUpdate = (tripId, newStatus) => {
-        const now = new Date();
-        const currentDateTime = `${now.toISOString().split('T')[0]} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-        
-        setTrips(prevTrips => 
-            prevTrips.map(trip => 
-                trip.id === tripId 
-                    ? {
-                        ...trip,
-                        currentStatus: newStatus,
-                        deliveryStatus: newStatus,
-                        lastUpdated: currentDateTime,
-                        actualDelivery: newStatus === 'delivered' ? currentDateTime.split(' ')[1] : trip.actualDelivery,
-                        packageDetails: trip.packageDetails.map(pkg => ({
-                            ...pkg,
-                            status: newStatus
-                        }))
-                    }
-                    : trip
-            )
-        );
+    const handleQuickStatusUpdate = (deliveryId, newStatus) => {
+        const statusData = {
+            deliveryStatus: newStatus,
+            actualDeliveryDate: newStatus === 'delivered' ? new Date().toISOString().split('T')[0] : null
+        };
 
-        showMessage('success', `Status updated to ${newStatus}`);
+        dispatch(updateDeliveryStatus({
+            bookingId: deliveryId,
+            statusData: statusData
+        }));
     };
 
     // View package details
-    const viewPackageDetails = (pkg, trip) => {
-        setSelectedPackage({ ...pkg, tripNo: trip.tripNo });
+    const viewPackageDetails = (pkg, delivery) => {
+        setSelectedPackage({ 
+            ...pkg, 
+            bookingNumber: delivery.booking_number,
+            fromCenter: delivery.fromCenter?.office_center_name,
+            toCenter: delivery.toCenter?.office_center_name
+        });
         setShowPackageModal(true);
-    };
-
-    // Update single package status
-    const updateSinglePackageStatus = (packageId, newStatus) => {
-        if (!selectedTrip) return;
-
-        setTrips(prevTrips => 
-            prevTrips.map(trip => 
-                trip.id === selectedTrip.id 
-                    ? {
-                        ...trip,
-                        packageDetails: trip.packageDetails.map(pkg => 
-                            pkg.id === packageId 
-                                ? { ...pkg, status: newStatus }
-                                : pkg
-                        ),
-                        lastUpdated: `${new Date().toISOString().split('T')[0]} ${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
-                    }
-                    : trip
-            )
-        );
-
-        showMessage('success', `Package status updated to ${newStatus}`);
-        setShowPackageModal(false);
-        setSelectedPackage(null);
     };
 
     // Get status color
     const getStatusColor = (status) => {
         switch (status) {
-            case 'scheduled': return 'bg-blue-100 text-blue-800';
-            case 'in_progress': return 'bg-yellow-100 text-yellow-800';
-            case 'at_warehouse': return 'bg-purple-100 text-purple-800';
+            case 'not_started': return 'bg-gray-100 text-gray-800';
+            case 'pickup_assigned': return 'bg-blue-100 text-blue-800';
+            case 'picked_up': return 'bg-purple-100 text-purple-800';
+            case 'in_transit': return 'bg-yellow-100 text-yellow-800';
             case 'out_for_delivery': return 'bg-orange-100 text-orange-800';
             case 'delivered': return 'bg-green-100 text-green-800';
-            case 'delayed': return 'bg-red-100 text-red-800';
-            case 'cancelled': return 'bg-gray-100 text-gray-800';
+            case 'cancelled': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
         }
     };
@@ -854,25 +502,39 @@ const DeliveryManagement = () => {
     // Get status icon
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'scheduled': return '⏰';
-            case 'in_progress': return '🚚';
-            case 'at_warehouse': return '🏢';
-            case 'out_for_delivery': return '📦';
+            case 'not_started': return '⏳';
+            case 'pickup_assigned': return '📋';
+            case 'picked_up': return '📦';
+            case 'in_transit': return '🚚';
+            case 'out_for_delivery': return '🚛';
             case 'delivered': return '✓';
-            case 'delayed': return '⚠️';
             case 'cancelled': return '✗';
             default: return '📋';
         }
     };
 
+    // Get status label
+    const getStatusLabel = (status) => {
+        switch (status) {
+            case 'not_started': return 'Not Started';
+            case 'pickup_assigned': return 'Pickup Assigned';
+            case 'picked_up': return 'Picked Up';
+            case 'in_transit': return 'In Transit';
+            case 'out_for_delivery': return 'Out for Delivery';
+            case 'delivered': return 'Delivered';
+            case 'cancelled': return 'Cancelled';
+            default: return status;
+        }
+    };
+
     // Get status options for dropdown
     const statusOptions = [
-        { value: 'scheduled', label: 'Scheduled', icon: '⏰' },
-        { value: 'in_progress', label: 'In Progress', icon: '🚚' },
-        { value: 'at_warehouse', label: 'At Warehouse', icon: '🏢' },
-        { value: 'out_for_delivery', label: 'Out for Delivery', icon: '📦' },
+        { value: 'not_started', label: 'Not Started', icon: '⏳' },
+        { value: 'pickup_assigned', label: 'Pickup Assigned', icon: '📋' },
+        { value: 'picked_up', label: 'Picked Up', icon: '📦' },
+        { value: 'in_transit', label: 'In Transit', icon: '🚚' },
+        { value: 'out_for_delivery', label: 'Out for Delivery', icon: '🚛' },
         { value: 'delivered', label: 'Delivered', icon: '✓' },
-        { value: 'delayed', label: 'Delayed', icon: '⚠️' },
         { value: 'cancelled', label: 'Cancelled', icon: '✗' },
     ];
 
@@ -888,110 +550,122 @@ const DeliveryManagement = () => {
         setCurrentPage(0);
     };
 
-    // Trip details component
-    const TripDetails = ({ trip }) => {
-        if (!trip.expanded) return null;
+    // Handle filter changes
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const clearFilters = () => {
+        setFilters({ fromDate: '', toDate: '' });
+        setSelectedStatus('all');
+        setSearchTerm('');
+    };
+
+    // Delivery details component
+    const DeliveryDetails = ({ delivery }) => {
+        if (!delivery.expanded) return null;
 
         return (
             <div className="bg-gray-50 rounded-lg mt-4 p-4 sm:p-6 border border-gray-200 animate-fadeIn">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
-                    {/* Trip Information */}
+                    {/* Booking Information */}
                     <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm">
                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-sm sm:text-base lg:text-lg">
                             <IconInfoCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-500" />
-                            Trip Information
+                            Booking Information
                         </h4>
                         <div className="space-y-2 text-xs sm:text-sm">
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Trip No:</span>
-                                <span className="font-medium text-blue-600">{trip.tripNo}</span>
+                                <span className="text-gray-600">Booking No:</span>
+                                <span className="font-medium text-blue-600">{delivery.booking_number}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Booking ID:</span>
-                                <span className="font-medium">{trip.bookingId}</span>
+                                <span className="text-gray-600">LLR No:</span>
+                                <span className="font-medium">{delivery.llr_number || 'N/A'}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Date:</span>
-                                <span className="font-medium">{trip.tripDate}</span>
+                                <span className="text-gray-600">Booking Date:</span>
+                                <span className="font-medium">{new Date(delivery.booking_date).toLocaleDateString()}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Schedule:</span>
-                                <span className="font-medium">{trip.scheduledTime}</span>
+                                <span className="text-gray-600">From Center:</span>
+                                <span className="font-medium">{delivery.fromCenter?.office_center_name}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Last Updated:</span>
-                                <span className="font-medium">{trip.lastUpdated}</span>
+                                <span className="text-gray-600">To Center:</span>
+                                <span className="font-medium">{delivery.toCenter?.office_center_name}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Estimated Delivery:</span>
-                                <span className={`font-medium ${trip.currentStatus === 'delayed' ? 'text-red-600' : 'text-green-600'}`}>
-                                    {trip.estimatedDelivery}
-                                </span>
+                                <span className="text-gray-600">From Location:</span>
+                                <span className="font-medium">{delivery.fromLocation?.location_name}</span>
                             </div>
-                            {trip.actualDelivery && (
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Actual Delivery:</span>
-                                    <span className="font-medium text-green-600">{trip.actualDelivery}</span>
-                                </div>
-                            )}
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">To Location:</span>
+                                <span className="font-medium">{delivery.toLocation?.location_name}</span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Customer & Receiver Info */}
+                    {/* Customer Info */}
                     <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm">
                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-sm sm:text-base lg:text-lg">
                             <IconUser className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-green-500" />
-                            Customer & Receiver
+                            Customer Information
                         </h4>
                         <div className="space-y-3 text-xs sm:text-sm">
                             <div>
-                                <div className="text-gray-600 font-medium mb-1">Customer:</div>
-                                <div className="font-medium">{trip.customerName}</div>
-                                <div className="text-gray-600">{trip.customerPhone}</div>
+                                <div className="text-gray-600 font-medium mb-1">Sender:</div>
+                                <div className="font-medium">{delivery.fromCustomer?.customer_name}</div>
+                                <div className="text-gray-600">{delivery.fromCustomer?.customer_number}</div>
                             </div>
                             <div>
                                 <div className="text-gray-600 font-medium mb-1">Receiver:</div>
-                                <div className="font-medium">{trip.receiverName}</div>
-                                <div className="text-gray-600">{trip.receiverPhone}</div>
+                                <div className="font-medium">{delivery.toCustomer?.customer_name}</div>
+                                <div className="text-gray-600">{delivery.toCustomer?.customer_number}</div>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
                                 <div>
                                     <div className="text-gray-600 font-medium mb-1">Payment:</div>
-                                    <span className={`px-2 py-1 rounded-full text-xs ${trip.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                        {trip.paymentStatus}
+                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                        delivery.payment_status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                        delivery.payment_status === 'partial' ? 'bg-yellow-100 text-yellow-800' : 
+                                        'bg-gray-100 text-gray-800'
+                                    }`}>
+                                        {delivery.payment_status}
                                     </span>
                                 </div>
                                 <div>
-                                    <div className="text-gray-600 font-medium mb-1">Method:</div>
-                                    <span className="font-medium">{trip.paymentMethod}</span>
+                                    <div className="text-gray-600 font-medium mb-1">Payment By:</div>
+                                    <span className="font-medium">{delivery.payment_by}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Vehicle & Team */}
+                    {/* Delivery Info */}
                     <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 shadow-sm">
                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-sm sm:text-base lg:text-lg">
                             <IconTruck className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" />
-                            Vehicle & Team
+                            Delivery Information
                         </h4>
                         <div className="space-y-2 text-xs sm:text-sm">
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Vehicle:</span>
-                                <span className="font-medium">{trip.vehicleNo}</span>
+                                <span className="text-gray-600">Status:</span>
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(delivery.delivery_status)}`}>
+                                    {getStatusIcon(delivery.delivery_status)} {getStatusLabel(delivery.delivery_status)}
+                                </span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Driver:</span>
-                                <span className="font-medium">{trip.driverName}</span>
+                                <span className="text-gray-600">Actual Delivery Date:</span>
+                                <span className="font-medium">{delivery.actual_delivery_date ? new Date(delivery.actual_delivery_date).toLocaleDateString() : 'Not delivered'}</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Driver Contact:</span>
-                                <span className="font-medium">{trip.driverPhone}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Loadmen:</span>
-                                <span className="font-medium">{trip.loadmen.join(', ')}</span>
-                            </div>
+                            {delivery.special_instructions && (
+                                <div className="mt-2 pt-2 border-t border-gray-100">
+                                    <span className="text-gray-600 font-medium">Special Instructions:</span>
+                                    <p className="text-xs text-yellow-600 mt-1">{delivery.special_instructions}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1004,114 +678,103 @@ const DeliveryManagement = () => {
                         <div className="space-y-2 text-xs sm:text-sm">
                             <div className="flex justify-between">
                                 <span className="text-gray-600">Total Packages:</span>
-                                <span className="font-medium">{trip.totalPackages}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Total Weight:</span>
-                                <span className="font-medium">{trip.totalWeight}kg</span>
+                                <span className="font-medium">{delivery.packages?.length || 0}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-600">Total Amount:</span>
-                                <span className="font-medium text-green-600">₹{trip.totalAmount}</span>
+                                <span className="font-medium text-green-600">₹{delivery.total_amount}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Delivery Notes:</span>
-                                <span className="font-medium text-gray-700">{trip.deliveryNotes || 'None'}</span>
+                                <span className="text-gray-600">Paid Amount:</span>
+                                <span className="font-medium">₹{delivery.paid_amount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Due Amount:</span>
+                                <span className={`font-medium ${delivery.due_amount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                    ₹{delivery.due_amount}
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Package Details */}
-                <div className="mb-4 sm:mb-6">
-                    <h4 className="font-semibold text-gray-800 mb-3 sm:mb-4 text-sm sm:text-base lg:text-lg border-b pb-2">
-                        Package Details ({trip.packageDetails.length})
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {trip.packageDetails.map((pkg, index) => (
-                            <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <div className="font-medium text-gray-800 text-sm sm:text-base">
-                                            {pkg.packageType} × {pkg.quantity}
+                {delivery.packages && delivery.packages.length > 0 && (
+                    <div className="mb-4 sm:mb-6">
+                        <h4 className="font-semibold text-gray-800 mb-3 sm:mb-4 text-sm sm:text-base lg:text-lg border-b pb-2">
+                            Package Details ({delivery.packages.length})
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {delivery.packages.map((pkg, index) => (
+                                <div key={index} className="bg-white rounded-lg border border-gray-200 p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div>
+                                            <div className="font-medium text-gray-800 text-sm sm:text-base">
+                                                {pkg.packageType?.package_type_name} × {pkg.quantity}
+                                            </div>
                                         </div>
-                                        <div className="text-xs text-gray-600 mt-1">
-                                            ID: PKG{pkg.id.toString().padStart(3, '0')}
+                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(delivery.delivery_status)}`}>
+                                            {getStatusIcon(delivery.delivery_status)} {getStatusLabel(delivery.delivery_status)}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-1 text-xs sm:text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Pickup Charge:</span>
+                                            <span className="font-medium">₹{pkg.pickup_charge}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Drop Charge:</span>
+                                            <span className="font-medium">₹{pkg.drop_charge}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Handling Charge:</span>
+                                            <span className="font-medium">₹{pkg.handling_charge}</span>
+                                        </div>
+                                        <div className="flex justify-between font-medium pt-1 border-t border-gray-100">
+                                            <span className="text-gray-600">Total:</span>
+                                            <span className="text-primary">₹{pkg.total_package_charge}</span>
                                         </div>
                                     </div>
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(pkg.status)}`}>
-                                        {getStatusIcon(pkg.status)} {pkg.status}
-                                    </span>
-                                </div>
-                                
-                                <div className="space-y-1 text-xs sm:text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Weight:</span>
-                                        <span className="font-medium">{pkg.weight}kg</span>
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                        <button
+                                            onClick={() => viewPackageDetails(pkg, delivery)}
+                                            className="btn btn-outline-primary btn-xs sm:btn-sm w-full text-xs sm:text-sm"
+                                        >
+                                            <IconEye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                                            View Details
+                                        </button>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-600">Dimensions:</span>
-                                        <span className="font-medium">{pkg.dimensions}</span>
-                                    </div>
-                                    {pkg.specialInstructions && (
-                                        <div className="mt-2 pt-2 border-t border-gray-100">
-                                            <div className="text-xs text-gray-600 font-medium">Special Instructions:</div>
-                                            <div className="text-xs text-yellow-600">{pkg.specialInstructions}</div>
-                                        </div>
-                                    )}
                                 </div>
-                                
-                                <div className="mt-3 pt-3 border-t border-gray-100">
-                                    <button
-                                        onClick={() => viewPackageDetails(pkg, trip)}
-                                        className="btn btn-outline-primary btn-xs sm:btn-sm w-full text-xs sm:text-sm"
-                                    >
-                                        <IconEye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                                        View & Update Package
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 border-t border-gray-200">
                     <button
-                        onClick={() => handleStatusUpdate(trip)}
+                        onClick={() => handleStatusUpdate(delivery)}
                         className="btn btn-primary btn-sm sm:btn-md flex-1 text-xs sm:text-sm"
                     >
                         <IconEdit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                         Update Delivery Status
                     </button>
-                    
-                    {trip.currentStatus === 'out_for_delivery' && (
+                    {delivery.delivery_status === 'out_for_delivery' && (
                         <button
-                            onClick={() => handleQuickStatusUpdate(trip.id, 'delivered')}
+                            onClick={() => handleQuickStatusUpdate(delivery.booking_id, 'delivered')}
                             className="btn btn-success btn-sm sm:btn-md flex-1 text-xs sm:text-sm"
                         >
                             <IconCheck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                             Mark as Delivered
                         </button>
                     )}
-                    
-                    {trip.currentStatus === 'in_progress' && (
+                    {delivery.delivery_status === 'in_transit' && (
                         <button
-                            onClick={() => handleQuickStatusUpdate(trip.id, 'out_for_delivery')}
+                            onClick={() => handleQuickStatusUpdate(delivery.booking_id, 'out_for_delivery')}
                             className="btn btn-warning btn-sm sm:btn-md flex-1 text-xs sm:text-sm"
                         >
-                            <IconTruckDelivery className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                            Mark as Out for Delivery
-                        </button>
-                    )}
-                    
-                    {trip.currentStatus === 'at_warehouse' && (
-                        <button
-                            onClick={() => handleQuickStatusUpdate(trip.id, 'in_progress')}
-                            className="btn btn-info btn-sm sm:btn-md flex-1 text-xs sm:text-sm"
-                        >
                             <IconTruck className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                            Start Delivery
+                            Mark as Out for Delivery
                         </button>
                     )}
                 </div>
@@ -1122,14 +785,14 @@ const DeliveryManagement = () => {
     // Table columns
     const columns = useMemo(() => [
         {
-            Header: 'Trip No',
-            accessor: 'tripNo',
+            Header: 'Booking No',
+            accessor: 'booking_number',
             Cell: ({ value, row }) => {
-                const trip = row.original;
+                const delivery = row.original;
                 return (
                     <div className="font-medium">
                         <div className="text-primary font-bold text-sm sm:text-base">{value}</div>
-                        <div className="text-xs text-gray-500 mt-1">{trip.bookingId}</div>
+                        <div className="text-xs text-gray-500 mt-1">{delivery.llr_number || 'No LLR'}</div>
                     </div>
                 );
             },
@@ -1140,18 +803,18 @@ const DeliveryManagement = () => {
             Header: 'Customer & Route',
             accessor: 'customerRoute',
             Cell: ({ row }) => {
-                const trip = row.original;
+                const delivery = row.original;
                 return (
                     <div className="space-y-1">
                         <div className="font-medium text-gray-800 text-sm sm:text-base">
-                            {trip.customerName}
+                            {delivery.fromCustomer?.customer_name}
                         </div>
                         <div className="text-xs text-gray-600">
-                            {trip.customerPhone}
+                            {delivery.fromCustomer?.customer_number}
                         </div>
                         <div className="flex items-center text-xs text-gray-500 mt-1">
                             <IconMapPin className="w-3 h-3 mr-1" />
-                            {trip.fromBranch} → {trip.toBranch}
+                            {delivery.fromCenter?.office_center_name} → {delivery.toCenter?.office_center_name}
                         </div>
                     </div>
                 );
@@ -1160,42 +823,14 @@ const DeliveryManagement = () => {
             mobileFull: true,
         },
         {
-            Header: 'Delivery Info',
-            accessor: 'deliveryInfo',
+            Header: 'Receiver',
+            accessor: 'receiver',
             Cell: ({ row }) => {
-                const trip = row.original;
+                const delivery = row.original;
                 return (
                     <div className="space-y-1">
-                        <div className="text-xs sm:text-sm">
-                            <span className="font-medium">{trip.tripDate}</span>
-                        </div>
-                        <div className="text-xs text-gray-600">
-                            {trip.scheduledTime}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                            Est: {trip.estimatedDelivery}
-                        </div>
-                    </div>
-                );
-            },
-            width: 120,
-            mobileFull: false,
-        },
-        {
-            Header: 'Vehicle & Driver',
-            accessor: 'vehicleDriver',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="space-y-1">
-                        <div className="text-xs sm:text-sm">
-                            <IconTruck className="w-3 h-3 inline mr-1" />
-                            {trip.vehicleNo}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                            <IconDriver className="w-3 h-3 inline mr-1" />
-                            {trip.driverName}
-                        </div>
+                        <div className="text-sm font-medium">{delivery.toCustomer?.customer_name}</div>
+                        <div className="text-xs text-gray-600">{delivery.toCustomer?.customer_number}</div>
                     </div>
                 );
             },
@@ -1203,19 +838,28 @@ const DeliveryManagement = () => {
             mobileFull: false,
         },
         {
-            Header: 'Status',
-            accessor: 'currentStatus',
-            Cell: ({ value, row }) => {
-                const trip = row.original;
+            Header: 'Packages',
+            accessor: 'packages',
+            Cell: ({ row }) => {
+                const delivery = row.original;
                 return (
                     <div className="space-y-1">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(value)}`}>
-                            {getStatusIcon(value)} {value.replace('_', ' ')}
-                        </span>
-                        <div className="text-xs text-gray-500">
-                            {trip.totalPackages} packages
-                        </div>
+                        <div className="text-sm font-medium">{delivery.packages?.length || 0} items</div>
+                        <div className="text-xs text-gray-600">₹{delivery.total_amount}</div>
                     </div>
+                );
+            },
+            width: 100,
+            mobileFull: false,
+        },
+        {
+            Header: 'Status',
+            accessor: 'delivery_status',
+            Cell: ({ value }) => {
+                return (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(value)}`}>
+                        {getStatusIcon(value)} {getStatusLabel(value)}
+                    </span>
                 );
             },
             width: 130,
@@ -1225,31 +869,29 @@ const DeliveryManagement = () => {
             Header: 'Actions',
             accessor: 'actions',
             Cell: ({ row }) => {
-                const trip = row.original;
+                const delivery = row.original;
                 return (
                     <div className="flex flex-wrap gap-1 sm:gap-2">
-                        <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
-                            <button 
-                                onClick={() => toggleTripDetails(trip.id)} 
+                        <Tippy content={delivery.expanded ? "Hide Details" : "View Details"}>
+                            <button
+                                onClick={() => toggleDeliveryDetails(delivery.booking_id)}
                                 className="btn btn-outline-primary btn-xs sm:btn-sm p-1 sm:p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
                             >
-                                {trip.expanded ? <IconChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <IconEye className="w-3 h-3 sm:w-4 sm:h-4" />}
+                                {delivery.expanded ? <IconChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <IconEye className="w-3 h-3 sm:w-4 sm:h-4" />}
                             </button>
                         </Tippy>
-                        
                         <Tippy content="Update Status">
-                            <button 
-                                onClick={() => handleStatusUpdate(trip)} 
+                            <button
+                                onClick={() => handleStatusUpdate(delivery)}
                                 className="btn btn-outline-success btn-xs sm:btn-sm p-1 sm:p-1.5 rounded-lg hover:bg-success hover:text-white transition-colors"
                             >
                                 <IconEdit className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                         </Tippy>
-                        
-                        {trip.currentStatus === 'out_for_delivery' && (
+                        {delivery.delivery_status === 'out_for_delivery' && (
                             <Tippy content="Mark Delivered">
-                                <button 
-                                    onClick={() => handleQuickStatusUpdate(trip.id, 'delivered')} 
+                                <button
+                                    onClick={() => handleQuickStatusUpdate(delivery.booking_id, 'delivered')}
                                     className="btn btn-outline-green btn-xs sm:btn-sm p-1 sm:p-1.5 rounded-lg hover:bg-green-500 hover:text-white transition-colors"
                                 >
                                     <IconCheck className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -1270,45 +912,150 @@ const DeliveryManagement = () => {
             <div className="mb-4 sm:mb-6 lg:mb-8">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 sm:mb-6">
                     <div className="w-full lg:w-auto">
-                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Delivery Status</h1>
+                        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-800">Delivery Management</h1>
                         <p className="text-gray-600 mt-1 text-xs sm:text-sm lg:text-base">
-                            Track and update delivery status for all trips
+                            Track and update delivery status for all bookings
                         </p>
                     </div>
                 </div>
 
-                {/* Branch Filter */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                    <div className="w-full sm:w-auto">
-                        <div className="flex items-center space-x-2">
-                            <IconBuilding className="w-4 h-4 text-gray-500" />
-                            <span className="text-xs sm:text-sm font-medium text-gray-700">Filter by Branch:</span>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3 lg:gap-4 mb-4 sm:mb-6">
+                    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-gray-600">Total</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.total}</p>
                         </div>
-                        <Select
-                            options={branches}
-                            value={branches.find(branch => branch.value === selectedBranch)}
-                            onChange={(option) => setSelectedBranch(option.value)}
-                            className="react-select mt-2 w-full sm:w-48 lg:w-64"
-                            classNamePrefix="select"
-                            styles={{
-                                control: (base) => ({
-                                    ...base,
-                                    minHeight: '38px',
-                                    fontSize: window.innerWidth < 640 ? '12px' : '14px',
-                                }),
-                            }}
-                        />
                     </div>
-                    
-                    <div className="w-full sm:w-auto">
-                        <div className="text-xs sm:text-sm text-gray-500 text-center sm:text-right">
-                            Showing {filteredTrips.length} of {trips.length} trips
+                    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-gray-600">Not Started</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.not_started}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-gray-600">In Transit</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.in_transit}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-gray-600">Out for Del</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.out_for_delivery}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-gray-600">Delivered</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.delivered}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-gray-600">Picked Up</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.picked_up}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
+                        <div className="text-center">
+                            <p className="text-xs font-medium text-gray-600">Cancelled</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.cancelled}</p>
                         </div>
                     </div>
                 </div>
+
+                {/* Filters */}
+                <div className="bg-white rounded-lg shadow-sm p-3 border border-gray-200 mb-3">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                        <div className="relative flex-1">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search by booking number, customer name, phone..."
+                                    className="form-input w-full pl-10"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowFilters(!showFilters)}
+                                className="btn btn-outline-primary"
+                            >
+                                <IconFilter className="w-4 h-4 mr-2" />
+                                Filters
+                            </button>
+                            <div className="w-40">
+                                <Select
+                                    options={branches}
+                                    value={branches.find(branch => branch.value === selectedBranch)}
+                                    onChange={(option) => setSelectedBranch(option.value)}
+                                    className="react-select"
+                                    classNamePrefix="select"
+                                    placeholder="Branch"
+                                    styles={{
+                                        control: (base) => ({
+                                            ...base,
+                                            minHeight: '38px',
+                                            fontSize: '14px',
+                                        }),
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Filter Panel */}
+                    {showFilters && (
+                        <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium">From Date</label>
+                                    <input
+                                        type="date"
+                                        name="fromDate"
+                                        value={filters.fromDate}
+                                        onChange={handleFilterChange}
+                                        className="form-input"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1 text-sm font-medium">To Date</label>
+                                    <input
+                                        type="date"
+                                        name="toDate"
+                                        value={filters.toDate}
+                                        onChange={handleFilterChange}
+                                        className="form-input"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end mt-4">
+                                <button
+                                    type="button"
+                                    onClick={clearFilters}
+                                    className="btn btn-outline-secondary mr-2"
+                                >
+                                    Clear Filters
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowFilters(false)}
+                                    className="btn btn-primary"
+                                >
+                                    Apply Filters
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Trips Table */}
+            {/* Deliveries Table */}
             <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
                 <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200 bg-white">
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
@@ -1318,117 +1065,122 @@ const DeliveryManagement = () => {
                                 Update delivery status and track progress
                             </p>
                         </div>
+                        <div className="text-xs sm:text-sm text-gray-500">
+                            Showing {filteredDeliveries.length} of {deliveries.length} deliveries
+                        </div>
                     </div>
                 </div>
                 <div className="p-3 sm:p-4">
-                    <ResponsiveTable
-                        columns={columns}
-                        data={filteredTrips}
-                        pageSize={pageSize}
-                        pageIndex={currentPage}
-                        totalCount={filteredTrips.length}
-                        totalPages={Math.ceil(filteredTrips.length / pageSize)}
-                        onPaginationChange={handlePaginationChange}
-                        onSearchChange={handleSearch}
-                        pagination={true}
-                        isSearchable={true}
-                        searchPlaceholder="Search trips by trip no, customer, phone, vehicle..."
-                        showPageSize={true}
-                        showStatusFilter={true}
-                        statusFilterValue={selectedStatus}
-                        onStatusFilterChange={setSelectedStatus}
-                    />
-                    
-                    {/* Render Trip Details for expanded rows */}
-                    {trips.filter(trip => trip.expanded).map(trip => (
-                        <TripDetails key={trip.id} trip={trip} />
-                    ))}
+                    {loading ? (
+                        <div className="flex items-center justify-center h-64">
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                            <span className="ml-3">Loading deliveries...</span>
+                        </div>
+                    ) : error ? (
+                        <div className="text-center py-8 text-danger">
+                            Error loading deliveries: {error}
+                        </div>
+                    ) : filteredDeliveries.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                            No deliveries found.
+                        </div>
+                    ) : (
+                        <>
+                            <ResponsiveTable
+                                columns={columns}
+                                data={filteredDeliveries}
+                                pageSize={pageSize}
+                                pageIndex={currentPage}
+                                onPaginationChange={handlePaginationChange}
+                                onSearchChange={handleSearch}
+                                pagination={true}
+                                isSearchable={false}
+                                searchPlaceholder="Search deliveries..."
+                                showPageSize={true}
+                                showStatusFilter={true}
+                                statusFilterValue={selectedStatus}
+                                onStatusFilterChange={setSelectedStatus}
+                            />
+                            {/* Render Delivery Details for expanded rows */}
+                            {filteredDeliveries.filter(d => d.expanded).map(delivery => (
+                                <DeliveryDetails key={delivery.booking_id} delivery={delivery} />
+                            ))}
+                        </>
+                    )}
                 </div>
             </div>
 
             {/* Update Status Modal */}
-            {showUpdateModal && selectedTrip && (
+            {showUpdateModal && selectedDelivery && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
                         <div className="p-4 sm:p-6 border-b border-gray-200">
                             <h3 className="text-lg sm:text-xl font-bold text-gray-800">
-                                Update Delivery Status - {selectedTrip.tripNo}
+                                Update Delivery Status
                             </h3>
                             <p className="text-gray-600 mt-1 text-sm">
-                                Customer: {selectedTrip.customerName} | From: {selectedTrip.fromBranch} → To: {selectedTrip.toBranch}
+                                Booking: {selectedDelivery.booking_number}
                             </p>
                         </div>
-                        
                         <div className="p-4 sm:p-6">
-                          
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Delivery Status
+                                    </label>
+                                    <select
+                                        value={updateStatus}
+                                        onChange={(e) => setUpdateStatus(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+                                    >
+                                        {statusOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.icon} {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-                            {/* Package Status Updates */}
-                            <div className="mb-6">
-                                <label className="block text-sm sm:text-base font-medium text-gray-700 mb-3">
-                                    Update Package Statuses ({selectedTrip.packageDetails.length} packages)
-                                </label>
-                                <div className="space-y-3">
-                                    {selectedTrip.packageDetails.map((pkg) => (
-                                        <div key={pkg.id} className="bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3">
-                                                <div>
-                                                    <div className="font-medium text-gray-800 text-sm sm:text-base">
-                                                        {pkg.packageType} × {pkg.quantity}
-                                                    </div>
-                                                    <div className="text-xs text-gray-600 mt-1">
-                                                        Weight: {pkg.weight}kg • Size: {pkg.dimensions}
-                                                    </div>
-                                                    {pkg.specialInstructions && (
-                                                        <div className="text-xs text-yellow-600 mt-1">
-                                                            Note: {pkg.specialInstructions}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="mt-2 sm:mt-0">
-                                                    <select
-                                                        value={packageStatuses[pkg.id] || pkg.status}
-                                                        onChange={(e) => handleUpdatePackageStatus(pkg.id, e.target.value)}
-                                                        className="border border-gray-300 rounded px-3 py-2 text-sm bg-white"
-                                                    >
-                                                        {statusOptions.map((option) => (
-                                                            <option key={option.value} value={option.value}>
-                                                                {option.label}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
+                                {updateStatus === 'delivered' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Actual Delivery Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={actualDeliveryDate}
+                                            onChange={(e) => setActualDeliveryDate(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+                                            max={new Date().toISOString().split('T')[0]}
+                                        />
+                                    </div>
+                                )}
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Delivery Notes
+                                    </label>
+                                    <textarea
+                                        value={deliveryNotes}
+                                        onChange={(e) => setDeliveryNotes(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm"
+                                        rows="3"
+                                        placeholder="Add any delivery notes..."
+                                    />
                                 </div>
                             </div>
 
-                            {/* Delivery Notes */}
-                            <div className="mb-6">
-                                <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                                    Delivery Notes
-                                </label>
-                                <textarea
-                                    value={deliveryNotes}
-                                    onChange={(e) => setDeliveryNotes(e.target.value)}
-                                    className="w-full border border-gray-300 rounded-lg p-3 text-sm"
-                                    rows="3"
-                                    placeholder="Add any delivery notes or special instructions..."
-                                />
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-200">
+                            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 mt-6 pt-4 border-t border-gray-200">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowUpdateModal(false);
-                                        setSelectedTrip(null);
+                                        setSelectedDelivery(null);
                                         setUpdateStatus('');
                                         setDeliveryNotes('');
-                                        setPackageStatuses({});
+                                        setActualDeliveryDate('');
                                     }}
-                                    className="btn btn-outline-secondary hover:shadow-md transition-all duration-300 text-xs sm:text-sm lg:text-base py-2 sm:py-3 px-4 w-full sm:w-auto"
+                                    className="btn btn-outline-secondary w-full sm:w-auto"
                                 >
                                     Cancel
                                 </button>
@@ -1436,7 +1188,7 @@ const DeliveryManagement = () => {
                                     type="button"
                                     onClick={submitStatusUpdate}
                                     disabled={!updateStatus}
-                                    className={`btn shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm lg:text-base py-2 sm:py-3 px-4 sm:px-6 w-full sm:w-auto ${
+                                    className={`btn shadow-lg w-full sm:w-auto ${
                                         !updateStatus ? 'bg-gray-300 cursor-not-allowed' : 'btn-primary'
                                     }`}
                                 >
@@ -1457,64 +1209,44 @@ const DeliveryManagement = () => {
                                 Package Details
                             </h3>
                             <p className="text-gray-600 mt-1 text-sm">
-                                Trip: {selectedPackage.tripNo}
+                                Booking: {selectedPackage.bookingNumber}
                             </p>
                         </div>
-                        
                         <div className="p-4 sm:p-6">
                             <div className="space-y-4">
                                 <div className="bg-gray-50 p-4 rounded-lg">
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
                                             <div className="text-xs text-gray-600">Package Type</div>
-                                            <div className="font-medium text-sm sm:text-base">{selectedPackage.packageType}</div>
+                                            <div className="font-medium text-sm">{selectedPackage.packageType?.package_type_name}</div>
                                         </div>
                                         <div>
                                             <div className="text-xs text-gray-600">Quantity</div>
-                                            <div className="font-medium text-sm sm:text-base">{selectedPackage.quantity}</div>
+                                            <div className="font-medium text-sm">{selectedPackage.quantity}</div>
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-600">Weight</div>
-                                            <div className="font-medium text-sm sm:text-base">{selectedPackage.weight}kg</div>
+                                            <div className="text-xs text-gray-600">Pickup Charge</div>
+                                            <div className="font-medium text-sm">₹{selectedPackage.pickup_charge}</div>
                                         </div>
                                         <div>
-                                            <div className="text-xs text-gray-600">Dimensions</div>
-                                            <div className="font-medium text-sm sm:text-base">{selectedPackage.dimensions}</div>
+                                            <div className="text-xs text-gray-600">Drop Charge</div>
+                                            <div className="font-medium text-sm">₹{selectedPackage.drop_charge}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-gray-600">Handling Charge</div>
+                                            <div className="font-medium text-sm">₹{selectedPackage.handling_charge}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-xs text-gray-600">Total</div>
+                                            <div className="font-medium text-sm text-primary">₹{selectedPackage.total_package_charge}</div>
                                         </div>
                                     </div>
-                                    
-                                    {selectedPackage.specialInstructions && (
-                                        <div className="mt-4 pt-4 border-t border-gray-200">
-                                            <div className="text-xs text-gray-600">Special Instructions</div>
-                                            <div className="text-sm text-yellow-600">{selectedPackage.specialInstructions}</div>
-                                        </div>
-                                    )}
                                 </div>
-
                                 <div>
-                                    <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
-                                        Update Package Status
-                                    </label>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                        {statusOptions.map((option) => (
-                                            <button
-                                                key={option.value}
-                                                type="button"
-                                                onClick={() => updateSinglePackageStatus(selectedPackage.id, option.value)}
-                                                className={`p-2 rounded-lg border flex flex-col items-center justify-center transition-all ${
-                                                    selectedPackage.status === option.value
-                                                        ? 'border-primary bg-primary/10 text-primary'
-                                                        : 'border-gray-300 hover:border-primary hover:bg-primary/5'
-                                                }`}
-                                            >
-                                                <span className="text-sm mb-1">{option.icon}</span>
-                                                <span className="text-xs font-medium">{option.label}</span>
-                                            </button>
-                                        ))}
-                                    </div>
+                                    <div className="text-xs text-gray-600 mb-1">Route</div>
+                                    <div className="text-sm">{selectedPackage.fromCenter} → {selectedPackage.toCenter}</div>
                                 </div>
                             </div>
-
                             <div className="mt-6 pt-4 border-t border-gray-200">
                                 <button
                                     type="button"
@@ -1522,7 +1254,7 @@ const DeliveryManagement = () => {
                                         setShowPackageModal(false);
                                         setSelectedPackage(null);
                                     }}
-                                    className="btn btn-outline-primary w-full text-sm sm:text-base"
+                                    className="btn btn-outline-primary w-full"
                                 >
                                     Close
                                 </button>
