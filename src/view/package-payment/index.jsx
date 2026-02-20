@@ -278,30 +278,30 @@ const PendingPayments = () => {
                 </div>
             ),
         },
-        {
-            Header: 'BREAKDOWN',
-            accessor: 'breakdown',
-            Cell: ({ row }) => (
-                <div className="text-sm">
-                    <div className="mb-1">
-                        <span className="text-blue-600 font-medium">Sender:</span> ₹{parseFloat(row.original.summary?.as_payer?.total || 0).toFixed(2)}
-                    </div>
-                    <div>
-                        <span className="text-green-600 font-medium">Receiver:</span> ₹{parseFloat(row.original.summary?.as_recipient?.total || 0).toFixed(2)}
-                    </div>
-                </div>
-            ),
-        },
-        {
-            Header: 'PAYMENTS',
-            accessor: 'payments',
-            Cell: ({ row }) => (
-                <div className="text-center">
-                    <div className="font-bold text-lg">{row.original.summary?.payments?.total_count || 0}</div>
-                    <div className="text-xs text-gray-500">₹{parseFloat(row.original.summary?.payments?.total_amount || 0).toFixed(2)}</div>
-                </div>
-            ),
-        },
+        // {
+        //     Header: 'BREAKDOWN',
+        //     accessor: 'breakdown',
+        //     Cell: ({ row }) => (
+        //         <div className="text-sm">
+        //             <div className="mb-1">
+        //                 <span className="text-blue-600 font-medium">Sender:</span> ₹{parseFloat(row.original.summary?.as_payer?.total || 0).toFixed(2)}
+        //             </div>
+        //             <div>
+        //                 <span className="text-green-600 font-medium">Receiver:</span> ₹{parseFloat(row.original.summary?.as_recipient?.total || 0).toFixed(2)}
+        //             </div>
+        //         </div>
+        //     ),
+        // },
+        // {
+        //     Header: 'PAYMENTS',
+        //     accessor: 'payments',
+        //     Cell: ({ row }) => (
+        //         <div className="text-center">
+        //             <div className="font-bold text-lg">{row.original.summary?.payments?.total_count || 0}</div>
+        //             <div className="text-xs text-gray-500">₹{parseFloat(row.original.summary?.payments?.total_amount || 0).toFixed(2)}</div>
+        //         </div>
+        //     ),
+        // },
         {
             Header: 'ACTIONS',
             accessor: 'actions',

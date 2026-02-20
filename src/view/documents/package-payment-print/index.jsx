@@ -39,8 +39,14 @@ const PackageReportPrint = () => {
 
             if (result?.data) {
                 setPendingPayments(result.data);
+                
+                // Filter to only show bookings where customer is responsible for payment
                 const allPending = result.data.pending_bookings || [];
-                setPendingShipments(allPending);
+                const customerPaysShipments = allPending.filter(
+                    shipment => shipment.is_responsible_for_payment === true
+                );
+                
+                setPendingShipments(customerPaysShipments);
                 
                 setSelectedCustomer({
                     customer_id: result.data.customer_id,
@@ -173,6 +179,26 @@ const PackageReportPrint = () => {
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
                     <p className="text-gray-600 mt-4">Loading pending payments...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Show message if no shipments where customer needs to pay
+    if (pendingShipments.length === 0) {
+        return (
+            <div className="p-4 bg-gray-100 min-h-screen">
+                <div className="bg-white mx-auto ledger-container flex items-center justify-center">
+                    <div className="text-center">
+                        <h2 className="text-xl font-bold mb-4">No Pending Payments</h2>
+                        <p className="text-gray-600 mb-6">You have no bills that need to be paid.</p>
+                        <button
+                            onClick={handleBack}
+                            className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                        >
+                            Go Back
+                        </button>
+                    </div>
                 </div>
             </div>
         );

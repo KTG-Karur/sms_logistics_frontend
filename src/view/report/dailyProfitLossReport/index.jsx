@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
 import IconDownload from '../../../components/Icon/IconFile';
 import IconPrinter from '../../../components/Icon/IconPrinter';
@@ -13,473 +13,217 @@ import IconUsers from '../../../components/Icon/IconUsers';
 import IconReceipt from '../../../components/Icon/IconReceipt';
 import IconCheckCircle from '../../../components/Icon/IconCheckCircle';
 import IconClock from '../../../components/Icon/IconClock';
+import IconBuilding from '../../../components/Icon/IconBuilding';
+import IconX from '../../../components/Icon/IconX';
 import Table from '../../../util/Table';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
+import { getDateRangeProfitLossApi } from '../../../api/ReportApi';
+import { getOfficeCenters } from '../../../redux/officeCenterSlice';
+import { findArrObj, showMessage } from '../../../util/AllFunction';
+import Select from 'react-select';
+import _ from 'lodash';
 
 const ProfitLossReport = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    // Generate separate packages and expenses data
-    const generateDataForDate = (selectedDate) => {
-        // Generate Packages Data
-        const packages = generatePackagesData(selectedDate);
-        
-        // Generate Expenses Data (separate from packages)
-        const expenses = generateExpensesData(selectedDate);
-        
-        // Calculate totals
-        const totalRevenue = packages.reduce((sum, pkg) => sum + pkg.packageValue, 0);
-        const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const totalProfit = totalRevenue - totalExpenses;
-        const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : 0;
-        
-        return {
-            date: selectedDate,
-            dayOfWeek: moment(selectedDate).format('dddd'),
-            packages,
-            expenses, // Separate expenses array
-            dailyExpenses: expenses.filter(e => e.type === 'daily'), // Daily operational expenses
-            monthlyExpenses: expenses.filter(e => e.type === 'monthly'), // Monthly recurring expenses
-            otherExpenses: expenses.filter(e => e.type === 'other'), // Other one-time expenses
-            
-            // Summary
-            totalPackages: packages.length,
-            totalRevenue,
-            totalExpenses,
-            totalProfit,
-            profitMargin: parseFloat(profitMargin),
-            
-            // Expense Breakdown
-            totalVehicleExpense: expenses.filter(e => e.category === 'vehicle').reduce((sum, e) => sum + e.amount, 0),
-            totalStaffExpense: expenses.filter(e => e.category === 'staff').reduce((sum, e) => sum + e.amount, 0),
-            totalFuelExpense: expenses.filter(e => e.subCategory === 'fuel').reduce((sum, e) => sum + e.amount, 0),
-            totalMaintenanceExpense: expenses.filter(e => e.subCategory === 'maintenance').reduce((sum, e) => sum + e.amount, 0),
-            totalSalaryExpense: expenses.filter(e => e.subCategory === 'salary').reduce((sum, e) => sum + e.amount, 0),
-            totalOtherExpense: expenses.filter(e => e.category === 'other').reduce((sum, e) => sum + e.amount, 0),
-            
-            // Stats
-            profitablePackages: packages.filter(p => p.packageProfit > 0).length,
-            lossPackages: packages.filter(p => p.packageProfit <= 0).length,
-            isProfitDay: totalProfit > 0,
-            status: totalProfit > 0 ? 'profit' : 'loss'
-        };
-    };
+    // Get login info and permissions
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Reports');
+    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
 
-    const generatePackagesData = (selectedDate) => {
-        const packages = [];
-        const packageTypes = ['Small Package', 'Medium Package', 'Large Package', 'XL Package', 'Document'];
-        
-        // Generate 10-20 packages for the day
-        const packageCount = Math.floor(Math.random() * 10) + 10;
-        
-        for (let i = 1; i <= packageCount; i++) {
-            const packageType = packageTypes[Math.floor(Math.random() * packageTypes.length)];
-            
-            // Package revenue only (no expenses included)
-            let packageValue = 0;
-            switch(packageType) {
-                case 'Small Package': packageValue = Math.floor(Math.random() * 500) + 200; break;
-                case 'Medium Package': packageValue = Math.floor(Math.random() * 1000) + 500; break;
-                case 'Large Package': packageValue = Math.floor(Math.random() * 2000) + 1000; break;
-                case 'XL Package': packageValue = Math.floor(Math.random() * 5000) + 2000; break;
-                case 'Document': packageValue = Math.floor(Math.random() * 200) + 50; break;
-            }
-            
-            packages.push({
-                id: i,
-                packageId: `PKG-${moment(selectedDate).format('DDMM')}-${i.toString().padStart(3, '0')}`,
-                packageType,
-                weight: `${Math.floor(Math.random() * 50) + 5} kg`,
-                dimensions: `${Math.floor(Math.random() * 50) + 20}x${Math.floor(Math.random() * 50) + 20}x${Math.floor(Math.random() * 50) + 20} cm`,
-                fromLocation: ['Chennai', 'Bangalore', 'Mumbai', 'Delhi', 'Hyderabad'][Math.floor(Math.random() * 5)],
-                toLocation: ['Chennai', 'Bangalore', 'Mumbai', 'Delhi', 'Hyderabad'][Math.floor(Math.random() * 5)],
-                packageValue,
-                status: ['Delivered', 'In Transit', 'Pending'][Math.floor(Math.random() * 3)],
-                deliveryTime: moment(selectedDate).add(Math.floor(Math.random() * 8), 'hours').format('HH:mm'),
-                
-                // Vehicle & Staff Assignment (for reference only, expenses are separate)
-                vehicleType: ['Tata Ace', 'Eicher Truck', 'Ashok Leyland', 'Mahindra Bolero', 'Tata 407'][Math.floor(Math.random() * 5)],
-                driverName: ['Rajesh Kumar', 'Vikram Singh', 'Sanjay Verma', 'Arun Mehta', 'Mohan Reddy'][Math.floor(Math.random() * 5)],
-                staffName: ['Suresh Patel', 'Ajay Sharma', 'Ramesh Gupta', 'Prakash Joshi', 'Kumar Swamy'][Math.floor(Math.random() * 5)],
-            });
-        }
-        
-        return packages;
-    };
-
-    const generateExpensesData = (selectedDate) => {
-        const expenses = [];
-        
-        // Vehicle Expenses (Daily operational expenses)
-        const vehicleExpenses = [
-            { id: 1, name: 'Diesel for Truck TN-1234', category: 'vehicle', subCategory: 'fuel', amount: Math.floor(Math.random() * 5000) + 2000, type: 'daily', description: 'Fuel purchase for daily operations', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 5000) + 2000, balance: 0 },
-            { id: 2, name: 'Truck Maintenance', category: 'vehicle', subCategory: 'maintenance', amount: Math.floor(Math.random() * 3000) + 1000, type: 'daily', description: 'Regular service and repairs', date: selectedDate, status: 'partially_paid', paidAmount: Math.floor(Math.random() * 2000) + 500, balance: Math.floor(Math.random() * 1000) + 500 },
-            { id: 3, name: 'Toll Charges', category: 'vehicle', subCategory: 'toll', amount: Math.floor(Math.random() * 1000) + 300, type: 'daily', description: 'Highway toll payments', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 1000) + 300, balance: 0 },
-            { id: 4, name: 'Parking Fees', category: 'vehicle', subCategory: 'parking', amount: Math.floor(Math.random() * 500) + 100, type: 'daily', description: 'Daily parking charges', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 500) + 100, balance: 0 },
-        ];
-        
-        // Staff Expenses
-        const staffExpenses = [
-            { id: 5, name: 'Rajesh Kumar - Driver Salary', category: 'staff', subCategory: 'salary', amount: 2000, type: 'daily', description: 'Daily driver payment', date: selectedDate, status: 'unpaid', paidAmount: 0, balance: 2000 },
-            { id: 6, name: 'Suresh Patel - Loadman Salary', category: 'staff', subCategory: 'salary', amount: 1200, type: 'daily', description: 'Daily loadman payment', date: selectedDate, status: 'unpaid', paidAmount: 0, balance: 1200 },
-            { id: 7, name: 'Vikram Singh - Overtime', category: 'staff', subCategory: 'overtime', amount: 800, type: 'daily', description: 'Overtime payment for extra hours', date: selectedDate, status: 'paid', paidAmount: 800, balance: 0 },
-            { id: 8, name: 'Ajay Sharma - Helper', category: 'staff', subCategory: 'salary', amount: 900, type: 'daily', description: 'Daily helper payment', date: selectedDate, status: 'partially_paid', paidAmount: 500, balance: 400 },
-        ];
-        
-        // Monthly Expenses (allocated daily)
-        const monthlyExpenses = [
-            { id: 9, name: 'Office Rent (Monthly)', category: 'overhead', subCategory: 'rent', amount: 20000/30, type: 'monthly', description: 'Daily allocation of office rent', date: selectedDate, status: 'paid', paidAmount: 20000/30, balance: 0 },
-            { id: 10, name: 'Vehicle Insurance (Monthly)', category: 'vehicle', subCategory: 'insurance', amount: 15000/30, type: 'monthly', description: 'Daily allocation of insurance', date: selectedDate, status: 'unpaid', paidAmount: 0, balance: 15000/30 },
-            { id: 11, name: 'Employee Benefits (Monthly)', category: 'staff', subCategory: 'benefits', amount: 10000/30, type: 'monthly', description: 'Daily allocation of benefits', date: selectedDate, status: 'paid', paidAmount: 10000/30, balance: 0 },
-        ];
-        
-        // Other Expenses
-        const otherExpenses = [
-            { id: 12, name: 'Office Supplies', category: 'other', subCategory: 'supplies', amount: Math.floor(Math.random() * 500) + 100, type: 'other', description: 'Purchase of office stationery', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 500) + 100, balance: 0 },
-            { id: 13, name: 'Miscellaneous Expenses', category: 'other', subCategory: 'misc', amount: Math.floor(Math.random() * 300) + 50, type: 'other', description: 'Other miscellaneous expenses', date: selectedDate, status: 'paid', paidAmount: Math.floor(Math.random() * 300) + 50, balance: 0 },
-        ];
-        
-        return [...vehicleExpenses, ...staffExpenses, ...monthlyExpenses, ...otherExpenses];
-    };
+    // Get office centers from Redux
+    const officeCentersState = useSelector((state) => state.OfficeCenterSlice || {});
+    const { officeCentersData = [], loading: centersLoading = false } = officeCentersState;
 
     // States
     const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
-    const [dateData, setDateData] = useState(null);
-    const [viewMode, setViewMode] = useState('packages'); // 'packages' or 'expenses'
+    const [selectedCenter, setSelectedCenter] = useState(null);
+    const [reportData, setReportData] = useState(null);
+    const [viewMode, setViewMode] = useState('payments'); // 'payments', 'expenses', 'summary', 'customers'
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    // Modal states
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
 
     useEffect(() => {
-        dispatch(setPageTitle('Daily Profit & Loss'));
-        // Load today's data initially
-        const data = generateDataForDate(selectedDate);
-        setDateData(data);
+        dispatch(setPageTitle('Profit & Loss Report'));
+        // Fetch office centers for dropdown
+        dispatch(getOfficeCenters({}));
     }, []);
 
     useEffect(() => {
         if (selectedDate) {
-            const data = generateDataForDate(selectedDate);
-            setDateData(data);
+            fetchReportData();
         }
-    }, [selectedDate]);
+    }, [selectedDate, selectedCenter]);
 
-    const handleDateChange = (e) => {
-        setSelectedDate(e.target.value);
+    const fetchReportData = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const request = {
+                startDate: selectedDate,
+                endDate: selectedDate,
+                centerId: selectedCenter?.value || null, // Send null for all centers
+            };
+
+            const response = await getDateRangeProfitLossApi(request);
+
+            if (response && response.data) {
+                setReportData(response.data);
+            } else {
+                setError('No data found for selected date');
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to fetch report data');
+            showMessage('error', err.message || 'Failed to fetch report data');
+            console.error('Error fetching report:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
-            maximumFractionDigits: 0
-        }).format(amount);
+            maximumFractionDigits: 0,
+        }).format(amount || 0);
     };
 
-    // Package Columns
-    const packageColumns = [
-        {
-            Header: 'Package ID',
-            accessor: 'packageId',
-            width: 120,
-            Cell: ({ value }) => <span className="font-bold text-blue-600">{value}</span>,
-        },
-        {
-            Header: 'Package Details',
-            accessor: 'packageDetails',
-            Cell: ({ row }) => (
-                <div>
-                    <div className="font-medium">{row.original.packageType}</div>
-                    <div className="text-xs text-gray-500">
-                        {row.original.weight} | {row.original.dimensions}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                        {row.original.fromLocation} → {row.original.toLocation}
-                    </div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Revenue',
-            accessor: 'packageValue',
-            Cell: ({ value }) => (
-                <div className="font-bold text-green-700">{formatCurrency(value)}</div>
-            ),
-        },
-        {
-            Header: 'Vehicle & Staff',
-            accessor: 'vehicleStaff',
-            Cell: ({ row }) => (
-                <div className="text-sm">
-                    <div className="font-medium">{row.original.vehicleType}</div>
-                    <div className="text-xs text-gray-500">{row.original.driverName}</div>
-                    <div className="text-xs text-gray-500 mt-1">{row.original.staffName}</div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Status',
-            accessor: 'status',
-            Cell: ({ value }) => (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    value === 'Delivered' ? 'bg-green-100 text-green-800' : 
-                    value === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
-                    'bg-yellow-100 text-yellow-800'
-                }`}>
-                    {value}
-                </span>
-            ),
-        },
-        {
-            Header: 'Delivery Time',
-            accessor: 'deliveryTime',
-            Cell: ({ value }) => (
-                <span className="text-sm text-gray-600">{value}</span>
-            ),
-        },
-    ];
+    const handleDateChange = (e) => {
+        setSelectedDate(e.target.value);
+    };
 
-    // Expense Columns
-    const expenseColumns = [
-        {
-            Header: 'Expense ID',
-            accessor: 'id',
-            width: 80,
-            Cell: ({ value }) => <span className="font-bold text-red-600">EXP-{value}</span>,
-        },
-        {
-            Header: 'Expense Details',
-            accessor: 'name',
-            Cell: ({ row }) => (
-                <div>
-                    <div className="font-medium">{row.original.name}</div>
-                    <div className="text-xs text-gray-500">{row.original.description}</div>
-                    <div className="text-xs">
-                        <span className={`px-1 rounded ${
-                            row.original.category === 'vehicle' ? 'bg-blue-100 text-blue-800' :
-                            row.original.category === 'staff' ? 'bg-green-100 text-green-800' :
-                            row.original.category === 'overhead' ? 'bg-purple-100 text-purple-800' :
-                            'bg-gray-100 text-gray-800'
-                        }`}>
-                            {row.original.category}
-                        </span>
-                        <span className="mx-1">•</span>
-                        <span className="text-gray-500">{row.original.type}</span>
-                    </div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Amount',
-            accessor: 'amount',
-            Cell: ({ value }) => (
-                <div className="font-bold text-red-700">{formatCurrency(value)}</div>
-            ),
-        },
-        {
-            Header: 'Payment Status',
-            accessor: 'paymentStatus',
-            Cell: ({ row }) => (
-                <div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        row.original.status === 'paid' ? 'bg-green-100 text-green-800' : 
-                        row.original.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'
-                    }`}>
-                        {row.original.status.replace('_', ' ').toUpperCase()}
-                    </span>
-                    <div className="text-xs text-gray-500 mt-1">
-                        Paid: {formatCurrency(row.original.paidAmount)} | 
-                        Due: {formatCurrency(row.original.balance)}
-                    </div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Category',
-            accessor: 'category',
-            Cell: ({ value, row }) => (
-                <div className="text-sm">
-                    <div className="font-medium capitalize">{value}</div>
-                    <div className="text-xs text-gray-500 capitalize">{row.original.subCategory}</div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Date',
-            accessor: 'date',
-            Cell: ({ value }) => (
-                <span className="text-sm text-gray-600">
-                    {moment(value).format('DD/MM/YYYY')}
-                </span>
-            ),
-        },
-    ];
+    const handleCenterChange = (selectedOption) => {
+        setSelectedCenter(selectedOption);
+    };
+
+    const handlePrevDay = () => {
+        setSelectedDate(moment(selectedDate).subtract(1, 'day').format('YYYY-MM-DD'));
+    };
+
+    const handleNextDay = () => {
+        const nextDay = moment(selectedDate).add(1, 'day').format('YYYY-MM-DD');
+        const today = moment().format('YYYY-MM-DD');
+        if (nextDay <= today) {
+            setSelectedDate(nextDay);
+        }
+    };
+
+    const handleViewCustomerPayments = (customer) => {
+        if (!customer) return;
+
+        // Ensure all required properties exist
+        const customerWithPayments = {
+            customer_name: customer.customer_name || 'Unknown',
+            customer_number: customer.customer_number || 'N/A',
+            total_amount: customer.total_amount || 0,
+            payment_count: customer.payment_count || 0,
+            payments: Array.isArray(customer.payments)
+                ? customer.payments.map((payment) => ({
+                      payment_number: payment.payment_number || 'N/A',
+                      amount: payment.amount || 0,
+                      mode: payment.mode || 'N/A',
+                      booking_number: payment.booking_number || 'N/A',
+                      booking_center: payment.booking_center || 'N/A',
+                      date: payment.date || null,
+                  }))
+                : [],
+        };
+
+        setSelectedCustomer(customerWithPayments);
+        setShowCustomerModal(true);
+    };
+
+    const closeModal = () => {
+        setShowCustomerModal(false);
+        setSelectedCustomer(null);
+    };
 
     const onDownloadExcel = () => {
-        if (!dateData) return;
+        if (!reportData) return;
 
         const wb = XLSX.utils.book_new();
 
-        // Packages Sheet
-        const packageHeader = [
-            ['DAILY PACKAGES REPORT'],
-            [`Date: ${moment(dateData.date).format('DD/MM/YYYY')} - ${dateData.dayOfWeek}`],
+        // Summary Sheet
+        const summaryHeader = [
+            ['PROFIT & LOSS REPORT'],
+            [`Date: ${moment(selectedDate).format('DD/MM/YYYY')}`],
+            [`Center: ${reportData.center?.name || 'All Centers'}`],
             [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
             [],
-            ['PACKAGE DETAILS'],
-            [
-                'Package ID',
-                'Package Type',
-                'Weight',
-                'Dimensions',
-                'From',
-                'To',
-                'Package Value (₹)',
-                'Vehicle Type',
-                'Driver',
-                'Staff',
-                'Status',
-                'Delivery Time'
-            ],
+            ['SUMMARY'],
+            ['Opening Balance', reportData.opening_balance?.total || '0.00'],
+            ['Total Payments', reportData.summary?.total_payment_amount || '0.00'],
+            ['Total Expenses', reportData.summary?.total_expense_amount || '0.00'],
+            ['Net Profit/Loss', reportData.summary?.total_profit_loss || '0.00'],
+            ['Closing Balance', reportData.summary?.closing_balance || '0.00'],
+            ['Status', reportData.summary?.profit_loss_status?.toUpperCase() || 'N/A'],
+            ['Unique Customers', reportData.summary?.unique_customers || 0],
         ];
 
-        const packageData = dateData.packages.map((pkg) => [
-            pkg.packageId,
-            pkg.packageType,
-            pkg.weight,
-            pkg.dimensions,
-            pkg.fromLocation,
-            pkg.toLocation,
-            pkg.packageValue,
-            pkg.vehicleType,
-            pkg.driverName,
-            pkg.staffName,
-            pkg.status,
-            pkg.deliveryTime,
+        const summaryRows = [...summaryHeader];
+        const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
+
+        // Payments Sheet
+        const paymentHeader = [['PAYMENTS DETAILS'], [], ['Date', 'Payment Number', 'Customer', 'Amount', 'Mode', 'Type', 'Booking Number', 'Description']];
+
+        const paymentData = (reportData.transactions?.payments || []).map((p) => [
+            p.date,
+            p.payment_number,
+            p.customer?.name || 'N/A',
+            p.amount,
+            p.mode,
+            p.type,
+            p.booking?.number || 'N/A',
+            p.description || '',
         ]);
 
-        const packageSummary = [
-            [],
-            ['PACKAGES SUMMARY'],
-            ['Total Packages', dateData.totalPackages],
-            ['Total Revenue', dateData.totalRevenue],
-            ['Profitable Packages', dateData.profitablePackages],
-            ['Loss Packages', dateData.lossPackages],
-        ];
-
-        const packageRows = [...packageHeader, ...packageData, ...packageSummary];
-        const packageWs = XLSX.utils.aoa_to_sheet(packageRows);
-        packageWs['!cols'] = [
-            { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 }, { wch: 10 },
-            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 10 }
-        ];
+        const paymentRows = [...paymentHeader, ...paymentData];
+        const paymentWs = XLSX.utils.aoa_to_sheet(paymentRows);
 
         // Expenses Sheet
-        const expenseHeader = [
-            ['DAILY EXPENSES REPORT'],
-            [`Date: ${moment(dateData.date).format('DD/MM/YYYY')} - ${dateData.dayOfWeek}`],
-            [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
-            [],
-            ['EXPENSE DETAILS'],
-            [
-                'Expense ID',
-                'Name',
-                'Description',
-                'Category',
-                'Sub-Category',
-                'Type',
-                'Amount (₹)',
-                'Status',
-                'Paid Amount (₹)',
-                'Balance (₹)',
-                'Date'
-            ],
-        ];
+        const expenseHeader = [['EXPENSES DETAILS'], [], ['Date', 'Type', 'Amount', 'Description', 'Notes']];
 
-        const expenseData = dateData.expenses.map((exp) => [
-            `EXP-${exp.id}`,
-            exp.name,
-            exp.description,
-            exp.category,
-            exp.subCategory,
-            exp.type,
-            exp.amount,
-            exp.status.toUpperCase(),
-            exp.paidAmount,
-            exp.balance,
-            moment(exp.date).format('DD/MM/YYYY'),
-        ]);
+        const expenseData = (reportData.transactions?.expenses || []).map((e) => [e.date, e.type, e.amount, e.description, e.notes]);
 
-        const expenseSummary = [
-            [],
-            ['EXPENSES SUMMARY'],
-            ['Total Expenses', dateData.totalExpenses],
-            ['Vehicle Expenses', dateData.totalVehicleExpense],
-            ['Staff Expenses', dateData.totalStaffExpense],
-            ['Fuel Expenses', dateData.totalFuelExpense],
-            ['Maintenance Expenses', dateData.totalMaintenanceExpense],
-            ['Salary Expenses', dateData.totalSalaryExpense],
-            ['Other Expenses', dateData.totalOtherExpense],
-        ];
-
-        const expenseRows = [...expenseHeader, ...expenseData, ...expenseSummary];
+        const expenseRows = [...expenseHeader, ...expenseData];
         const expenseWs = XLSX.utils.aoa_to_sheet(expenseRows);
-        expenseWs['!cols'] = [
-            { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 10 },
-            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }
-        ];
 
-        // Profit & Loss Summary Sheet
-        const plHeader = [
-            ['DAILY PROFIT & LOSS SUMMARY'],
-            [`Date: ${moment(dateData.date).format('DD/MM/YYYY')} - ${dateData.dayOfWeek}`],
-            [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
-            [],
-            ['FINANCIAL SUMMARY'],
-        ];
+        // Customers Sheet
+        const customerHeader = [['CUSTOMER PAYMENT SUMMARY'], [], ['Customer', 'Phone', 'Total Amount', 'Payment Count']];
 
-        const plData = [
-            ['Revenue', 'Amount (₹)', 'Percentage'],
-            ['Total Revenue', dateData.totalRevenue, '100%'],
-            [],
-            ['Expenses Breakdown', '', ''],
-            ['Vehicle Expenses', dateData.totalVehicleExpense, `${((dateData.totalVehicleExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
-            ['Staff Expenses', dateData.totalStaffExpense, `${((dateData.totalStaffExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
-            ['Fuel Expenses', dateData.totalFuelExpense, `${((dateData.totalFuelExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
-            ['Maintenance Expenses', dateData.totalMaintenanceExpense, `${((dateData.totalMaintenanceExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
-            ['Salary Expenses', dateData.totalSalaryExpense, `${((dateData.totalSalaryExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
-            ['Other Expenses', dateData.totalOtherExpense, `${((dateData.totalOtherExpense/dateData.totalExpenses)*100).toFixed(1)}%`],
-            ['Total Expenses', dateData.totalExpenses, '100%'],
-            [],
-            ['Profit & Loss', '', ''],
-            ['Net Profit/Loss', dateData.totalProfit, `${dateData.profitMargin}%`],
-            ['Day Status', dateData.status.toUpperCase(), dateData.isProfitDay ? 'PROFIT DAY' : 'LOSS DAY'],
-        ];
+        const customerData = (reportData.breakdown?.by_customer || []).map((c) => [c.customer_name, c.customer_number, c.total_amount, c.payment_count]);
 
-        const plRows = [...plHeader, ...plData];
-        const plWs = XLSX.utils.aoa_to_sheet(plRows);
-        plWs['!cols'] = [
-            { wch: 25 }, { wch: 15 }, { wch: 15 }
-        ];
+        const customerRows = [...customerHeader, ...customerData];
+        const customerWs = XLSX.utils.aoa_to_sheet(customerRows);
 
-        XLSX.utils.book_append_sheet(wb, packageWs, 'Packages');
+        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+        XLSX.utils.book_append_sheet(wb, paymentWs, 'Payments');
         XLSX.utils.book_append_sheet(wb, expenseWs, 'Expenses');
-        XLSX.utils.book_append_sheet(wb, plWs, 'P&L Summary');
+        XLSX.utils.book_append_sheet(wb, customerWs, 'Customers');
 
-        const fileName = `Daily-PL-Report-${moment(dateData.date).format('DD-MM-YYYY')}.xlsx`;
+        const fileName = `Profit-Loss-Report-${moment(selectedDate).format('DD-MM-YYYY')}-${(reportData.center?.name || 'All-Centers').replace(/\s+/g, '-')}.xlsx`;
         XLSX.writeFile(wb, fileName);
     };
 
     const onGeneratePDF = async () => {
-        if (!dateData) return;
+        if (!reportData) return;
 
         const pdfData = {
-            dateData: dateData,
+            reportData: reportData,
             generatedDate: moment().format('DD/MM/YYYY HH:mm'),
-            date: moment(dateData.date).format('DD/MM/YYYY'),
-            dayOfWeek: dateData.dayOfWeek,
-            viewMode: viewMode
+            date: moment(selectedDate).format('DD/MM/YYYY'),
+            centerName: reportData.center?.name || 'All Centers',
+            viewMode: viewMode,
         };
 
         navigate('/documents/audit-report-pdf', { state: pdfData });
@@ -487,21 +231,203 @@ const ProfitLossReport = () => {
 
     const getStatusBadge = (status) => {
         const statusConfig = {
-            'paid': { color: 'bg-green-100 text-green-800', icon: <IconCheckCircle className="w-3 h-3 mr-1" /> },
-            'partially_paid': { color: 'bg-yellow-100 text-yellow-800', icon: <IconClock className="w-3 h-3 mr-1" /> },
-            'unpaid': { color: 'bg-red-100 text-red-800', icon: <IconClock className="w-3 h-3 mr-1" /> }
+            paid: { color: 'bg-green-100 text-green-800', icon: <IconCheckCircle className="w-3 h-3 mr-1" /> },
+            partial: { color: 'bg-yellow-100 text-yellow-800', icon: <IconClock className="w-3 h-3 mr-1" /> },
+            pending: { color: 'bg-red-100 text-red-800', icon: <IconClock className="w-3 h-3 mr-1" /> },
         };
-        
-        const config = statusConfig[status] || statusConfig['unpaid'];
+
+        const config = statusConfig[status] || statusConfig['pending'];
         return (
             <span className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center ${config.color}`}>
                 {config.icon}
-                {status.replace('_', ' ').toUpperCase()}
+                {status?.toUpperCase()}
             </span>
         );
     };
 
-    if (!dateData) {
+    // Transform office centers for react-select
+    const centerOptions = [
+        { value: '', label: 'All Centers' },
+        ...(officeCentersData || []).map((center) => ({
+            value: center.id,
+            label: center.officeCentersName,
+        })),
+    ];
+
+    // Custom styles for react-select
+    const selectStyles = {
+        control: (provided) => ({
+            ...provided,
+            minHeight: '42px',
+            borderColor: '#e2e8f0',
+            '&:hover': {
+                borderColor: '#cbd5e0',
+            },
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? '#3b82f6' : state.isFocused ? '#e2e8f0' : 'white',
+            color: state.isSelected ? 'white' : '#1e293b',
+            cursor: 'pointer',
+            '&:active': {
+                backgroundColor: state.isSelected ? '#2563eb' : '#cbd5e0',
+            },
+        }),
+        menu: (provided) => ({
+            ...provided,
+            zIndex: 50,
+        }),
+    };
+
+    // Payment Columns
+    const paymentColumns = [
+        {
+            Header: 'Payment No',
+            accessor: 'payment_number',
+            width: 120,
+            Cell: ({ value }) => <span className="font-bold text-blue-600">{value}</span>,
+        },
+        {
+            Header: 'Customer Details',
+            accessor: 'customer',
+            Cell: ({ row }) => (
+                <div>
+                    <div className="font-medium">{row.original.customer?.name || 'N/A'}</div>
+                    <div className="text-xs text-gray-500">{row.original.customer?.number || ''}</div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Booking',
+            accessor: 'booking',
+            Cell: ({ row }) => <span className="text-sm text-gray-600">{row.original.booking?.number || 'N/A'}</span>,
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            Cell: ({ value }) => <div className="font-bold text-green-700">{formatCurrency(value)}</div>,
+        },
+        {
+            Header: 'Mode',
+            accessor: 'mode',
+            Cell: ({ value }) => <span className="capitalize px-2 py-1 bg-gray-100 rounded-lg text-xs">{value}</span>,
+        },
+        {
+            Header: 'Type',
+            accessor: 'type',
+            Cell: ({ value }) => <span className={`capitalize px-2 py-1 rounded-lg text-xs ${value === 'full' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{value}</span>,
+        },
+        {
+            Header: 'Date',
+            accessor: 'date',
+            Cell: ({ value }) => <span className="text-sm text-gray-600">{moment(value).format('DD/MM/YYYY')}</span>,
+        },
+    ];
+
+    // Expense Columns
+    const expenseColumns = [
+        {
+            Header: 'Type',
+            accessor: 'type',
+            Cell: ({ value }) => <span className="font-medium text-red-600">{value}</span>,
+        },
+        {
+            Header: 'Description',
+            accessor: 'description',
+            Cell: ({ value, row }) => (
+                <div>
+                    <div className="font-medium">{value}</div>
+                    {row.original.notes && <div className="text-xs text-gray-500">{row.original.notes}</div>}
+                </div>
+            ),
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            Cell: ({ value }) => <div className="font-bold text-red-700">{formatCurrency(value)}</div>,
+        },
+        {
+            Header: 'Date',
+            accessor: 'date',
+            Cell: ({ value }) => <span className="text-sm text-gray-600">{moment(value).format('DD/MM/YYYY')}</span>,
+        },
+    ];
+
+    // Customer Columns with View Action
+    const customerColumns = [
+        {
+            Header: 'Customer',
+            accessor: 'customer_name',
+            Cell: ({ value, row }) => (
+                <div>
+                    <div className="font-medium text-blue-600">{value}</div>
+                    <div className="text-xs text-gray-500">{row.original.customer_number}</div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Total Amount',
+            accessor: 'total_amount',
+            Cell: ({ value }) => <div className="font-bold text-green-700">{formatCurrency(value)}</div>,
+        },
+        {
+            Header: 'Payments',
+            accessor: 'payment_count',
+            Cell: ({ value }) => (
+                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">
+                    {value} payment{value !== 1 ? 's' : ''}
+                </span>
+            ),
+        },
+        {
+            Header: 'Actions',
+            accessor: 'actions',
+            Cell: ({ row }) => (
+                <button
+                    onClick={() => handleViewCustomerPayments(row.original)}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition-colors duration-200"
+                >
+                    View Payments
+                </button>
+            ),
+        },
+    ];
+
+    // Customer Payment Details Columns for Modal
+    const customerPaymentColumns = [
+        {
+            Header: 'Payment No',
+            accessor: 'payment_number',
+            Cell: ({ value }) => <span className="font-bold text-blue-600">{value || 'N/A'}</span>,
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            Cell: ({ value }) => <div className="font-bold text-green-700">{formatCurrency(value || 0)}</div>,
+        },
+        {
+            Header: 'Mode',
+            accessor: 'mode',
+            Cell: ({ value }) => <span className="capitalize px-2 py-1 bg-gray-100 rounded-lg text-xs">{value || 'N/A'}</span>,
+        },
+        {
+            Header: 'Booking No',
+            accessor: 'booking_number',
+            Cell: ({ value }) => value || 'N/A',
+        },
+        {
+            Header: 'Booking Center',
+            accessor: 'booking_center',
+            Cell: ({ value }) => value || 'N/A',
+        },
+        {
+            Header: 'Date',
+            accessor: 'date',
+            Cell: ({ value }) => <span className="text-sm text-gray-600">{value ? moment(value).format('DD/MM/YYYY') : 'N/A'}</span>,
+        },
+    ];
+
+    if (loading || centersLoading) {
         return (
             <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-center h-64">
@@ -511,17 +437,33 @@ const ProfitLossReport = () => {
         );
     }
 
+    if (error) {
+        return (
+            <div className="p-4 sm:p-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                    <IconTrendingDown className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Report</h3>
+                    <p className="text-red-600">{error}</p>
+                    <button onClick={fetchReportData} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 sm:p-6">
             <div className="text-center mb-6">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Daily Profit & Loss Report</h1>
-                <p className="text-gray-600 mt-1 sm:mt-2">Separate package revenue and expense tracking</p>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Profit & Loss Report</h1>
+                <p className="text-gray-600 mt-1 sm:mt-2">Daily financial summary with payments and expenses</p>
             </div>
 
-            {/* Date Selection and Export */}
+            {/* Date Selection, Center Filter and Export */}
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6 border border-gray-200">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                    <div className="flex-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {/* Date Picker */}
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             <IconCalendar className="inline w-4 h-4 mr-1" />
                             Select Date
@@ -534,485 +476,496 @@ const ProfitLossReport = () => {
                             max={moment().format('YYYY-MM-DD')}
                         />
                     </div>
-                    
-                    <div className="flex flex-wrap gap-2">
+
+                    {/* Center Filter - React Select */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <IconBuilding className="inline w-4 h-4 mr-1" />
+                            Filter by Center
+                        </label>
+                        <Select
+                            options={centerOptions}
+                            value={selectedCenter}
+                            onChange={handleCenterChange}
+                            placeholder="Select a center..."
+                            isClearable
+                            styles={selectStyles}
+                            className="react-select-container"
+                            classNamePrefix="react-select"
+                        />
+                    </div>
+
+                    {/* Navigation Buttons */}
+                    <div className="flex items-end gap-2">
                         <button
                             onClick={() => setSelectedDate(moment().format('YYYY-MM-DD'))}
                             className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium"
                         >
                             Today
                         </button>
-                        <button
-                            onClick={() => setSelectedDate(moment().subtract(1, 'day').format('YYYY-MM-DD'))}
-                            className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium"
-                        >
-                            Yesterday
-                        </button>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={onDownloadExcel}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
-                        >
-                            <IconDownload className="mr-2 w-4 h-4" />
-                            Export Excel
+                        <button onClick={handlePrevDay} className="px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium">
+                            Previous Day
                         </button>
                         <button
-                            onClick={onGeneratePDF}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
-                        >
-                            <IconPrinter className="mr-2 w-4 h-4" />
-                            Generate PDF
-                        </button>
-                    </div>
-                </div>
-                
-                <div className="text-center">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                        {moment(dateData.date).format('DD MMMM YYYY')} - {dateData.dayOfWeek}
-                    </h3>
-                </div>
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => setViewMode('packages')}
-                            className={`px-4 py-2 rounded-lg flex items-center ${
-                                viewMode === 'packages' 
-                                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            onClick={handleNextDay}
+                            disabled={selectedDate === moment().format('YYYY-MM-DD')}
+                            className={`px-4 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                                selectedDate === moment().format('YYYY-MM-DD') ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-blue-50 text-blue-700 hover:bg-blue-100'
                             }`}
                         >
-                            <IconPackage className="w-4 h-4 mr-2" />
-                            Packages ({dateData.packages.length})
+                            Next Day
                         </button>
-                        <button
-                            onClick={() => setViewMode('expenses')}
-                            className={`px-4 py-2 rounded-lg flex items-center ${
-                                viewMode === 'expenses' 
-                                    ? 'bg-red-100 text-red-700 border border-red-300' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            <IconReceipt className="w-4 h-4 mr-2" />
-                            Expenses ({dateData.expenses.length})
-                        </button>
-                        <button
-                            onClick={() => setViewMode('summary')}
-                            className={`px-4 py-2 rounded-lg flex items-center ${
-                                viewMode === 'summary' 
-                                    ? 'bg-green-100 text-green-700 border border-green-300' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            <IconMoney className="w-4 h-4 mr-2" />
-                            P&L Summary
-                        </button>
-                    </div>
-                    
-                    <div className="text-sm text-gray-600">
-                        Showing {viewMode === 'packages' ? 'Packages' : viewMode === 'expenses' ? 'Expenses' : 'Summary'} for {moment(dateData.date).format('DD MMM YYYY')}
                     </div>
                 </div>
+
+                {/* Export Buttons */}
+                <div className="flex flex-wrap justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
+                    <button
+                        onClick={onDownloadExcel}
+                        disabled={!reportData}
+                        className={`px-4 py-2 rounded-lg font-medium shadow-sm flex items-center text-sm ${
+                            reportData ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                    >
+                        <IconDownload className="mr-2 w-4 h-4" />
+                        Export Excel
+                    </button>
+                    <button
+                        onClick={onGeneratePDF}
+                        disabled={!reportData}
+                        className={`px-4 py-2 rounded-lg font-medium shadow-sm flex items-center text-sm ${
+                            reportData ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                    >
+                        <IconPrinter className="mr-2 w-4 h-4" />
+                        Generate PDF
+                    </button>
+                </div>
+
+                {/* Report Info */}
+                {reportData && (
+                    <div className="text-center mt-4">
+                        <h3 className="text-lg font-semibold text-gray-800">
+                            {moment(reportData.date_range?.start_date).format('DD MMMM YYYY')} - {reportData.center?.name || 'All Centers'}
+                        </h3>
+                    </div>
+                )}
             </div>
 
-            {/* Status Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Revenue Card */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Total Revenue</h3>
-                        <div className="p-2 bg-blue-100 rounded-full">
-                            <IconMoney className="w-5 h-5 text-blue-600" />
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-700 mb-2">
-                            {formatCurrency(dateData.totalRevenue)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {dateData.totalPackages} Packages
-                        </div>
-                    </div>
-                </div>
-
-                {/* Expenses Card */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-red-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Total Expenses</h3>
-                        <div className="p-2 bg-red-100 rounded-full">
-                            <IconReceipt className="w-5 h-5 text-red-600" />
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-red-700 mb-2">
-                            {formatCurrency(dateData.totalExpenses)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {dateData.expenses.length} Expense Items
-                        </div>
-                    </div>
-                </div>
-
-                {/* Profit/Loss Card */}
-                <div className={`bg-white rounded-lg shadow-sm p-4 border ${dateData.isProfitDay ? 'border-green-200' : 'border-red-200'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Net Profit/Loss</h3>
-                        <div className={`p-2 rounded-full ${dateData.isProfitDay ? 'bg-green-100' : 'bg-red-100'}`}>
-                            {dateData.isProfitDay ? (
-                                <IconTrendingUp className="w-5 h-5 text-green-600" />
-                            ) : (
-                                <IconTrendingDown className="w-5 h-5 text-red-600" />
-                            )}
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className={`text-2xl font-bold mb-2 ${dateData.isProfitDay ? 'text-green-700' : 'text-red-700'}`}>
-                            {formatCurrency(dateData.totalProfit)}
-                        </div>
-                        <div className={`text-sm ${dateData.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}% Margin
-                        </div>
-                    </div>
-                </div>
-
-                {/* Expense Status Card */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-purple-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Expense Status</h3>
-                        <div className="p-2 bg-purple-100 rounded-full">
-                            <IconCheckCircle className="w-5 h-5 text-purple-600" />
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-700 mb-2">
-                            {dateData.expenses.length} Items
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 text-xs">
-                            <div className="bg-green-50 p-1 rounded">
-                                <div className="text-green-700 font-bold">
-                                    {dateData.expenses.filter(e => e.status === 'paid').length}
+            {/* Summary Cards - Only show if data exists */}
+            {reportData && (
+                <>
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        {/* Opening Balance Card */}
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Opening Balance</h3>
+                                <div className="p-2 bg-gray-100 rounded-full">
+                                    <IconMoney className="w-5 h-5 text-gray-600" />
                                 </div>
-                                <div className="text-xs text-gray-600">Paid</div>
                             </div>
-                            <div className="bg-yellow-50 p-1 rounded">
-                                <div className="text-yellow-700 font-bold">
-                                    {dateData.expenses.filter(e => e.status === 'partially_paid').length}
-                                </div>
-                                <div className="text-xs text-gray-600">Partial</div>
-                            </div>
-                            <div className="bg-red-50 p-1 rounded">
-                                <div className="text-red-700 font-bold">
-                                    {dateData.expenses.filter(e => e.status === 'unpaid').length}
-                                </div>
-                                <div className="text-xs text-gray-600">Unpaid</div>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-gray-700 mb-2">{formatCurrency(reportData.opening_balance?.total)}</div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            {/* Content based on view mode */}
-            {viewMode === 'packages' && (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
-                                    Package Revenue Details
-                                </h3>
-                                <p className="text-gray-600 text-sm">
-                                    {dateData.totalPackages} packages delivered on {moment(dateData.date).format('DD MMM YYYY')}
-                                </p>
+                        {/* Total Payments Card */}
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-green-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Total Payments</h3>
+                                <div className="p-2 bg-green-100 rounded-full">
+                                    <IconMoney className="w-5 h-5 text-green-600" />
+                                </div>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Total Revenue: </span>
-                                    <span className="font-semibold text-green-600">{formatCurrency(dateData.totalRevenue)}</span>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-green-700 mb-2">{formatCurrency(reportData.summary?.total_payment_amount)}</div>
+                                <div className="text-sm text-gray-600">{reportData.summary?.total_payments} payments</div>
+                            </div>
+                        </div>
+
+                        {/* Total Expenses Card */}
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-red-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Total Expenses</h3>
+                                <div className="p-2 bg-red-100 rounded-full">
+                                    <IconReceipt className="w-5 h-5 text-red-600" />
                                 </div>
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Avg per Package: </span>
-                                    <span className="font-semibold text-blue-600">
-                                        {formatCurrency(dateData.totalRevenue / dateData.totalPackages)}
-                                    </span>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-red-700 mb-2">{formatCurrency(reportData.summary?.total_expense_amount)}</div>
+                                <div className="text-sm text-gray-600">{reportData.summary?.total_expense_payments} expenses</div>
+                            </div>
+                        </div>
+
+                        {/* Net Profit/Loss Card */}
+                        <div className={`bg-white rounded-lg shadow-sm p-4 border ${reportData.summary?.profit_loss_status === 'profit' ? 'border-green-200' : 'border-red-200'}`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Net Profit/Loss</h3>
+                                <div className={`p-2 rounded-full ${reportData.summary?.profit_loss_status === 'profit' ? 'bg-green-100' : 'bg-red-100'}`}>
+                                    {reportData.summary?.profit_loss_status === 'profit' ? (
+                                        <IconTrendingUp className="w-5 h-5 text-green-600" />
+                                    ) : (
+                                        <IconTrendingDown className="w-5 h-5 text-red-600" />
+                                    )}
                                 </div>
+                            </div>
+                            <div className="text-center">
+                                <div className={`text-2xl font-bold mb-2 ${reportData.summary?.profit_loss_status === 'profit' ? 'text-green-700' : 'text-red-700'}`}>
+                                    {formatCurrency(reportData.summary?.total_profit_loss)}
+                                </div>
+                                <div className="text-sm text-gray-600">Closing: {formatCurrency(reportData.summary?.closing_balance)}</div>
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-2 sm:p-4">
-                        <Table
-                            columns={packageColumns}
-                            data={dateData.packages}
-                            Title=""
-                            pageSize={10}
-                            pageIndex={0}
-                            totalCount={dateData.packages.length}
-                            totalPages={Math.ceil(dateData.packages.length / 10)}
-                            onPaginationChange={(page, size) => {}}
-                            isSortable={true}
-                            pagination={true}
-                            isSearchable={false}
-                            tableClass="min-w-full rounded-lg overflow-hidden"
-                            theadClass="bg-gray-50"
-                            responsive={true}
-                        />
+                    {/* View Mode Toggle */}
+                    <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    onClick={() => setViewMode('payments')}
+                                    className={`px-4 py-2 rounded-lg flex items-center ${
+                                        viewMode === 'payments' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <IconMoney className="w-4 h-4 mr-2" />
+                                    Payments ({reportData.transactions?.payments?.length || 0})
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('expenses')}
+                                    className={`px-4 py-2 rounded-lg flex items-center ${
+                                        viewMode === 'expenses' ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <IconReceipt className="w-4 h-4 mr-2" />
+                                    Expenses ({reportData.transactions?.expenses?.length || 0})
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('customers')}
+                                    className={`px-4 py-2 rounded-lg flex items-center ${
+                                        viewMode === 'customers' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <IconUsers className="w-4 h-4 mr-2" />
+                                    Customers ({reportData.breakdown?.by_customer?.length || 0})
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('summary')}
+                                    className={`px-4 py-2 rounded-lg flex items-center ${
+                                        viewMode === 'summary' ? 'bg-purple-100 text-purple-700 border border-purple-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    <IconPackage className="w-4 h-4 mr-2" />
+                                    Summary
+                                </button>
+                            </div>
+
+                            <div className="text-sm text-gray-600">
+                                {reportData.breakdown?.daily?.[0]?.payments || 0} payments • {reportData.breakdown?.daily?.[0]?.expenses || 0} expenses
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Content based on view mode */}
+                    {viewMode === 'payments' && (
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                            <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                                    <div>
+                                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Payment Details</h3>
+                                        <p className="text-gray-600 text-sm">
+                                            {reportData.transactions?.payments?.length || 0} payments received on {moment(selectedDate).format('DD MMM YYYY')}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2 text-sm">
+                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                            <span className="text-gray-600">Total: </span>
+                                            <span className="font-semibold text-green-600">{formatCurrency(reportData.summary?.total_payment_amount)}</span>
+                                        </div>
+                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                            <span className="text-gray-600">Avg per payment: </span>
+                                            <span className="font-semibold text-blue-600">
+                                                {formatCurrency(reportData.summary?.total_payment_amount / (reportData.transactions?.payments?.length || 1))}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-2 sm:p-4">
+                                <Table
+                                    columns={paymentColumns}
+                                    data={reportData.transactions?.payments || []}
+                                    Title=""
+                                    pageSize={10}
+                                    pageIndex={0}
+                                    totalCount={reportData.transactions?.payments?.length || 0}
+                                    totalPages={Math.ceil((reportData.transactions?.payments?.length || 0) / 10)}
+                                    onPaginationChange={(page, size) => {}}
+                                    isSortable={true}
+                                    pagination={true}
+                                    isSearchable={true}
+                                    tableClass="min-w-full rounded-lg overflow-hidden"
+                                    theadClass="bg-gray-50"
+                                    responsive={true}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {viewMode === 'expenses' && (
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                            <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                                    <div>
+                                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Expense Details</h3>
+                                        <p className="text-gray-600 text-sm">
+                                            {reportData.transactions?.expenses?.length || 0} expenses on {moment(selectedDate).format('DD MMM YYYY')}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col sm:flex-row gap-2 text-sm">
+                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                            <span className="text-gray-600">Total: </span>
+                                            <span className="font-semibold text-red-600">{formatCurrency(reportData.summary?.total_expense_amount)}</span>
+                                        </div>
+                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                            <span className="text-gray-600">Avg per expense: </span>
+                                            <span className="font-semibold text-orange-600">
+                                                {formatCurrency(reportData.summary?.total_expense_amount / (reportData.transactions?.expenses?.length || 1))}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-2 sm:p-4">
+                                <Table
+                                    columns={expenseColumns}
+                                    data={reportData.transactions?.expenses || []}
+                                    Title=""
+                                    pageSize={10}
+                                    pageIndex={0}
+                                    totalCount={reportData.transactions?.expenses?.length || 0}
+                                    totalPages={Math.ceil((reportData.transactions?.expenses?.length || 0) / 10)}
+                                    onPaginationChange={(page, size) => {}}
+                                    isSortable={true}
+                                    pagination={true}
+                                    isSearchable={true}
+                                    tableClass="min-w-full rounded-lg overflow-hidden"
+                                    theadClass="bg-gray-50"
+                                    responsive={true}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {viewMode === 'customers' && (
+                        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                            <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                                    <div>
+                                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Customer Payment Summary</h3>
+                                        <p className="text-gray-600 text-sm">{reportData.breakdown?.by_customer?.length || 0} unique customers made payments</p>
+                                    </div>
+                                    <div className="text-sm bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+                                        <span className="text-gray-600">Unique Customers: </span>
+                                        <span className="font-semibold text-purple-600">{reportData.breakdown?.by_customer?.length || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="p-2 sm:p-4">
+                                <Table
+                                    columns={customerColumns}
+                                    data={reportData.breakdown?.by_customer || []}
+                                    Title=""
+                                    pageSize={10}
+                                    pageIndex={0}
+                                    totalCount={reportData.breakdown?.by_customer?.length || 0}
+                                    totalPages={Math.ceil((reportData.breakdown?.by_customer?.length || 0) / 10)}
+                                    onPaginationChange={(page, size) => {}}
+                                    isSortable={true}
+                                    pagination={true}
+                                    isSearchable={true}
+                                    tableClass="min-w-full rounded-lg overflow-hidden"
+                                    theadClass="bg-gray-50"
+                                    responsive={true}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {viewMode === 'summary' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            {/* Payment Mode Breakdown */}
+                            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">Payment Mode Breakdown</h3>
+                                <div className="space-y-4">
+                                    {(reportData.breakdown?.by_payment_mode || []).map((mode, index) => (
+                                        <div key={index} className="border-l-4 border-green-500 pl-4">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <div className="font-semibold text-gray-800 capitalize">{mode.mode}</div>
+                                                    <div className="text-sm text-gray-600">{mode.count} payments</div>
+                                                </div>
+                                                <div className="text-green-700 font-bold">{formatCurrency(mode.total)}</div>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                                <div
+                                                    className="bg-green-600 h-2 rounded-full"
+                                                    style={{
+                                                        width: `${(mode.total / reportData.summary?.total_payment_amount) * 100}%`,
+                                                    }}
+                                                ></div>
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1">{((mode.total / reportData.summary?.total_payment_amount) * 100).toFixed(1)}% of total payments</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Expense Type Breakdown */}
+                            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">Expense Type Breakdown</h3>
+                                <div className="space-y-4">
+                                    {(reportData.breakdown?.by_expense_type || []).map((expense, index) => (
+                                        <div key={index} className="border-l-4 border-red-500 pl-4">
+                                            <div className="flex justify-between items-center">
+                                                <div>
+                                                    <div className="font-semibold text-gray-800">{expense.type}</div>
+                                                    <div className="text-sm text-gray-600">{expense.count} expenses</div>
+                                                </div>
+                                                <div className="text-red-700 font-bold">{formatCurrency(expense.total)}</div>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                                <div
+                                                    className="bg-red-600 h-2 rounded-full"
+                                                    style={{
+                                                        width: `${(expense.total / reportData.summary?.total_expense_amount) * 100}%`,
+                                                    }}
+                                                ></div>
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1">{((expense.total / reportData.summary?.total_expense_amount) * 100).toFixed(1)}% of total expenses</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Daily Summary */}
+                            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 md:col-span-2">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4">Daily Summary</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {(reportData.breakdown?.daily || []).map((day, index) => (
+                                        <div key={index} className="bg-gray-50 rounded-lg p-4">
+                                            <div className="text-sm text-gray-600 mb-2">{moment(day.date).format('DD MMM YYYY')}</div>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between">
+                                                    <span>Payments:</span>
+                                                    <span className="font-semibold text-green-600">
+                                                        {day.payments} ({formatCurrency(day.payment_total)})
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>Expenses:</span>
+                                                    <span className="font-semibold text-red-600">
+                                                        {day.expenses} ({formatCurrency(day.expense_total)})
+                                                    </span>
+                                                </div>
+                                                <div className="flex justify-between pt-2 border-t">
+                                                    <span>Net:</span>
+                                                    <span className={`font-bold ${parseFloat(day.net_change) >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(day.net_change)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* Customer Payment Details Modal */}
+            {showCustomerModal && selectedCustomer && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                        </div>
+
+                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+                            &#8203;
+                        </span>
+
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Payment Details - {selectedCustomer.customer_name || 'Unknown'}</h3>
+                                        <p className="text-sm text-gray-600">
+                                            Phone: {selectedCustomer.customer_number || 'N/A'} | Total Paid: {formatCurrency(selectedCustomer.total_amount || 0)} | Total Payments:{' '}
+                                            {selectedCustomer.payment_count || 0}
+                                        </p>
+                                    </div>
+                                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                        <IconX className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="mt-4">
+                                    {selectedCustomer.payments && selectedCustomer.payments.length > 0 ? (
+                                        <Table
+                                            columns={customerPaymentColumns}
+                                            data={selectedCustomer.payments}
+                                            Title=""
+                                            pageSize={5}
+                                            pageIndex={0}
+                                            totalCount={selectedCustomer.payments.length}
+                                            totalPages={Math.ceil(selectedCustomer.payments.length / 5)}
+                                            onPaginationChange={(page, size) => {}}
+                                            isSortable={true}
+                                            pagination={true}
+                                            isSearchable={true}
+                                            tableClass="min-w-full rounded-lg overflow-hidden"
+                                            theadClass="bg-gray-50"
+                                            responsive={true}
+                                        />
+                                    ) : (
+                                        <div className="text-center py-12 bg-gray-50 rounded-lg">
+                                            <IconReceipt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                                            <p className="text-gray-600 text-lg font-medium mb-2">No Payment Details</p>
+                                            <p className="text-gray-500 text-sm">This customer has no payment records for the selected date.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {viewMode === 'expenses' && (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
-                                    Expense Details
-                                </h3>
-                                <p className="text-gray-600 text-sm">
-                                    {dateData.expenses.length} expense items on {moment(dateData.date).format('DD MMM YYYY')}
-                                </p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Total Expenses: </span>
-                                    <span className="font-semibold text-red-600">{formatCurrency(dateData.totalExpenses)}</span>
-                                </div>
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Avg per Item: </span>
-                                    <span className="font-semibold text-orange-600">
-                                        {formatCurrency(dateData.totalExpenses / dateData.expenses.length)}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="p-2 sm:p-4">
-                        <Table
-                            columns={expenseColumns}
-                            data={dateData.expenses}
-                            Title=""
-                            pageSize={10}
-                            pageIndex={0}
-                            totalCount={dateData.expenses.length}
-                            totalPages={Math.ceil(dateData.expenses.length / 10)}
-                            onPaginationChange={(page, size) => {}}
-                            isSortable={true}
-                            pagination={true}
-                            isSearchable={false}
-                            tableClass="min-w-full rounded-lg overflow-hidden"
-                            theadClass="bg-gray-50"
-                            responsive={true}
-                        />
-                    </div>
+            {/* No Data Message */}
+            {!reportData && !loading && !error && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-12 text-center">
+                    <IconCalendar className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-yellow-800 mb-2">No Data Available</h3>
+                    <p className="text-yellow-600 mb-4">Select a date and center to view the profit & loss report</p>
+                    <button onClick={fetchReportData} className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+                        Load Data
+                    </button>
                 </div>
             )}
-
-            {viewMode === 'summary' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                    {/* Expense Breakdown Summary */}
-                    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Expense Breakdown</h3>
-                        <div className="space-y-4">
-                            {/* Vehicle Expenses */}
-                            <div className="border-l-4 border-blue-500 pl-4">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <div className="font-semibold text-gray-800">Vehicle Expenses</div>
-                                        <div className="text-sm text-gray-600">Fuel, Maintenance, Toll, Parking</div>
-                                    </div>
-                                    <div className="text-red-700 font-bold">
-                                        {formatCurrency(dateData.totalVehicleExpense)}
-                                    </div>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                    <div 
-                                        className="bg-blue-600 h-2 rounded-full" 
-                                        style={{ width: `${(dateData.totalVehicleExpense / dateData.totalExpenses) * 100}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {((dateData.totalVehicleExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
-                                </div>
-                            </div>
-
-                            {/* Staff Expenses */}
-                            <div className="border-l-4 border-green-500 pl-4">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <div className="font-semibold text-gray-800">Staff Expenses</div>
-                                        <div className="text-sm text-gray-600">Salaries, Overtime, Benefits</div>
-                                    </div>
-                                    <div className="text-red-700 font-bold">
-                                        {formatCurrency(dateData.totalStaffExpense)}
-                                    </div>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                    <div 
-                                        className="bg-green-600 h-2 rounded-full" 
-                                        style={{ width: `${(dateData.totalStaffExpense / dateData.totalExpenses) * 100}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {((dateData.totalStaffExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
-                                </div>
-                            </div>
-
-                            {/* Other Expenses */}
-                            <div className="border-l-4 border-purple-500 pl-4">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <div className="font-semibold text-gray-800">Other Expenses</div>
-                                        <div className="text-sm text-gray-600">Supplies, Miscellaneous</div>
-                                    </div>
-                                    <div className="text-red-700 font-bold">
-                                        {formatCurrency(dateData.totalOtherExpense)}
-                                    </div>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                    <div 
-                                        className="bg-purple-600 h-2 rounded-full" 
-                                        style={{ width: `${(dateData.totalOtherExpense / dateData.totalExpenses) * 100}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {((dateData.totalOtherExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Profit & Loss Summary */}
-                    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Profit & Loss Summary</h3>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center pb-3 border-b">
-                                <span className="text-gray-700">Total Revenue</span>
-                                <span className="text-green-700 font-bold">{formatCurrency(dateData.totalRevenue)}</span>
-                            </div>
-                            
-                            <div className="space-y-2">
-                                <div className="text-sm font-medium text-gray-600">Expenses:</div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-600 text-sm">• Vehicle Expenses</span>
-                                    <span className="text-red-600">-{formatCurrency(dateData.totalVehicleExpense)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-600 text-sm">• Staff Expenses</span>
-                                    <span className="text-red-600">-{formatCurrency(dateData.totalStaffExpense)}</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <span className="text-gray-600 text-sm">• Other Expenses</span>
-                                    <span className="text-red-600">-{formatCurrency(dateData.totalOtherExpense)}</span>
-                                </div>
-                            </div>
-                            
-                            <div className="flex justify-between items-center pt-3 border-t">
-                                <span className="text-gray-700">Total Expenses</span>
-                                <span className="text-red-700 font-bold">-{formatCurrency(dateData.totalExpenses)}</span>
-                            </div>
-                            
-                            <div className={`flex justify-between items-center pt-3 border-t ${dateData.isProfitDay ? 'bg-green-50 p-3 rounded-lg' : 'bg-red-50 p-3 rounded-lg'}`}>
-                                <span className={`font-bold ${dateData.isProfitDay ? 'text-green-800' : 'text-red-800'}`}>
-                                    {dateData.isProfitDay ? 'Net Profit' : 'Net Loss'}
-                                </span>
-                                <span className={`text-2xl font-bold ${dateData.isProfitDay ? 'text-green-700' : 'text-red-700'}`}>
-                                    {dateData.isProfitDay ? '+' : ''}{formatCurrency(dateData.totalProfit)}
-                                </span>
-                            </div>
-                            
-                            <div className={`text-center py-2 rounded-lg ${dateData.isProfitDay ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                <div className="font-semibold">
-                                    {dateData.isProfitDay ? 'Profit Day' : 'Loss Day'} • {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}% Margin
-                                </div>
-                                <div className="text-sm">
-                                    {dateData.profitablePackages} packages made profit • {dateData.lossPackages} packages made loss
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Detailed Expense Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                {/* Vehicle Expenses Detail */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Vehicle Expenses</h3>
-                        <IconTruck className="w-5 h-5 text-blue-500" />
-                    </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-bold text-blue-700">
-                            {formatCurrency(dateData.totalVehicleExpense)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {((dateData.totalVehicleExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs mt-2">
-                            <div className="bg-blue-50 p-2 rounded">
-                                <div className="text-blue-700 font-bold">
-                                    {formatCurrency(dateData.totalFuelExpense)}
-                                </div>
-                                <div className="text-gray-600">Fuel</div>
-                            </div>
-                            <div className="bg-blue-50 p-2 rounded">
-                                <div className="text-blue-700 font-bold">
-                                    {formatCurrency(dateData.totalMaintenanceExpense)}
-                                </div>
-                                <div className="text-gray-600">Maintenance</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Staff Expenses Detail */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-green-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Staff Expenses</h3>
-                        <IconUsers className="w-5 h-5 text-green-500" />
-                    </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-bold text-green-700">
-                            {formatCurrency(dateData.totalStaffExpense)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {((dateData.totalStaffExpense / dateData.totalExpenses) * 100).toFixed(1)}% of total expenses
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                            Salary: {formatCurrency(dateData.totalSalaryExpense)}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Day Performance */}
-                <div className={`bg-white rounded-lg shadow-sm p-4 border ${dateData.isProfitDay ? 'border-green-200' : 'border-red-200'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Day Performance</h3>
-                        {dateData.isProfitDay ? (
-                            <IconTrendingUp className="w-5 h-5 text-green-500" />
-                        ) : (
-                            <IconTrendingDown className="w-5 h-5 text-red-500" />
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <div className={`text-2xl font-bold ${dateData.isProfitDay ? 'text-green-700' : 'text-red-700'}`}>
-                            {dateData.isProfitDay ? 'Profit Day' : 'Loss Day'}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {dateData.profitablePackages} packages made profit
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                            Net margin: {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}%
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };

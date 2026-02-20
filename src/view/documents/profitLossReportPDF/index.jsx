@@ -8,50 +8,135 @@ const ProfitLossReportPDF = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const [dateData, setDateData] = useState(null);
+    const [reportData, setReportData] = useState(null);
     const [generatedDate, setGeneratedDate] = useState('');
-    const [groupedExpenses, setGroupedExpenses] = useState({});
+    const [processedData, setProcessedData] = useState(null);
 
     useEffect(() => {
         if (location.state) {
-            const { dateData, generatedDate } = location.state;
+            const { reportData, generatedDate, date, centerName, viewMode } = location.state;
             
-            setDateData(dateData);
-            setGeneratedDate(generatedDate);
+            setReportData(reportData);
+            setGeneratedDate(generatedDate || moment().format('DD/MM/YYYY HH:mm'));
             
-            // Group expenses by category and type
-            if (dateData && dateData.expenses) {
-                const grouped = dateData.expenses.reduce((acc, expense) => {
-                    const category = expense.category;
-                    const type = expense.type || 'other';
-                    
-                    if (!acc[category]) {
-                        acc[category] = {
-                            total: 0,
-                            items: [],
-                            types: {}
-                        };
-                    }
-                    
-                    if (!acc[category].types[type]) {
-                        acc[category].types[type] = {
-                            total: 0,
-                            items: []
-                        };
-                    }
-                    
-                    acc[category].total += expense.amount;
-                    acc[category].items.push(expense);
-                    acc[category].types[type].total += expense.amount;
-                    acc[category].types[type].items.push(expense);
-                    
-                    return acc;
-                }, {});
-                
-                setGroupedExpenses(grouped);
+            // Process the data for PDF display
+            if (reportData) {
+                const processed = processReportData(reportData, date, centerName);
+                setProcessedData(processed);
             }
         }
     }, [location.state]);
+
+    const processReportData = (data, date, centerName) => {
+        // Use the date passed from the report component (which is the selected date)
+        // Only fall back to current date if no date is provided
+        let reportDate = date;
+        let dayOfWeek = '';
+        
+        if (reportDate && moment(reportDate).isValid()) {
+            // Use the provided date
+            dayOfWeek = moment(reportDate).format('dddd');
+        } else {
+            // Try to get date from report data if available
+            if (data?.date_range?.start_date && moment(data.date_range.start_date).isValid()) {
+                reportDate = data.date_range.start_date;
+                dayOfWeek = moment(reportDate).format('dddd');
+            } else {
+                // Last resort - use current date but this should not happen
+                console.warn('No valid date found, using current date');
+                reportDate = moment().format('YYYY-MM-DD');
+                dayOfWeek = moment().format('dddd');
+            }
+        }
+        
+        // Extract payments and expenses with safe navigation
+        const payments = data?.transactions?.payments || [];
+        const expenses = data?.transactions?.expenses || [];
+        
+        // Calculate totals with safe parsing
+        const totalRevenue = parseFloat(data?.summary?.total_payment_amount || 0);
+        const totalExpenses = parseFloat(data?.summary?.total_expense_amount || 0);
+        const totalProfit = parseFloat(data?.summary?.total_profit_loss || 0);
+        const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0;
+        const isProfitDay = totalProfit >= 0;
+        
+        // Group expenses by type
+        const groupedExpenses = {
+            vehicle: {
+                total: 0,
+                items: []
+            },
+            staff: {
+                total: 0,
+                items: []
+            },
+            other: {
+                total: 0,
+                items: []
+            }
+        };
+        
+        expenses.forEach(expense => {
+            const expenseItem = {
+                name: expense?.type || 'Expense',
+                description: expense?.description || '',
+                amount: parseFloat(expense?.amount || 0),
+                type: expense?.type || 'Other',
+                subCategory: expense?.type || 'General',
+                status: 'paid',
+                balance: 0
+            };
+            
+            // Categorize expenses
+            const expenseType = expense?.type || '';
+            if (['Fuel', 'Diesel', 'Petrol', 'Maintenance', 'Repair'].includes(expenseType)) {
+                groupedExpenses.vehicle.items.push(expenseItem);
+                groupedExpenses.vehicle.total += expenseItem.amount;
+            } else if (['Salary', 'Wage', 'Staff', 'Driver'].includes(expenseType)) {
+                groupedExpenses.staff.items.push(expenseItem);
+                groupedExpenses.staff.total += expenseItem.amount;
+            } else {
+                groupedExpenses.other.items.push(expenseItem);
+                groupedExpenses.other.total += expenseItem.amount;
+            }
+        });
+        
+        // Process payments
+        const paymentList = payments.map((payment, index) => ({
+            packageId: payment?.payment_number || `PAY-${index + 1}`,
+            packageType: payment?.type || 'Standard',
+            weight: 'N/A',
+            dimensions: 'N/A',
+            fromLocation: payment?.booking_center?.name || 'Unknown',
+            toLocation: payment?.booking_center?.name || 'Unknown',
+            vehicleType: 'Standard',
+            driverName: 'N/A',
+            staffName: payment?.customer?.name || 'N/A',
+            packageValue: parseFloat(payment?.amount || 0),
+            status: payment?.type || 'completed',
+            date: payment?.date || reportDate
+        }));
+        
+        return {
+            date: reportDate,
+            displayDate: moment(reportDate).format('DD MMMM YYYY'),
+            shortDate: moment(reportDate).format('DD/MM/YYYY'),
+            dayOfWeek: dayOfWeek,
+            centerName: centerName || data?.center?.name || 'All Centers',
+            totalRevenue: totalRevenue,
+            totalExpenses: totalExpenses,
+            totalProfit: totalProfit,
+            profitMargin: profitMargin,
+            isProfitDay: isProfitDay,
+            totalPackages: paymentList.length,
+            packages: paymentList,
+            expenses: expenses,
+            groupedExpenses: groupedExpenses,
+            profitablePackages: isProfitDay ? paymentList.length : 0,
+            lossPackages: !isProfitDay ? paymentList.length : 0,
+            totalPackagesCount: paymentList.length
+        };
+    };
 
     const handlePrint = () => {
         window.print();
@@ -62,28 +147,30 @@ const ProfitLossReportPDF = () => {
     };
 
     const formatCurrency = (amount) => {
+        const numAmount = parseFloat(amount || 0);
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0
-        }).format(amount);
+        }).format(numAmount);
     };
 
     const formatRupees = (amount) => {
-        return `₹${amount.toLocaleString('en-IN')}`;
+        const numAmount = parseFloat(amount || 0);
+        return `₹${numAmount.toLocaleString('en-IN')}`;
     };
 
     // Get payment status color
     const getPaymentStatusColor = (status) => {
         switch(status) {
             case 'paid': return '#059669';
-            case 'partially_paid': return '#f59e0b';
-            case 'unpaid': return '#dc2626';
+            case 'partial': return '#f59e0b';
+            case 'pending': return '#dc2626';
             default: return '#6b7280';
         }
     };
 
-    if (!dateData) {
+    if (!processedData) {
         return (
             <div className="flex items-center justify-center h-screen">
                 <div className="text-center">
@@ -101,8 +188,8 @@ const ProfitLossReportPDF = () => {
                 id="profit-loss-report-to-print"
                 className="bg-white mx-auto"
                 style={{
-                    width: '210mm', // A4 portrait width
-                    minHeight: '297mm', // A4 portrait height
+                    width: '210mm',
+                    minHeight: '297mm',
                     height: 'auto',
                     padding: '15mm',
                     fontFamily: '"Times New Roman", serif',
@@ -119,14 +206,14 @@ const ProfitLossReportPDF = () => {
                         </td>
                         <td width="30%" style={{ borderRight: '2px solid #000', padding: '3mm', verticalAlign: 'middle', textAlign: 'center' }}>
                             <div style={{ fontSize: '11pt', fontWeight: 'bold' }}>
-                                {moment(dateData.date).format('DD MMMM YYYY')}
+                                {processedData.displayDate}
                             </div>
-                            <div style={{ fontSize: '9pt' }}>{dateData.dayOfWeek}</div>
+                            <div style={{ fontSize: '9pt' }}>{processedData.dayOfWeek}</div>
                         </td>
                         <td width="30%" style={{ padding: '3mm', verticalAlign: 'middle', textAlign: 'center' }}>
                             <div style={{ fontSize: '8pt', lineHeight: '1.3' }}>
-                                <div>Generated: {generatedDate || moment().format('DD/MM/YYYY HH:mm')}</div>
-                                <div>Page: 1 of 1</div>
+                                <div>Generated: {generatedDate}</div>
+                                <div>Center: {processedData.centerName}</div>
                             </div>
                         </td>
                     </tr>
@@ -135,7 +222,7 @@ const ProfitLossReportPDF = () => {
                 {/* EXECUTIVE SUMMARY */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '2px solid #000', borderCollapse: 'collapse', marginBottom: '6mm' }}>
                     <tr>
-                        <td colSpan="6" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                        <td colSpan="4" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
                             🏆 EXECUTIVE SUMMARY
                         </td>
                     </tr>
@@ -145,52 +232,52 @@ const ProfitLossReportPDF = () => {
                             Total Revenue:
                         </td>
                         <td width="25%" style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: '#eff6ff', fontWeight: 'bold', textAlign: 'center', color: '#1e40af', fontSize: '10pt' }}>
-                            {formatCurrency(dateData.totalRevenue)}
+                            {formatCurrency(processedData.totalRevenue)}
                         </td>
                         <td width="25%" style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#fef2f2' }}>
                             Total Expenses:
                         </td>
                         <td width="25%" style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: '#fef2f2', fontWeight: 'bold', textAlign: 'center', color: '#dc2626', fontSize: '10pt' }}>
-                            {formatCurrency(dateData.totalExpenses)}
+                            {formatCurrency(processedData.totalExpenses)}
                         </td>
                     </tr>
 
                     <tr>
-                        <td style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: dateData.isProfitDay ? '#d1fae5' : '#fee2e2' }}>
+                        <td style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: processedData.isProfitDay ? '#d1fae5' : '#fee2e2' }}>
                             Net Profit/Loss:
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: dateData.isProfitDay ? '#d1fae5' : '#fee2e2', fontWeight: 'bold', textAlign: 'center', fontSize: '12pt', color: dateData.isProfitDay ? '#059669' : '#dc2626' }}>
-                            {formatCurrency(dateData.totalProfit)}
+                        <td style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: processedData.isProfitDay ? '#d1fae5' : '#fee2e2', fontWeight: 'bold', textAlign: 'center', fontSize: '12pt', color: processedData.isProfitDay ? '#059669' : '#dc2626' }}>
+                            {formatCurrency(processedData.totalProfit)}
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: dateData.isProfitDay ? '#bbf7d0' : '#fecaca' }}>
+                        <td style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: processedData.isProfitDay ? '#bbf7d0' : '#fecaca' }}>
                             Profit Margin:
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: dateData.isProfitDay ? '#bbf7d0' : '#fecaca', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', color: dateData.isProfitDay ? '#059669' : '#dc2626' }}>
-                            {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}%
+                        <td style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: processedData.isProfitDay ? '#bbf7d0' : '#fecaca', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', color: processedData.isProfitDay ? '#059669' : '#dc2626' }}>
+                            {processedData.profitMargin >= 0 ? '+' : ''}{processedData.profitMargin}%
                         </td>
                     </tr>
 
                     <tr>
                         <td style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#fef3c7' }}>
-                            Total Packages:
+                            Total Payments:
                         </td>
                         <td style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: '#fef3c7', fontWeight: 'bold', textAlign: 'center' }}>
-                            {dateData.totalPackages}
+                            {processedData.totalPackages}
                         </td>
                         <td style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', verticalAlign: 'middle', backgroundColor: '#e0e7ff' }}>
                             Day Status:
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: '#e0e7ff', fontWeight: 'bold', textAlign: 'center', color: dateData.isProfitDay ? '#059669' : '#dc2626' }}>
-                            {dateData.isProfitDay ? 'PROFIT DAY' : 'LOSS DAY'}
+                        <td style={{ border: '1px solid #000', padding: '3mm', verticalAlign: 'middle', backgroundColor: '#e0e7ff', fontWeight: 'bold', textAlign: 'center', color: processedData.isProfitDay ? '#059669' : '#dc2626' }}>
+                            {processedData.isProfitDay ? 'PROFIT DAY' : 'LOSS DAY'}
                         </td>
                     </tr>
                 </table>
 
-                {/* PACKAGE REVENUE DETAILS */}
+                {/* PAYMENT DETAILS */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '2px solid #000', borderCollapse: 'collapse', marginBottom: '6mm' }}>
                     <tr>
-                        <td colSpan="6" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
-                            📦 PACKAGE REVENUE DETAILS
+                        <td colSpan="8" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                            💰 PAYMENT DETAILS
                         </td>
                     </tr>
                     
@@ -200,58 +287,75 @@ const ProfitLossReportPDF = () => {
                             #
                         </th>
                         <th width="15%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
-                            Package ID
-                        </th>
-                        <th width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
-                            Package Details
+                            Payment No
                         </th>
                         <th width="15%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
-                            Route
+                            Date
                         </th>
-                        <th width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
-                            Vehicle & Staff
+                        <th width="15%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
+                            Customer
+                        </th>
+                        <th width="10%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
+                            Mode
+                        </th>
+                        <th width="10%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
+                            Type
                         </th>
                         <th width="15%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
-                            Revenue (₹)
+                            Amount (₹)
+                        </th>
+                        <th width="15%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#e5e7eb' }}>
+                            Booking Center
                         </th>
                     </tr>
 
                     {/* Table Data */}
-                    {dateData.packages.map((pkg, index) => (
+                    {processedData.packages.map((payment, index) => (
                         <tr key={index}>
                             <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', verticalAlign: 'top' }}>
                                 {index + 1}
                             </td>
                             <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontWeight: 'bold' }}>
-                                {pkg.packageId}
+                                {payment.packageId}
                             </td>
                             <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '8pt' }}>
-                                <div>{pkg.packageType}</div>
-                                <div style={{ color: '#666' }}>{pkg.weight} | {pkg.dimensions}</div>
-                                <div style={{ color: '#666', fontSize: '7.5pt' }}>Status: {pkg.status}</div>
+                                {payment.date ? moment(payment.date).format('DD/MM/YYYY') : moment(processedData.date).format('DD/MM/YYYY')}
                             </td>
                             <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '8pt' }}>
-                                <div>{pkg.fromLocation}</div>
-                                <div>→ {pkg.toLocation}</div>
+                                {payment.staffName}
                             </td>
-                            <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '8pt' }}>
-                                <div>{pkg.vehicleType}</div>
-                                <div style={{ color: '#666' }}>Driver: {pkg.driverName}</div>
-                                <div style={{ color: '#666' }}>Staff: {pkg.staffName}</div>
+                            <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '8pt', textAlign: 'center' }}>
+                                Cash
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '8pt', textAlign: 'center' }}>
+                                <span style={{
+                                    padding: '1px 3px',
+                                    borderRadius: '2px',
+                                    backgroundColor: payment.packageType === 'full' ? '#05966920' : '#f59e0b20',
+                                    color: payment.packageType === 'full' ? '#059669' : '#f59e0b',
+                                }}>
+                                    {payment.packageType}
+                                </span>
                             </td>
                             <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', textAlign: 'right', fontWeight: 'bold', color: '#059669' }}>
-                                {formatRupees(pkg.packageValue)}
+                                {formatRupees(payment.packageValue)}
+                            </td>
+                            <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '8pt', textAlign: 'center' }}>
+                                {payment.fromLocation}
                             </td>
                         </tr>
                     ))}
 
                     {/* Summary Row */}
                     <tr style={{ fontWeight: 'bold' }}>
-                        <td colSpan="5" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', backgroundColor: '#f9fafb' }}>
-                            TOTAL REVENUE:
+                        <td colSpan="6" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', backgroundColor: '#f9fafb' }}>
+                            TOTAL PAYMENTS:
                         </td>
                         <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', backgroundColor: '#f9fafb', color: '#059669', fontSize: '10pt' }}>
-                            {formatRupees(dateData.totalRevenue)}
+                            {formatRupees(processedData.totalRevenue)}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+                            {processedData.packages.length}
                         </td>
                     </tr>
                 </table>
@@ -271,7 +375,7 @@ const ProfitLossReportPDF = () => {
                     </div>
 
                     {/* Vehicle Expenses */}
-                    {groupedExpenses.vehicle && (
+                    {processedData.groupedExpenses.vehicle.items.length > 0 && (
                         <div style={{ marginBottom: '4mm' }}>
                             <div style={{ 
                                 fontSize: '10pt', 
@@ -281,57 +385,34 @@ const ProfitLossReportPDF = () => {
                                 border: '1px solid #93c5fd',
                                 marginBottom: '2mm'
                             }}>
-                                🚚 VEHICLE EXPENSES: {formatRupees(groupedExpenses.vehicle.total)}
+                                🚚 VEHICLE EXPENSES: {formatRupees(processedData.groupedExpenses.vehicle.total)}
                             </div>
                             
                             <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', fontSize: '8pt' }}>
                                 <tr>
                                     <th width="5%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>#</th>
-                                    <th width="30%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Expense Name</th>
-                                    <th width="25%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Description</th>
-                                    <th width="15%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Type</th>
-                                    <th width="10%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Amount (₹)</th>
-                                    <th width="15%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Payment Status</th>
+                                    <th width="35%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Expense Type</th>
+                                    <th width="35%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Description</th>
+                                    <th width="25%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#eff6ff' }}>Amount (₹)</th>
                                 </tr>
                                 
-                                {groupedExpenses.vehicle.items.map((expense, index) => (
+                                {processedData.groupedExpenses.vehicle.items.map((expense, index) => (
                                     <tr key={index}>
                                         <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>{index + 1}</td>
                                         <td style={{ border: '1px solid #000', padding: '1mm' }}>{expense.name}</td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', fontSize: '7.5pt' }}>{expense.description}</td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>{expense.subCategory}</td>
+                                        <td style={{ border: '1px solid #000', padding: '1mm', fontSize: '7.5pt' }}>{expense.description || 'No description'}</td>
                                         <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>
                                             {formatRupees(expense.amount)}
-                                        </td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '1px 3px',
-                                                borderRadius: '2px',
-                                                backgroundColor: getPaymentStatusColor(expense.status) + '20',
-                                                color: getPaymentStatusColor(expense.status),
-                                                fontWeight: 'bold',
-                                                fontSize: '7pt'
-                                            }}>
-                                                {expense.status.replace('_', ' ').toUpperCase()}
-                                            </span>
-                                            {expense.balance > 0 && (
-                                                <div style={{ fontSize: '7pt', color: '#666' }}>
-                                                    Due: {formatRupees(expense.balance)}
-                                                </div>
-                                            )}
                                         </td>
                                     </tr>
                                 ))}
                                 
                                 <tr style={{ fontWeight: 'bold', backgroundColor: '#dbeafe' }}>
-                                    <td colSpan="4" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right' }}>
+                                    <td colSpan="3" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right' }}>
                                         TOTAL VEHICLE EXPENSES:
                                     </td>
                                     <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', color: '#dc2626' }}>
-                                        {formatRupees(groupedExpenses.vehicle.total)}
-                                    </td>
-                                    <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>
-                                        {((groupedExpenses.vehicle.total / dateData.totalExpenses) * 100).toFixed(1)}%
+                                        {formatRupees(processedData.groupedExpenses.vehicle.total)}
                                     </td>
                                 </tr>
                             </table>
@@ -339,7 +420,7 @@ const ProfitLossReportPDF = () => {
                     )}
 
                     {/* Staff Expenses */}
-                    {groupedExpenses.staff && (
+                    {processedData.groupedExpenses.staff.items.length > 0 && (
                         <div style={{ marginBottom: '4mm' }}>
                             <div style={{ 
                                 fontSize: '10pt', 
@@ -349,52 +430,34 @@ const ProfitLossReportPDF = () => {
                                 border: '1px solid #86efac',
                                 marginBottom: '2mm'
                             }}>
-                                👥 STAFF EXPENSES: {formatRupees(groupedExpenses.staff.total)}
+                                👥 STAFF EXPENSES: {formatRupees(processedData.groupedExpenses.staff.total)}
                             </div>
                             
                             <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', fontSize: '8pt' }}>
                                 <tr>
                                     <th width="5%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>#</th>
-                                    <th width="30%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Expense Name</th>
-                                    <th width="25%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Description</th>
-                                    <th width="15%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Type</th>
-                                    <th width="10%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Amount (₹)</th>
-                                    <th width="15%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Payment Status</th>
+                                    <th width="35%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Expense Type</th>
+                                    <th width="35%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Description</th>
+                                    <th width="25%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>Amount (₹)</th>
                                 </tr>
                                 
-                                {groupedExpenses.staff.items.map((expense, index) => (
+                                {processedData.groupedExpenses.staff.items.map((expense, index) => (
                                     <tr key={index}>
                                         <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>{index + 1}</td>
                                         <td style={{ border: '1px solid #000', padding: '1mm' }}>{expense.name}</td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', fontSize: '7.5pt' }}>{expense.description}</td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>{expense.subCategory}</td>
+                                        <td style={{ border: '1px solid #000', padding: '1mm', fontSize: '7.5pt' }}>{expense.description || 'No description'}</td>
                                         <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>
                                             {formatRupees(expense.amount)}
-                                        </td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '1px 3px',
-                                                borderRadius: '2px',
-                                                backgroundColor: getPaymentStatusColor(expense.status) + '20',
-                                                color: getPaymentStatusColor(expense.status),
-                                                fontWeight: 'bold',
-                                                fontSize: '7pt'
-                                            }}>
-                                                {expense.status.replace('_', ' ').toUpperCase()}
-                                            </span>
                                         </td>
                                     </tr>
                                 ))}
                                 
                                 <tr style={{ fontWeight: 'bold', backgroundColor: '#d1fae5' }}>
-                                    <td colSpan="4" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right' }}>
+                                    <td colSpan="3" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right' }}>
                                         TOTAL STAFF EXPENSES:
                                     </td>
                                     <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', color: '#dc2626' }}>
-                                        {formatRupees(groupedExpenses.staff.total)}
-                                    </td>
-                                    <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>
-                                        {((groupedExpenses.staff.total / dateData.totalExpenses) * 100).toFixed(1)}%
+                                        {formatRupees(processedData.groupedExpenses.staff.total)}
                                     </td>
                                 </tr>
                             </table>
@@ -402,7 +465,7 @@ const ProfitLossReportPDF = () => {
                     )}
 
                     {/* Other Expenses */}
-                    {groupedExpenses.other && (
+                    {processedData.groupedExpenses.other.items.length > 0 && (
                         <div style={{ marginBottom: '4mm' }}>
                             <div style={{ 
                                 fontSize: '10pt', 
@@ -412,76 +475,72 @@ const ProfitLossReportPDF = () => {
                                 border: '1px solid #fcd34d',
                                 marginBottom: '2mm'
                             }}>
-                                📦 OTHER EXPENSES: {formatRupees(groupedExpenses.other.total)}
+                                📦 OTHER EXPENSES: {formatRupees(processedData.groupedExpenses.other.total)}
                             </div>
                             
                             <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', fontSize: '8pt' }}>
                                 <tr>
                                     <th width="5%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>#</th>
-                                    <th width="30%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Expense Name</th>
-                                    <th width="25%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Description</th>
-                                    <th width="15%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Type</th>
-                                    <th width="10%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Amount (₹)</th>
-                                    <th width="15%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Payment Status</th>
+                                    <th width="35%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Expense Type</th>
+                                    <th width="35%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'left', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Description</th>
+                                    <th width="25%" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', backgroundColor: '#fef9c3' }}>Amount (₹)</th>
                                 </tr>
                                 
-                                {groupedExpenses.other.items.map((expense, index) => (
+                                {processedData.groupedExpenses.other.items.map((expense, index) => (
                                     <tr key={index}>
                                         <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>{index + 1}</td>
                                         <td style={{ border: '1px solid #000', padding: '1mm' }}>{expense.name}</td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', fontSize: '7.5pt' }}>{expense.description}</td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>{expense.subCategory}</td>
+                                        <td style={{ border: '1px solid #000', padding: '1mm', fontSize: '7.5pt' }}>{expense.description || 'No description'}</td>
                                         <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', fontWeight: 'bold', color: '#dc2626' }}>
                                             {formatRupees(expense.amount)}
-                                        </td>
-                                        <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>
-                                            <span style={{
-                                                padding: '1px 3px',
-                                                borderRadius: '2px',
-                                                backgroundColor: getPaymentStatusColor(expense.status) + '20',
-                                                color: getPaymentStatusColor(expense.status),
-                                                fontWeight: 'bold',
-                                                fontSize: '7pt'
-                                            }}>
-                                                {expense.status.replace('_', ' ').toUpperCase()}
-                                            </span>
                                         </td>
                                     </tr>
                                 ))}
                                 
                                 <tr style={{ fontWeight: 'bold', backgroundColor: '#fef3c7' }}>
-                                    <td colSpan="4" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right' }}>
+                                    <td colSpan="3" style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right' }}>
                                         TOTAL OTHER EXPENSES:
                                     </td>
                                     <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'right', color: '#dc2626' }}>
-                                        {formatRupees(groupedExpenses.other.total)}
-                                    </td>
-                                    <td style={{ border: '1px solid #000', padding: '1mm', textAlign: 'center' }}>
-                                        {((groupedExpenses.other.total / dateData.totalExpenses) * 100).toFixed(1)}%
+                                        {formatRupees(processedData.groupedExpenses.other.total)}
                                     </td>
                                 </tr>
                             </table>
                         </div>
                     )}
+                    
+                    {/* No Expenses Message */}
+                    {processedData.groupedExpenses.vehicle.items.length === 0 && 
+                     processedData.groupedExpenses.staff.items.length === 0 && 
+                     processedData.groupedExpenses.other.items.length === 0 && (
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '10mm',
+                            backgroundColor: '#f9fafb',
+                            border: '1px solid #000'
+                        }}>
+                            No expenses recorded for this day
+                        </div>
+                    )}
                 </div>
 
                 {/* FINAL PROFIT & LOSS CALCULATION */}
-                <table width="100%" cellPadding="3" cellSpacing="0" style={{ border: '3px double #000', borderCollapse: 'collapse', marginBottom: '6mm', backgroundColor: dateData.isProfitDay ? '#f0fdf4' : '#fef2f2' }}>
+                <table width="100%" cellPadding="3" cellSpacing="0" style={{ border: '3px double #000', borderCollapse: 'collapse', marginBottom: '6mm', backgroundColor: processedData.isProfitDay ? '#f0fdf4' : '#fef2f2' }}>
                     <tr>
-                        <td colSpan="3" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '12pt', backgroundColor: dateData.isProfitDay ? '#bbf7d0' : '#fecaca' }}>
+                        <td colSpan="3" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '12pt', backgroundColor: processedData.isProfitDay ? '#bbf7d0' : '#fecaca' }}>
                             🏁 FINAL PROFIT & LOSS STATEMENT
                         </td>
                     </tr>
                     
                     <tr>
                         <td width="60%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold' }}>
-                            TOTAL REVENUE FROM PACKAGES:
+                            TOTAL REVENUE FROM PAYMENTS:
                         </td>
                         <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold' }}>
                             (+) 
                         </td>
                         <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', fontWeight: 'bold', color: '#059669', fontSize: '10pt' }}>
-                            {formatRupees(dateData.totalRevenue)}
+                            {formatRupees(processedData.totalRevenue)}
                         </td>
                     </tr>
 
@@ -493,7 +552,7 @@ const ProfitLossReportPDF = () => {
                             (-)
                         </td>
                         <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', fontWeight: 'bold', color: '#dc2626', fontSize: '10pt' }}>
-                            {formatRupees(dateData.totalExpenses)}
+                            {formatRupees(processedData.totalExpenses)}
                         </td>
                     </tr>
 
@@ -502,72 +561,57 @@ const ProfitLossReportPDF = () => {
                             NET PROFIT / LOSS:
                         </td>
                         <td style={{ border: '1px solid #000', padding: '3mm', textAlign: 'center', fontWeight: 'bold', fontSize: '11pt' }}>
-                            {dateData.isProfitDay ? '=' : '='}
+                            {processedData.isProfitDay ? '=' : '='}
                         </td>
-                        <td style={{ border: '1px solid #000', padding: '3mm', textAlign: 'right', fontWeight: 'bold', fontSize: '14pt', color: dateData.isProfitDay ? '#059669' : '#dc2626' }}>
-                            {formatRupees(dateData.totalProfit)}
+                        <td style={{ border: '1px solid #000', padding: '3mm', textAlign: 'right', fontWeight: 'bold', fontSize: '14pt', color: processedData.isProfitDay ? '#059669' : '#dc2626' }}>
+                            {formatRupees(processedData.totalProfit)}
                         </td>
                     </tr>
 
-                    <tr style={{ backgroundColor: dateData.isProfitDay ? '#bbf7d0' : '#fecaca' }}>
+                    <tr style={{ backgroundColor: processedData.isProfitDay ? '#bbf7d0' : '#fecaca' }}>
                         <td colSpan="3" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', fontSize: '10pt' }}>
-                            PROFIT MARGIN: {dateData.profitMargin >= 0 ? '+' : ''}{dateData.profitMargin}% | 
-                            DAY STATUS: {dateData.isProfitDay ? 'PROFIT DAY ✅' : 'LOSS DAY ❌'} | 
-                            PACKAGES: {dateData.profitablePackages} Profit / {dateData.lossPackages} Loss
+                            PROFIT MARGIN: {processedData.profitMargin >= 0 ? '+' : ''}{processedData.profitMargin}% | 
+                            DAY STATUS: {processedData.isProfitDay ? 'PROFIT DAY ✅' : 'LOSS DAY ❌'} | 
+                            PAYMENTS: {processedData.packages.length}
                         </td>
                     </tr>
                 </table>
 
-                {/* PACKAGE PERFORMANCE SUMMARY */}
+                {/* PAYMENT SUMMARY */}
                 <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '2px solid #000', borderCollapse: 'collapse', fontSize: '9pt' }}>
                     <tr>
                         <td colSpan="4" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
-                            📊 PACKAGE PERFORMANCE SUMMARY
+                            📊 PAYMENT SUMMARY
                         </td>
                     </tr>
                     
                     <tr>
                         <td width="25%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#f9fafb' }}>
-                            Total Packages:
+                            Total Payments:
                         </td>
                         <td width="25%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold' }}>
-                            {dateData.totalPackages}
+                            {processedData.totalPackages}
                         </td>
                         <td width="25%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#f9fafb' }}>
-                            Average Revenue per Package:
+                            Average per Payment:
                         </td>
                         <td width="25%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', color: '#059669' }}>
-                            {formatRupees(dateData.totalRevenue / dateData.totalPackages)}
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#ecfdf5' }}>
-                            Profitable Packages:
-                        </td>
-                        <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', color: '#059669' }}>
-                            {dateData.profitablePackages}
-                        </td>
-                        <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fee2e2' }}>
-                            Loss Packages:
-                        </td>
-                        <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', color: '#dc2626' }}>
-                            {dateData.lossPackages}
+                            {processedData.totalPackages > 0 ? formatRupees(processedData.totalRevenue / processedData.totalPackages) : formatRupees(0)}
                         </td>
                     </tr>
 
                     <tr>
                         <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#f9fafb' }}>
-                            Success Rate:
-                        </td>
-                        <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', color: '#059669' }}>
-                            {((dateData.profitablePackages / dateData.totalPackages) * 100).toFixed(1)}%
-                        </td>
-                        <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#f9fafb' }}>
-                            Loss Rate:
+                            Total Expenses:
                         </td>
                         <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold', color: '#dc2626' }}>
-                            {((dateData.lossPackages / dateData.totalPackages) * 100).toFixed(1)}%
+                            {formatRupees(processedData.totalExpenses)}
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#f9fafb' }}>
+                            Expense Items:
+                        </td>
+                        <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold' }}>
+                            {processedData.expenses.length}
                         </td>
                     </tr>
                 </table>
@@ -585,13 +629,13 @@ const ProfitLossReportPDF = () => {
                         DAILY PROFIT & LOSS REPORT - FINANCIAL DEPARTMENT
                     </div>
                     <div>
-                        Report ID: PL-{moment(dateData.date).format('DDMMYYYY')} | 
-                        Generated: {generatedDate || moment().format('DD/MM/YYYY HH:mm')} | 
-                        Packages: {dateData.totalPackages} | 
-                        Expenses: {dateData.expenses.length} Items
+                        Report ID: PL-{moment(processedData.date).format('DDMMYYYY')} | 
+                        Generated: {generatedDate} | 
+                        Payments: {processedData.totalPackages} | 
+                        Expenses: {processedData.expenses.length} Items
                     </div>
                     <div style={{ marginTop: '2mm', fontStyle: 'italic', fontSize: '7.5pt' }}>
-                        "This detailed report shows complete revenue from packages and all expenses including vehicle charges, staff salaries, tea, maintenance, and other operational costs."
+                        "This report shows daily revenue from payments and all expenses including vehicle charges, staff expenses, and other operational costs."
                     </div>
                 </div>
             </div>
@@ -686,134 +730,6 @@ const ProfitLossReportPDF = () => {
                         font-size: 9pt !important;
                         line-height: 1.2 !important;
                         vertical-align: top !important;
-                    }
-
-                    /* Background colors for print */
-                    td[style*="background-color: #f0f0f0"] {
-                        background-color: #f0f0f0 !important;
-                    }
-                    
-                    td[style*="background-color: #eff6ff"] {
-                        background-color: #eff6ff !important;
-                    }
-                    
-                    td[style*="background-color: #fef2f2"] {
-                        background-color: #fef2f2 !important;
-                    }
-                    
-                    td[style*="background-color: #d1fae5"] {
-                        background-color: #d1fae5 !important;
-                    }
-                    
-                    td[style*="background-color: #fee2e2"] {
-                        background-color: #fee2e2 !important;
-                    }
-                    
-                    td[style*="background-color: #bbf7d0"] {
-                        background-color: #bbf7d0 !important;
-                    }
-                    
-                    td[style*="background-color: #fecaca"] {
-                        background-color: #fecaca !important;
-                    }
-                    
-                    td[style*="background-color: #fef3c7"] {
-                        background-color: #fef3c7 !important;
-                    }
-                    
-                    td[style*="background-color: #e0e7ff"] {
-                        background-color: #e0e7ff !important;
-                    }
-                    
-                    td[style*="background-color: #f9fafb"] {
-                        background-color: #f9fafb !important;
-                    }
-                    
-                    td[style*="background-color: #e5e7eb"] {
-                        background-color: #e5e7eb !important;
-                    }
-                    
-                    td[style*="background-color: #dbeafe"] {
-                        background-color: #dbeafe !important;
-                    }
-                    
-                    td[style*="background-color: #ecfdf5"] {
-                        background-color: #ecfdf5 !important;
-                    }
-                    
-                    td[style*="background-color: #fef9c3"] {
-                        background-color: #fef9c3 !important;
-                    }
-                    
-                    td[style*="background-color: #f0fdf4"] {
-                        background-color: #f0fdf4 !important;
-                    }
-
-                    /* Text colors for print */
-                    td[style*="color: #1e40af"] {
-                        color: #1e40af !important;
-                    }
-                    
-                    td[style*="color: #dc2626"] {
-                        color: #dc2626 !important;
-                    }
-                    
-                    td[style*="color: #059669"] {
-                        color: #059669 !important;
-                    }
-
-                    div[style*="background-color: #dbeafe"] {
-                        background-color: #dbeafe !important;
-                    }
-                    
-                    div[style*="background-color: #d1fae5"] {
-                        background-color: #d1fae5 !important;
-                    }
-                    
-                    div[style*="background-color: #fef3c7"] {
-                        background-color: #fef3c7 !important;
-                    }
-                    
-                    div[style*="background-color: #eff6ff"] {
-                        background-color: #eff6ff !important;
-                    }
-                    
-                    div[style*="background-color: #ecfdf5"] {
-                        background-color: #ecfdf5 !important;
-                    }
-                    
-                    div[style*="background-color: #fef9c3"] {
-                        background-color: #fef9c3 !important;
-                    }
-                }
-
-                /* Screen styles */
-                @media screen {
-                    #profit-loss-report-to-print {
-                        border-radius: 4px;
-                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-                        background: white;
-                        overflow: auto;
-                        max-height: calc(100vh - 150px);
-                        margin-bottom: 20px;
-                    }
-
-                    #profit-loss-report-to-print::-webkit-scrollbar {
-                        width: 8px;
-                    }
-
-                    #profit-loss-report-to-print::-webkit-scrollbar-track {
-                        background: #f1f1f1;
-                        border-radius: 4px;
-                    }
-
-                    #profit-loss-report-to-print::-webkit-scrollbar-thumb {
-                        background: #c1c1c1;
-                        border-radius: 4px;
-                    }
-
-                    #profit-loss-report-to-print::-webkit-scrollbar-thumb:hover {
-                        background: #a1a1a1;
                     }
                 }
             `}</style>

@@ -3,7 +3,7 @@ import { apiReturnCallBack } from './ApiConfig';
 // GET dashboard data
 export async function getDashboardDataApi(request = {}) {
     try {
-        const response = await apiReturnCallBack('GET', '/dashboard', request);
+        const response = await apiReturnCallBack('GET', '/dashboard/stats', request);
         const data = await response.json();
 
         if (!response.ok) {

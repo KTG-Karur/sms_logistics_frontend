@@ -110,6 +110,7 @@ const ExpenseCalculation = () => {
     const [showExpenseForm, setShowExpenseForm] = useState(false);
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
+    const [openingBalanceType, setOpeningBalanceType] = useState('IN'); // 'IN' or 'OUT'
     
     // Local state
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
@@ -121,6 +122,7 @@ const ExpenseCalculation = () => {
     const [openingBalanceForm, setOpeningBalanceForm] = useState({
         date: '',
         officeCenterId: '',
+        inOut: 'IN',
         openingBalance: '',
         notes: ''
     });
@@ -171,11 +173,13 @@ const ExpenseCalculation = () => {
         isPaid: '',
     });
 
-    // Check if opening balance exists for selected date and center
-    const hasOpeningBalance = () => {
+    // Check if opening balance exists for selected date, center and type
+    const hasOpeningBalance = (type = 'IN') => {
         if (!selectedOfficeCenter?.value || !selectedDate) return false;
         const formattedDate = formatInputDate(selectedDate);
-        return openingBalances.some(balance => balance.date === formattedDate);
+        return openingBalances.some(balance => 
+            balance.date === formattedDate && balance.in_out === type
+        );
     };
 
     // Load initial data
@@ -219,13 +223,13 @@ const ExpenseCalculation = () => {
     // Handle opening balance success/error
     useEffect(() => {
         if (createOpeningBalanceSuccess) {
-            showMessage('success', 'Opening balance created successfully');
+            showMessage('success', `Opening balance (${openingBalanceType}) created successfully`);
             resetOpeningBalanceForm();
             fetchOpeningBalances();
             dispatch(resetOpeningBalanceStatus());
         }
         if (updateOpeningBalanceSuccess) {
-            showMessage('success', 'Opening balance updated successfully');
+            showMessage('success', `Opening balance (${selectedOpeningBalanceItem?.in_out}) updated successfully`);
             resetOpeningBalanceForm();
             fetchOpeningBalances();
             dispatch(resetOpeningBalanceStatus());
@@ -241,7 +245,7 @@ const ExpenseCalculation = () => {
         }
     }, [createOpeningBalanceSuccess, updateOpeningBalanceSuccess, deleteOpeningBalanceSuccess, openingError]);
 
-    // Handle expense success/error - FIXED: Added reset of loading state
+    // Handle expense success/error
     useEffect(() => {
         if (createExpenseSuccess) {
             showMessage('success', 'Expense created successfully');
@@ -349,7 +353,7 @@ const ExpenseCalculation = () => {
         }
     }, [openingBalanceData]);
 
-    // Set expenses from API - FIXED: Handle nested data structure
+    // Set expenses from API
     useEffect(() => {
         if (expenseData) {
             // Check if expenseData has a data property that is an array (pagination response)
@@ -412,11 +416,20 @@ const ExpenseCalculation = () => {
     };
 
     const calculateTotalOpeningBalance = () => {
-        return (openingBalances || []).reduce((sum, balance) => sum + parseFloat(balance?.opening_balance || 0), 0);
+        return (openingBalances || []).reduce((sum, balance) => {
+            const amount = parseFloat(balance?.opening_balance || 0);
+            // IN adds to balance, OUT subtracts from balance
+            return balance?.in_out === 'IN' ? sum + amount : sum - amount;
+        }, 0);
     };
 
     const calculateNetBalance = () => {
         return calculateTotalOpeningBalance() - calculateTotalPaid();
+    };
+
+    // Get opening balance by type
+    const getOpeningBalanceByType = (type) => {
+        return (openingBalances || []).find(balance => balance.in_out === type);
     };
 
     // Handle office center change - ONLY FOR TOP SELECTOR
@@ -474,6 +487,7 @@ const ExpenseCalculation = () => {
         setOpeningBalanceForm({
             date: '',
             officeCenterId: '',
+            inOut: 'IN',
             openingBalance: '',
             notes: ''
         });
@@ -483,10 +497,12 @@ const ExpenseCalculation = () => {
         setShowOpeningBalanceForm(false);
     };
 
-    const openAddOpeningBalanceForm = () => {
+    const openAddOpeningBalanceForm = (type = 'IN') => {
+        setOpeningBalanceType(type);
         setOpeningBalanceForm({
             date: formatInputDate(selectedDate),
             officeCenterId: selectedOfficeCenter?.value || '',
+            inOut: type,
             openingBalance: '',
             notes: ''
         });
@@ -496,9 +512,11 @@ const ExpenseCalculation = () => {
     };
 
     const openEditOpeningBalanceForm = (item) => {
+        setOpeningBalanceType(item?.in_out || 'IN');
         setOpeningBalanceForm({
             date: item?.date || '',
             officeCenterId: item?.office_center_id || '',
+            inOut: item?.in_out || 'IN',
             openingBalance: item?.opening_balance || '',
             notes: item?.notes || '',
         });
@@ -535,6 +553,7 @@ const ExpenseCalculation = () => {
         const requestData = {
             date: openingBalanceForm.date,
             officeCenterId: selectedOfficeCenter?.value || openingBalanceForm.officeCenterId,
+            inOut: openingBalanceForm.inOut,
             openingBalance: parseFloat(openingBalanceForm.openingBalance),
             notes: openingBalanceForm.notes,
         };
@@ -554,7 +573,7 @@ const ExpenseCalculation = () => {
         
         showMessage(
             'warning',
-            'Are you sure you want to delete this opening balance?',
+            `Are you sure you want to delete this ${item.in_out === 'IN' ? 'IN' : 'OUT'} opening balance?`,
             () => {
                 dispatch(deleteOpeningBalance(item.opening_balance_id));
             },
@@ -562,7 +581,7 @@ const ExpenseCalculation = () => {
         );
     };
 
-    // Expense Form Handlers - FIXED: Removed date field
+    // Expense Form Handlers
     const resetExpenseForm = () => {
         setExpenseForm({
             expenseTypeId: '',
@@ -676,7 +695,7 @@ const ExpenseCalculation = () => {
         );
     };
 
-    // Payment Form Handlers - FIXED: Added max validation
+    // Payment Form Handlers
     const resetPaymentForm = () => {
         setPaymentForm({
             expenseId: '',
@@ -774,12 +793,28 @@ const ExpenseCalculation = () => {
             ),
         },
         {
-            Header: 'Opening Balance',
-            accessor: 'opening_balance',
+            Header: 'Type',
+            accessor: 'in_out',
             sort: true,
             Cell: ({ value }) => (
-                <div className="text-primary font-bold text-lg">₹{parseFloat(value || 0).toLocaleString('en-IN')}</div>
+                <div className={`font-semibold ${value === 'IN' ? 'text-success' : 'text-danger'}`}>
+                    {value === 'IN' ? 'Cash In' : 'Cash Out'}
+                </div>
             ),
+        },
+        {
+            Header: 'Amount',
+            accessor: 'opening_balance',
+            sort: true,
+            Cell: ({ value, row }) => {
+                const amount = parseFloat(value || 0);
+                const type = row.original.in_out;
+                return (
+                    <div className={`font-bold text-lg ${type === 'IN' ? 'text-success' : 'text-danger'}`}>
+                        {type === 'OUT' ? '- ' : ''}₹{amount.toLocaleString('en-IN')}
+                    </div>
+                );
+            },
         },
         {
             Header: 'Notes',
@@ -815,7 +850,7 @@ const ExpenseCalculation = () => {
         },
     ];
 
-    // Table Columns for Expenses - Removed Edit button, kept only Pay and Delete
+    // Table Columns for Expenses
     const expenseColumns = [
         {
             Header: 'S.No',
@@ -1054,7 +1089,7 @@ const ExpenseCalculation = () => {
                 <div className="panel mb-6">
                     <div className="flex items-center justify-between mb-5">
                         <h5 className="font-semibold text-lg dark:text-white-light">
-                            {isEditOpeningBalance ? 'Edit Opening Balance' : 'Add Opening Balance'}
+                            {isEditOpeningBalance ? 'Edit Opening Balance' : `Add ${openingBalanceType === 'IN' ? 'Cash In' : 'Cash Out'} Opening Balance`}
                         </h5>
                         <button
                             type="button"
@@ -1075,6 +1110,7 @@ const ExpenseCalculation = () => {
                                     className={`form-input ${openingBalanceErrors.date ? 'border-danger' : ''}`}
                                     value={openingBalanceForm.date}
                                     onChange={handleOpeningBalanceInputChange}
+                                    disabled={isEditOpeningBalance}
                                 />
                                 {openingBalanceErrors.date && (
                                     <div className="text-danger text-sm mt-1">{openingBalanceErrors.date}</div>
@@ -1088,14 +1124,49 @@ const ExpenseCalculation = () => {
                                     {selectedOfficeCenter?.label || 'Select office center first'}
                                 </div>
                             </div>
+
+                            {/* Type Display - Not editable when editing */}
+                            <div>
+                                <label>Type</label>
+                                {isEditOpeningBalance ? (
+                                    <div className="form-input bg-gray-100 dark:bg-gray-700 cursor-not-allowed">
+                                        {openingBalanceForm.inOut === 'IN' ? 'Cash In' : 'Cash Out'}
+                                    </div>
+                                ) : (
+                                    <div className="flex space-x-4">
+                                        <label className="flex items-center">
+                                            <input
+                                                type="radio"
+                                                name="inOut"
+                                                value="IN"
+                                                checked={openingBalanceForm.inOut === 'IN'}
+                                                onChange={(e) => setOpeningBalanceForm(prev => ({ ...prev, inOut: e.target.value }))}
+                                                className="form-radio h-4 w-4 text-primary"
+                                            />
+                                            <span className="ml-2 text-success">Cash In</span>
+                                        </label>
+                                        <label className="flex items-center">
+                                            <input
+                                                type="radio"
+                                                name="inOut"
+                                                value="OUT"
+                                                checked={openingBalanceForm.inOut === 'OUT'}
+                                                onChange={(e) => setOpeningBalanceForm(prev => ({ ...prev, inOut: e.target.value }))}
+                                                className="form-radio h-4 w-4 text-danger"
+                                            />
+                                            <span className="ml-2 text-danger">Cash Out</span>
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
                             
                             <div>
-                                <label>Opening Balance (₹) <span className="text-danger">*</span></label>
+                                <label>{openingBalanceForm.inOut === 'IN' ? 'Cash In Amount' : 'Cash Out Amount'} (₹) <span className="text-danger">*</span></label>
                                 <input
                                     type="number"
                                     name="openingBalance"
                                     className={`form-input ${openingBalanceErrors.openingBalance ? 'border-danger' : ''}`}
-                                    placeholder="Enter opening balance"
+                                    placeholder={`Enter ${openingBalanceForm.inOut === 'IN' ? 'cash in' : 'cash out'} amount`}
                                     value={openingBalanceForm.openingBalance}
                                     onChange={handleOpeningBalanceInputChange}
                                     min="0"
@@ -1106,7 +1177,7 @@ const ExpenseCalculation = () => {
                                 )}
                             </div>
                             
-                            <div>
+                            <div className="md:col-span-2">
                                 <label>Notes</label>
                                 <textarea
                                     name="notes"
@@ -1141,23 +1212,53 @@ const ExpenseCalculation = () => {
 
             {/* Opening Balance Section */}
             <div className="panel border border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-gray-800 dark:to-gray-900 border-b flex justify-between items-center">
-                    <h5 className="font-semibold text-lg dark:text-white-light flex items-center">
-                        <IconDollarSign className="w-5 h-5 mr-2 text-primary" />
-                        Opening Balances - {selectedOfficeCenter?.label || 'Select Center'} ({selectedDate ? new Date(selectedDate).toLocaleDateString('en-IN') : ''})
-                    </h5>
-                    {/* Hide Add button if opening balance already exists */}
-                    {!hasOpeningBalance() && (
-                        <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={openAddOpeningBalanceForm}
-                            disabled={!selectedOfficeCenter}
-                        >
-                            <IconPlus className="w-4 h-4 mr-1" />
-                            Add Opening Balance
-                        </button>
-                    )}
+                <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-gray-800 dark:to-gray-900 border-b">
+                    <div className="flex justify-between items-center">
+                        <h5 className="font-semibold text-lg dark:text-white-light flex items-center">
+                            <IconDollarSign className="w-5 h-5 mr-2 text-primary" />
+                            Opening Balances - {selectedOfficeCenter?.label || 'Select Center'} ({selectedDate ? new Date(selectedDate).toLocaleDateString('en-IN') : ''})
+                        </h5>
+                        <div className="flex space-x-2">
+                            {/* Add Cash In Button - Show only if no IN record exists */}
+                            {!hasOpeningBalance('IN') && (
+                                <button
+                                    type="button"
+                                    className="btn btn-success btn-sm"
+                                    onClick={() => openAddOpeningBalanceForm('IN')}
+                                    disabled={!selectedOfficeCenter}
+                                >
+                                    <IconPlus className="w-4 h-4 mr-1" />
+                                    Add Cash In
+                                </button>
+                            )}
+                            {/* Add Cash Out Button - Show only if no OUT record exists */}
+                            {!hasOpeningBalance('OUT') && (
+                                <button
+                                    type="button"
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => openAddOpeningBalanceForm('OUT')}
+                                    disabled={!selectedOfficeCenter}
+                                >
+                                    <IconPlus className="w-4 h-4 mr-1" />
+                                    Add Cash Out
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {/* Quick Summary of IN/OUT */}
+                    <div className="flex space-x-4 mt-2 text-sm">
+                        {getOpeningBalanceByType('IN') && (
+                            <div className="bg-success/10 text-success px-3 py-1 rounded-full">
+                                Cash In: ₹{parseFloat(getOpeningBalanceByType('IN')?.opening_balance || 0).toLocaleString('en-IN')}
+                            </div>
+                        )}
+                        {getOpeningBalanceByType('OUT') && (
+                            <div className="bg-danger/10 text-danger px-3 py-1 rounded-full">
+                                Cash Out: ₹{parseFloat(getOpeningBalanceByType('OUT')?.opening_balance || 0).toLocaleString('en-IN')}
+                            </div>
+                        )}
+                    </div>
                 </div>
                 
                 <div className="p-4">
@@ -1176,12 +1277,20 @@ const ExpenseCalculation = () => {
                             {selectedOfficeCenter ? (
                                 <>
                                     No opening balances found for {new Date(selectedDate).toLocaleDateString('en-IN')}.
-                                    <button
-                                        className="text-primary ml-2 underline"
-                                        onClick={openAddOpeningBalanceForm}
-                                    >
-                                        Add one now
-                                    </button>
+                                    <div className="mt-2 space-x-2">
+                                        <button
+                                            className="text-success ml-2 underline"
+                                            onClick={() => openAddOpeningBalanceForm('IN')}
+                                        >
+                                            Add Cash In
+                                        </button>
+                                        <button
+                                            className="text-danger ml-2 underline"
+                                            onClick={() => openAddOpeningBalanceForm('OUT')}
+                                        >
+                                            Add Cash Out
+                                        </button>
+                                    </div>
                                 </>
                             ) : (
                                 'Please select an office center to view opening balances.'
@@ -1199,8 +1308,8 @@ const ExpenseCalculation = () => {
                             <IconDollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Opening Balance</div>
-                            <div className="text-xl font-bold text-gray-800 dark:text-white">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">Net Opening Balance</div>
+                            <div className={`text-xl font-bold ${calculateTotalOpeningBalance() >= 0 ? 'text-success' : 'text-danger'}`}>
                                 ₹{calculateTotalOpeningBalance().toLocaleString('en-IN')}
                             </div>
                         </div>
@@ -1242,7 +1351,7 @@ const ExpenseCalculation = () => {
                         </div>
                         <div>
                             <div className="text-sm text-gray-500 dark:text-gray-400">Net Balance</div>
-                            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <div className={`text-2xl font-bold ${calculateNetBalance() >= 0 ? 'text-success' : 'text-danger'}`}>
                                 ₹{calculateNetBalance().toLocaleString('en-IN')}
                             </div>
                         </div>
