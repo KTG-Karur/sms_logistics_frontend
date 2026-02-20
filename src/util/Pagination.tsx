@@ -118,7 +118,7 @@ const Pagination = ({
                         <li
                             key={page}
                             className={classNames('cursor-pointer px-3 py-1 border rounded transition-colors flex-shrink-0', { 
-                                'bg-blue-500 text-white': activePage === page,
+                                'bg-orange-500 text-white': activePage === page,
                                 'hover:bg-gray-100': activePage !== page
                             })}
                             onClick={() => changePage(page as number)}

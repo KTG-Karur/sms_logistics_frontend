@@ -34,7 +34,7 @@ const Colorlibrary = () => {
                                 <div className="w-20 h-[84px] -m-2.5 ltr:mr-4 rtl:ml-4 ltr:rounded-l-md rtl:rounded-r-md transition-all duration-700 group-hover:scale-110 bg-primary"></div>
                                 <div>
                                     <h5 className="text-sm sm:text-base">Primary</h5>
-                                    <span className="text-white-dark">#4361ee</span>
+                                    <span className="text-white-dark">#ee9043</span>
                                 </div>
                             </div>
                             <div className="panel p-2.5 rounded-md flex items-center group">

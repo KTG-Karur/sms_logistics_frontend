@@ -137,7 +137,7 @@ const LoginBoxed = () => {
             <div
                 className="fixed inset-0 -z-10"
                 style={{
-                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 30%, #3b82f6 70%, #1d4ed8 100%)',
+                    background: 'linear-gradient(135deg, #cc711c 0%, #cc7920 30%, #f6bb3b 70%, #cfd81d 100%)',
                     width: '100vw',
                     height: '100vh',
                     margin: 0,
@@ -181,7 +181,7 @@ const LoginBoxed = () => {
                             </div>
                         </div>
                         <h1 className="text-2xl font-bold text-white mb-2">Logistics Management</h1>
-                        <p className="text-blue-200 text-sm">Transport & Supply Chain Platform</p>
+                        <p className="text-orange-200 text-sm">Transport & Supply Chain Platform</p>
                     </div>
 
                     <div className="flex justify-center mb-6">
@@ -203,16 +203,16 @@ const LoginBoxed = () => {
                                 </div>
                                 <div>
                                     <div className="text-white font-medium">Fleet Management</div>
-                                    <div className="text-blue-100 text-sm">Real-time vehicle tracking</div>
+                                    <div className="text-orange-100 text-sm">Real-time vehicle tracking</div>
                                 </div>
                             </div>
                             <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                                    <IconPackage className="w-5 h-5 text-blue-400" />
+                                    <IconPackage className="w-5 h-5 text-orange-400" />
                                 </div>
                                 <div>
                                     <div className="text-white font-medium">Shipment Tracking</div>
-                                    <div className="text-blue-100 text-sm">End-to-end cargo visibility</div>
+                                    <div className="text-orange-100 text-sm">End-to-end cargo visibility</div>
                                 </div>
                             </div>
                         </div>
@@ -293,7 +293,7 @@ const LoginBoxed = () => {
                                 type="button"
                                 onClick={handleLogin}
                                 disabled={isLoading}
-                                className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-800 py-3 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-blue-700 hover:to-blue-900 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                                className={`w-full rounded-xl bg-gradient-to-r from-orange-600 to-yellow-400 py-3 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-blue-700 hover:to-blue-900 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
                                     isLoading ? 'animate-pulse' : ''
                                 }`}
                             >
@@ -328,16 +328,16 @@ const LoginBoxed = () => {
                     <div className="flex flex-col justify-center text-white space-y-8 p-8">
                         <div className="space-y-6">
                             <div className="flex items-center space-x-4">
-                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-xl">
+                                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-600 to-yellow-400 flex items-center justify-center shadow-xl">
                                     <IconTruck className="w-10 h-10 text-white" />
                                 </div>
                                 <div>
                                     <h1 className="text-4xl font-bold leading-tight">
                                         Logistics & Transportation
                                         <br />
-                                        <span className="text-blue-300">Management System</span>
+                                        <span className="text-yellow-300">Management System</span>
                                     </h1>
-                                    <p className="text-blue-100 text-lg mt-2">End-to-end supply chain visibility</p>
+                                    <p className="text-orange-100 text-lg mt-2">End-to-end supply chain visibility</p>
                                 </div>
                             </div>
 
@@ -352,7 +352,7 @@ const LoginBoxed = () => {
                                 </div>
                             </div>
 
-                            <p className="text-lg text-blue-100 leading-relaxed">
+                            <p className="text-lg text-orange-100 leading-relaxed">
                                 Comprehensive logistics platform for fleet management, shipment tracking, 
                                 warehouse operations, and real-time transportation monitoring across your supply chain.
                             </p>
@@ -366,18 +366,18 @@ const LoginBoxed = () => {
                                     </div>
                                     <div>
                                         <div className="text-white font-semibold">Fleet Management</div>
-                                        <div className="text-blue-100 text-xs">Vehicle tracking & maintenance</div>
+                                        <div className="text-orange-100 text-xs">Vehicle tracking & maintenance</div>
                                     </div>
                                 </div>
                             </div>
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                                        <IconPackage className="w-6 h-6 text-blue-400" />
+                                        <IconPackage className="w-6 h-6 text-orange-400" />
                                     </div>
                                     <div>
                                         <div className="text-white font-semibold">Shipment Tracking</div>
-                                        <div className="text-blue-100 text-xs">Real-time cargo visibility</div>
+                                        <div className="text-orange-100 text-xs">Real-time cargo visibility</div>
                                     </div>
                                 </div>
                             </div>
@@ -388,7 +388,7 @@ const LoginBoxed = () => {
                                     </div>
                                     <div>
                                         <div className="text-white font-semibold">Warehouse Ops</div>
-                                        <div className="text-blue-100 text-xs">Inventory & storage</div>
+                                        <div className="text-orange-100 text-xs">Inventory & storage</div>
                                     </div>
                                 </div>
                             </div>
@@ -399,7 +399,7 @@ const LoginBoxed = () => {
                                     </div>
                                     <div>
                                         <div className="text-white font-semibold">Route Planning</div>
-                                        <div className="text-blue-100 text-xs">Optimized delivery routes</div>
+                                        <div className="text-orange-100 text-xs">Optimized delivery routes</div>
                                     </div>
                                 </div>
                             </div>
@@ -442,7 +442,7 @@ const LoginBoxed = () => {
                                             onFocus={() => handleFocus('username')}
                                             onBlur={() => handleBlur('username')}
                                             placeholder="Enter your username"
-                                            className="w-full rounded-xl border border-gray-300 bg-white px-12 py-4 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:shadow-lg text-base outline-none"
+                                            className="w-full rounded-xl border border-gray-300 bg-white px-12 py-4 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:shadow-lg text-base outline-none"
                                         />
                                         <span className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400">
                                             <IconUser className="w-5 h-5" />
@@ -464,7 +464,7 @@ const LoginBoxed = () => {
                                             onFocus={() => handleFocus('password')}
                                             onBlur={() => handleBlur('password')}
                                             placeholder="Enter your password"
-                                            className="w-full rounded-xl border border-gray-300 bg-white px-12 py-4 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:shadow-lg text-base outline-none"
+                                            className="w-full rounded-xl border border-gray-300 bg-white px-12 py-4 text-gray-800 placeholder-gray-500 shadow-sm transition-all duration-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 focus:shadow-lg text-base outline-none"
                                         />
                                         <span className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400">
                                             <IconLockDots className="w-5 h-5" />
@@ -483,7 +483,7 @@ const LoginBoxed = () => {
                                     type="button"
                                     onClick={handleLogin}
                                     disabled={isLoading}
-                                    className={`w-full rounded-xl bg-gradient-to-r from-blue-600 to-blue-800 py-4 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-blue-700 hover:to-blue-900 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                                    className={`w-full rounded-xl bg-gradient-to-r from-orange-600 to-yellow-400 py-4 font-semibold text-white shadow-lg transition-all duration-300 transform hover:shadow-xl hover:from-orange-700 hover:to-yellow-400 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
                                         isLoading ? 'animate-pulse' : ''
                                     }`}
                                 >

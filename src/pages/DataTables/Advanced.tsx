@@ -626,7 +626,7 @@ const Basic = () => {
     }, [sortStatus]);
 
     const randomColor = () => {
-        const color = ['#4361ee', '#805dca', '#00ab55', '#e7515a', '#e2a03f', '#2196f3'];
+        const color = ['#ee9043', '#805dca', '#00ab55', '#e7515a', '#e2a03f', '#2196f3'];
         const random = Math.floor(Math.random() * color.length);
         return color[random];
     };

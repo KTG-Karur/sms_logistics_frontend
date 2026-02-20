@@ -351,7 +351,7 @@ const Locations = () => {
             minHeight: '38px',
             borderColor: '#e0e6ed',
             '&:hover': {
-                borderColor: '#4361ee',
+                borderColor: '#ee9043',
             },
         }),
         menu: (provided) => ({

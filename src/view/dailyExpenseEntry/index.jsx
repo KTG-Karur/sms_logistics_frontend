@@ -994,7 +994,7 @@ const ExpenseCalculation = () => {
                                     borderColor: '#e5e7eb',
                                     boxShadow: 'none',
                                     '&:hover': {
-                                        borderColor: '#4361ee',
+                                        borderColor: '#ee9043',
                                     },
                                 }),
                             }}
