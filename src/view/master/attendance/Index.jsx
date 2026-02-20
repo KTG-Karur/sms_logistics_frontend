@@ -91,7 +91,11 @@ const Attendance = () => {
     const fetchEmployees = async () => {
         try {
             setLoading(true);
-            await dispatch(getEmployee({ is_active: 1 }));
+            // Fetch only active employees with salary
+            await dispatch(getEmployee({ 
+                is_active: 1,
+                has_salary: true  // Add this filter to get only employees with salary
+            }));
         } catch (error) {
             showMessage('error', 'Failed to load employees');
         } finally {
@@ -130,8 +134,10 @@ const Attendance = () => {
     // ============= PROCESS EMPLOYEE DATA =============
     useEffect(() => {
         if (employeeData) {
-            setEmployeeList(employeeData);
-            setFilteredEmployees(employeeData);
+            // Filter employees to only show those with has_salary = true
+            const salaryEmployees = employeeData.filter(emp => emp.hasSalary === true);
+            setEmployeeList(salaryEmployees);
+            setFilteredEmployees(salaryEmployees);
         }
     }, [employeeData]);
 
@@ -232,6 +238,7 @@ const Attendance = () => {
     }, [filteredEmployees]);
 
     const filterEmployees = () => {
+        // Start with employeeList (already filtered for salary)
         let filtered = [...employeeList];
         
         if (searchQuery) {
@@ -327,6 +334,13 @@ const Attendance = () => {
             return;
         }
 
+        // Verify employee has salary before marking attendance
+        const employee = employeeList.find(emp => emp.employeeId === employeeId);
+        if (!employee || !employee.hasSalary) {
+            showMessage('error', 'This employee is not eligible for attendance tracking');
+            return;
+        }
+
         const attendancePayload = {
             staffAttendance: [{
                 staffId: employeeId,
@@ -355,8 +369,16 @@ const Attendance = () => {
             return;
         }
 
+        // Only mark attendance for employees with salary
+        const eligibleEmployees = filteredEmployees.filter(emp => emp.hasSalary === true);
+        
+        if (eligibleEmployees.length === 0) {
+            showMessage('info', 'No eligible employees with salary found');
+            return;
+        }
+
         const attendancePayload = {
-            staffAttendance: filteredEmployees.map(emp => ({
+            staffAttendance: eligibleEmployees.map(emp => ({
                 staffId: emp.employeeId,
                 attendanceDate: selectedDate,
                 attendanceStatus: status,
@@ -367,7 +389,7 @@ const Attendance = () => {
 
         try {
             await dispatch(updateStaffAttendance(attendancePayload));
-            showMessage('success', `Marked all employees as ${status.replace('-', ' ')}`);
+            showMessage('success', `Marked all eligible employees as ${status.replace('-', ' ')}`);
         } catch (error) {
             showMessage('error', 'Failed to mark all attendance');
         }
@@ -468,17 +490,20 @@ const Attendance = () => {
             };
             return stats;
         } else {
-            const presentCount = filteredEmployees.filter(emp => 
+            // Calculate stats only for employees with salary
+            const salaryEmployees = filteredEmployees.filter(emp => emp.hasSalary === true);
+            
+            const presentCount = salaryEmployees.filter(emp => 
                 getEmployeeAttendanceStatus(emp.employeeId, selectedDate) === 'present'
             ).length;
-            const absentCount = filteredEmployees.filter(emp => 
+            const absentCount = salaryEmployees.filter(emp => 
                 getEmployeeAttendanceStatus(emp.employeeId, selectedDate) === 'absent'
             ).length;
-            const halfDayCount = filteredEmployees.filter(emp => {
+            const halfDayCount = salaryEmployees.filter(emp => {
                 const status = getEmployeeAttendanceStatus(emp.employeeId, selectedDate);
                 return status === 'halfday';
             }).length;
-            const pendingCount = filteredEmployees.filter(emp => 
+            const pendingCount = salaryEmployees.filter(emp => 
                 getEmployeeAttendanceStatus(emp.employeeId, selectedDate) === '-'
             ).length;
             
@@ -487,7 +512,7 @@ const Attendance = () => {
                 absentCount,
                 halfDayCount,
                 pendingCount,
-                totalEmployees: filteredEmployees.length
+                totalEmployees: salaryEmployees.length
             };
         }
     };
@@ -512,11 +537,14 @@ const Attendance = () => {
     };
 
     const exportDailyAttendance = () => {
+        // Only export employees with salary
+        const salaryEmployees = filteredEmployees.filter(emp => emp.hasSalary === true);
+        
         const data = {
             date: selectedDate,
             holiday: isHoliday(selectedDate) ? getHolidayName(selectedDate) : 'No',
             isSunday: isSunday(selectedDate),
-            employees: filteredEmployees.map(emp => {
+            employees: salaryEmployees.map(emp => {
                 const status = getEmployeeAttendanceStatus(emp.employeeId, selectedDate);
                 return {
                     name: emp.employeeName,
@@ -598,8 +626,8 @@ const Attendance = () => {
                         </h2>
                         <p className="text-gray-500 dark:text-gray-400">
                             {viewMode === 'monthly' 
-                                ? 'Monthly attendance calendar view' 
-                                : 'Daily attendance marking'}
+                                ? 'Monthly attendance calendar view (Employees with salary only)' 
+                                : 'Daily attendance marking (Employees with salary only)'}
                         </p>
                     </div>
                     <div className="flex items-center space-x-3">
@@ -752,7 +780,7 @@ const Attendance = () => {
                     ) : (
                         <>
                             <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
-                                <div className="text-sm text-gray-600 dark:text-gray-300">Total Employees</div>
+                                <div className="text-sm text-gray-600 dark:text-gray-300">Employees with Salary</div>
                                 <div className="text-2xl font-bold text-primary-600">{stats.totalEmployees}</div>
                             </div>
                             <div className="bg-success-50 dark:bg-success-900/20 p-4 rounded-lg">
@@ -837,13 +865,17 @@ const Attendance = () => {
                         }
                     </h3>
                     <div className="text-sm text-gray-500">
-                        Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredEmployees.length)} of {filteredEmployees.length} employees
+                        Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredEmployees.length)} of {filteredEmployees.length} employees with salary
                     </div>
                 </div>
 
                 {isLoading ? (
                     <div className="flex items-center justify-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                    </div>
+                ) : filteredEmployees.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                        No employees with salary found
                     </div>
                 ) : (
                     <>
@@ -1003,7 +1035,7 @@ const Attendance = () => {
         {status === 'sunday' && <IconSun className="w-4 h-4 text-secondary" />}
         {(status === 'pending' || status === '-') && <IconMinus className="w-4 h-4" />}
    
-</td>
+                                                        </td>
                                                         {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
                                                             <td className="px-4 py-3">
                                                                 <div className="flex items-center space-x-2">
@@ -1051,9 +1083,6 @@ const Attendance = () => {
                                 <div className="md:hidden space-y-4">
                                     {currentItems.map((employee, index) => {
                                         const status = getEmployeeAttendanceStatus(employee.employeeId, selectedDate);
-                                        const markedTime = attendanceData[employee.employeeId]?.[selectedDate]?.markedAt
-                                            ? moment(attendanceData[employee.employeeId][selectedDate].markedAt).format('HH:mm')
-                                            : null;
                                         const isDisabled = status === 'holiday' || status === 'sunday';
                                         
                                         return (
@@ -1068,16 +1097,11 @@ const Attendance = () => {
                                                         </div>
                                                         <div>
                                                             <div className="font-semibold">{employee.employeeName}</div>
+                                                            <div className="text-xs text-gray-500">Salary: Yes</div>
                                                         </div>
                                                     </div>
                                                     <StatusBadge status={status} />
                                                 </div>
-                                                
-                                                {markedTime && status !== 'holiday' && status !== 'sunday' && status !== 'pending' && (
-                                                    <div className="text-sm text-gray-500 mb-3">
-                                                        Marked at: {markedTime}
-                                                    </div>
-                                                )}
                                                 
                                                 {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
                                                     <div className="grid grid-cols-3 gap-2 pt-3 border-t">

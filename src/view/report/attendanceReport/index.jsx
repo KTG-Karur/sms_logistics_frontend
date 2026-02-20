@@ -76,6 +76,10 @@ const AttendanceReport = () => {
     created_by: currentUserId
   });
 
+  // Responsive state
+  const [showMobileSummary, setShowMobileSummary] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+
   // ============= INITIAL LOAD =============
   useEffect(() => {
     dispatch(setPageTitle('Attendance Report'));
@@ -391,6 +395,90 @@ const AttendanceReport = () => {
   const isLoading = loading || employeeLoading || attendanceLoading || holidayLoading;
   const daysInMonth = moment(state.month).daysInMonth();
 
+  // Mobile view for a specific employee
+  const EmployeeMobileView = ({ employee, onClose }) => {
+    if (!employee) return null;
+
+    return (
+      <div className="fixed inset-0 bg-white dark:bg-gray-900 z-50 overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+          <h3 className="font-semibold text-lg">Attendance Details</h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+            ✕
+          </button>
+        </div>
+        
+        <div className="p-4">
+          {/* Employee Info */}
+          <div className="flex items-center mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <img 
+              src={employee?.staffProfile ? `${baseURL}${employee.staffProfile}` : noProfile} 
+              alt="staff" 
+              className="w-16 h-16 rounded-full object-cover mr-4"
+              crossOrigin="anonymous"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = noProfile;
+              }}
+            />
+            <div>
+              <div className="font-semibold text-lg">{employee?.staffName}</div>
+              <div className="text-sm text-gray-500">{employee?.staffCode}</div>
+              <div className="flex mt-2 space-x-4">
+                <div className="text-center">
+                  <div className="text-success font-bold">{employee?.presentCount || 0}</div>
+                  <div className="text-xs text-gray-500">Present</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-primary font-bold">{employee?.halfDayCount || 0}</div>
+                  <div className="text-xs text-gray-500">Half Day</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-danger font-bold">{employee?.absentCount || 0}</div>
+                  <div className="text-xs text-gray-500">Absent</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Attendance Cards */}
+          <div className="space-y-2">
+            <h4 className="font-semibold mb-3">Daily Attendance - {moment(state.month).format('MMMM YYYY')}</h4>
+            {[...Array(daysInMonth)].map((_, i) => {
+              const day = String(i + 1).padStart(2, '0');
+              const dateKey = `${moment(state.month).format('YYYY-MM')}-${day}`;
+              const status = employee?.dailyStatus?.[dateKey] || "";
+              const isHolidayDate = isHoliday(dateKey);
+              const holidayName = getHolidayName(dateKey);
+              
+              return (
+                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-semibold mr-3">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <div className="font-medium">{moment(dateKey).format('dddd')}</div>
+                      {isHolidayDate && (
+                        <div className="text-xs text-purple-600">{holidayName}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    {renderIcon(status, isHolidayDate ? dateKey : null)}
+                    <span className="ml-2 text-sm capitalize">
+                      {status || 'Not Marked'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -401,36 +489,36 @@ const AttendanceReport = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header with Filters */}
-      <div className="panel">
+      <div className="panel p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white-light">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white-light">
             Staff Attendance Report
           </h2>
         </div>
 
-        {/* Filter Row */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+        {/* Filter Row - Responsive Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
           {/* Month Filter */}
           <div>
-            <label className="block text-sm font-medium mb-1">Month</label>
+            <label className="block text-xs sm:text-sm font-medium mb-1">Month</label>
             <input
               type="month"
               value={state.month}
               onChange={onMonthChange}
-              className="form-input w-full"
+              className="form-input w-full text-sm"
             />
           </div>
 
           {/* Branch Filter - Only for admin */}
           {roleIdforRole === 1 && (
             <div>
-              <label className="block text-sm font-medium mb-1">Branch</label>
+              <label className="block text-xs sm:text-sm font-medium mb-1">Branch</label>
               <select
                 value={state.branchId === null ? "null" : state.branchId}
                 onChange={onBranchFilter}
-                className="form-select w-full"
+                className="form-select w-full text-sm"
               >
                 {optionListState.branchList.map((branch) => (
                   <option 
@@ -446,11 +534,11 @@ const AttendanceReport = () => {
 
           {/* Department Filter */}
           <div>
-            <label className="block text-sm font-medium mb-1">Department</label>
+            <label className="block text-xs sm:text-sm font-medium mb-1">Department</label>
             <select
               value={state.departmentId === null ? "null" : state.departmentId}
               onChange={onDepartmentFilter}
-              className="form-select w-full"
+              className="form-select w-full text-sm"
             >
               {optionListState.departmentList.map((dept) => (
                 <option 
@@ -463,187 +551,282 @@ const AttendanceReport = () => {
             </select>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-end space-x-2">
-            <button onClick={exportToExcel} className="btn btn-success w-full">
-              <IconDownload className="w-4 h-4 mr-2" />
-              Export Excel
+          {/* Action Buttons - Responsive */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end space-y-2 sm:space-y-0 sm:space-x-2">
+            <button onClick={exportToExcel} className="btn btn-success w-full sm:flex-1 text-sm">
+              <IconDownload className="w-4 h-4 mr-2 inline" />
+              <span className="hidden sm:inline">Export Excel</span>
+              <span className="sm:hidden">Export</span>
             </button>
-            <button onClick={() => setShowHolidayForm(true)} className="btn btn-info">
-              <IconPlus className="w-4 h-4" />
-            </button>
-            <button onClick={() => setShowHolidayList(true)} className="btn btn-warning">
-              <IconEye className="w-4 h-4" />
-            </button>
+            <div className="flex space-x-2">
+              <button onClick={() => setShowHolidayForm(true)} className="btn btn-info flex-1 sm:flex-none">
+                <IconPlus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Add</span>
+              </button>
+              <button onClick={() => setShowHolidayList(true)} className="btn btn-warning flex-1 sm:flex-none">
+                <IconEye className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">View</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Single Table with Sticky Columns */}
-        <div className="panel p-0 overflow-hidden border border-gray-200 dark:border-gray-700">
-          <div className="overflow-x-auto relative" style={{ maxHeight: 'calc(500vh - 800px)' }}>
-            <table className="w-full table-fixed border-collapse">
-              <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-20">
-                {/* Day Totals Row */}
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="sticky left-0 z-30 bg-gray-50 dark:bg-gray-800 w-[50px] p-2 border-r border-gray-200 dark:border-gray-700"></th>
-                  <th className="sticky left-[50px] z-30 bg-gray-50 dark:bg-gray-800 w-[300px] p-2 border-r border-gray-200 dark:border-gray-700"></th>
-                  <th className="sticky left-[350px] z-30 bg-gray-50 dark:bg-gray-800 w-[40px] p-2 border-r border-gray-200 dark:border-gray-700"></th>
-                  <th className="sticky left-[390px] z-30 bg-gray-50 dark:bg-gray-800 w-[40px] p-2 border-r border-gray-200 dark:border-gray-700"></th>
-                  <th className="sticky left-[430px] z-30 bg-gray-50 dark:bg-gray-800 w-[40px] p-2 border-r border-gray-200 dark:border-gray-700"></th>
-                  {[...Array(daysInMonth)].map((_, i) => {
-                    const day = String(i + 1).padStart(2, '0');
-                    const dateKey = `${moment(state.month).format('YYYY-MM')}-${day}`;
-                    let presentCount = 0, halfDayCount = 0, absentCount = 0;
-                    
-                    attendanceData?.attendanceDetail?.forEach((emp) => {
-                      const status = emp.dailyStatus?.[dateKey];
-                      if (status === "present") presentCount++;
-                      else if (status === "halfday") halfDayCount++;
-                      else if (status === "absent") absentCount++;
-                    });
-
-                    const isHolidayDate = isHoliday(dateKey);
-                    
-                    return (
-                      <th key={i} className="w-[45px] p-1 text-xs font-normal border-l border-gray-200 dark:border-gray-700">
-                        <div className="space-y-0.5">
-                          {isHolidayDate && (
-                            <div className="text-purple-600 text-[10px]">🎉</div>
-                          )}
-                          <div className="text-success">{presentCount}</div>
-                          <div className="text-primary">{halfDayCount}</div>
-                          <div className="text-danger">{absentCount}</div>
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-
-                {/* Day Numbers Row */}
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="sticky left-0 z-30 bg-gray-50 dark:bg-gray-800 w-[50px] p-2 font-semibold text-sm border-r border-gray-200 dark:border-gray-700">
-                    No
-                  </th>
-                  <th className="sticky left-[50px] z-30 bg-gray-50 dark:bg-gray-800 w-[300px] p-2 font-semibold text-sm text-left border-r border-gray-200 dark:border-gray-700">
-                    Employee
-                  </th>
-                  <th className="sticky left-[350px] z-30 bg-gray-50 dark:bg-gray-800 w-[40px] p-2 font-semibold text-sm text-success border-r border-gray-200 dark:border-gray-700">
-                    P
-                  </th>
-                  <th className="sticky left-[390px] z-30 bg-gray-50 dark:bg-gray-800 w-[40px] p-2 font-semibold text-sm text-primary border-r border-gray-200 dark:border-gray-700">
-                    H
-                  </th>
-                  <th className="sticky left-[430px] z-30 bg-gray-50 dark:bg-gray-800 w-[40px] p-2 font-semibold text-sm text-danger border-r border-gray-200 dark:border-gray-700">
-                    A
-                  </th>
-                  {[...Array(daysInMonth)].map((_, i) => {
-                    const day = String(i + 1).padStart(2, '0');
-                    const dateKey = `${moment(state.month).format('YYYY-MM')}-${day}`;
-                    const isHolidayDate = isHoliday(dateKey);
-                    const holidayName = getHolidayName(dateKey);
-                    
-                    return (
-                      <th key={i} className="w-[45px] p-1 text-sm font-semibold border-l border-gray-200 dark:border-gray-700">
-                        {i + 1}
-                        {isHolidayDate && (
-                          <div className="text-purple-600 text-[10px] truncate" title={holidayName}>
-                            {holidayName?.substring(0, 3)}
-                          </div>
-                        )}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-
-              <tbody>
-                {attendanceData?.attendanceDetail?.map((employee, index) => (
-                  <tr 
-                    key={employee.staffId || index} 
-                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    style={{ height: '68px' }}
-                  >
-                    {/* Fixed Columns */}
-                    <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 w-[50px] p-2 text-center border-r border-gray-200 dark:border-gray-700">
-                      {index + 1}
-                    </td>
-                    <td className="sticky left-[50px] z-10 bg-white dark:bg-gray-900 w-[300px] p-2 border-r border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center">
-                        <img 
-                          src={employee?.staffProfile ? `${baseURL}${employee.staffProfile}` : noProfile} 
-                          alt="staff" 
-                          className="w-[45px] h-[45px] rounded-full object-cover mr-3"
-                          crossOrigin="anonymous"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = noProfile;
-                          }}
-                        />
-                        <div className="text-left">
-                          <div className="font-semibold text-sm">{employee?.staffName}</div>
-                          <div className="text-xs text-gray-500">{employee?.staffCode}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="sticky left-[350px] z-10 bg-white dark:bg-gray-900 w-[40px] p-2 text-center text-success font-bold border-r border-gray-200 dark:border-gray-700">
-                      {employee?.presentCount || 0}
-                    </td>
-                    <td className="sticky left-[390px] z-10 bg-white dark:bg-gray-900 w-[40px] p-2 text-center text-primary font-bold border-r border-gray-200 dark:border-gray-700">
-                      {employee?.halfDayCount || 0}
-                    </td>
-                    <td className="sticky left-[430px] z-10 bg-white dark:bg-gray-900 w-[40px] p-2 text-center text-danger font-bold border-r border-gray-200 dark:border-gray-700">
-                      {employee?.absentCount || 0}
-                    </td>
-
-                    {/* Scrollable Day Columns */}
+        {/* Desktop Table View - Hidden on mobile */}
+        <div className="hidden md:block">
+          <div className="panel p-0 overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="overflow-x-auto relative" style={{ maxHeight: 'calc(300vh - 800px)' }}>
+              <table className="w-full table-fixed border-collapse">
+                <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-20">
+                  {/* Day Totals Row */}
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="sticky left-0 z-30 bg-gray-50 dark:bg-gray-800 w-[40px] sm:w-[50px] p-1 sm:p-2 border-r border-gray-200 dark:border-gray-700"></th>
+                    <th className="sticky left-[40px] sm:left-[50px] z-30 bg-gray-50 dark:bg-gray-800 w-[250px] sm:w-[300px] p-1 sm:p-2 border-r border-gray-200 dark:border-gray-700"></th>
+                    <th className="sticky left-[290px] sm:left-[350px] z-30 bg-gray-50 dark:bg-gray-800 w-[35px] sm:w-[40px] p-1 sm:p-2 border-r border-gray-200 dark:border-gray-700"></th>
+                    <th className="sticky left-[325px] sm:left-[390px] z-30 bg-gray-50 dark:bg-gray-800 w-[35px] sm:w-[40px] p-1 sm:p-2 border-r border-gray-200 dark:border-gray-700"></th>
+                    <th className="sticky left-[360px] sm:left-[430px] z-30 bg-gray-50 dark:bg-gray-800 w-[35px] sm:w-[40px] p-1 sm:p-2 border-r border-gray-200 dark:border-gray-700"></th>
                     {[...Array(daysInMonth)].map((_, i) => {
                       const day = String(i + 1).padStart(2, '0');
                       const dateKey = `${moment(state.month).format('YYYY-MM')}-${day}`;
-                      const status = employee?.dailyStatus?.[dateKey] || "";
+                      let presentCount = 0, halfDayCount = 0, absentCount = 0;
+                      
+                      attendanceData?.attendanceDetail?.forEach((emp) => {
+                        const status = emp.dailyStatus?.[dateKey];
+                        if (status === "present") presentCount++;
+                        else if (status === "halfday") halfDayCount++;
+                        else if (status === "absent") absentCount++;
+                      });
+
+                      const isHolidayDate = isHoliday(dateKey);
+                      
                       return (
-                        <td key={i} className="w-[45px] p-2 text-center border-l border-gray-200 dark:border-gray-700">
-                          {renderIcon(status, isHoliday(dateKey) ? dateKey : null)}
-                        </td>
+                        <th key={i} className="w-[35px] sm:w-[45px] p-1 text-[10px] sm:text-xs font-normal border-l border-gray-200 dark:border-gray-700">
+                          <div className="space-y-0.5">
+                            {isHolidayDate && (
+                              <div className="text-purple-600 text-[8px] sm:text-[10px]">🎉</div>
+                            )}
+                            <div className="text-success text-[10px] sm:text-xs">{presentCount}</div>
+                            <div className="text-primary text-[10px] sm:text-xs">{halfDayCount}</div>
+                            <div className="text-danger text-[10px] sm:text-xs">{absentCount}</div>
+                          </div>
+                        </th>
                       );
                     })}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+
+                  {/* Day Numbers Row */}
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="sticky left-0 z-30 bg-gray-50 dark:bg-gray-800 w-[40px] sm:w-[50px] p-1 sm:p-2 text-xs sm:text-sm font-semibold border-r border-gray-200 dark:border-gray-700">
+                      No
+                    </th>
+                    <th className="sticky left-[40px] sm:left-[50px] z-30 bg-gray-50 dark:bg-gray-800 w-[250px] sm:w-[300px] p-1 sm:p-2 text-xs sm:text-sm font-semibold text-left border-r border-gray-200 dark:border-gray-700">
+                      Employee
+                    </th>
+                    <th className="sticky left-[290px] sm:left-[350px] z-30 bg-gray-50 dark:bg-gray-800 w-[35px] sm:w-[40px] p-1 sm:p-2 text-xs sm:text-sm font-semibold text-success border-r border-gray-200 dark:border-gray-700">
+                      P
+                    </th>
+                    <th className="sticky left-[325px] sm:left-[390px] z-30 bg-gray-50 dark:bg-gray-800 w-[35px] sm:w-[40px] p-1 sm:p-2 text-xs sm:text-sm font-semibold text-primary border-r border-gray-200 dark:border-gray-700">
+                      H
+                    </th>
+                    <th className="sticky left-[360px] sm:left-[430px] z-30 bg-gray-50 dark:bg-gray-800 w-[35px] sm:w-[40px] p-1 sm:p-2 text-xs sm:text-sm font-semibold text-danger border-r border-gray-200 dark:border-gray-700">
+                      A
+                    </th>
+                    {[...Array(daysInMonth)].map((_, i) => {
+                      const day = String(i + 1).padStart(2, '0');
+                      const dateKey = `${moment(state.month).format('YYYY-MM')}-${day}`;
+                      const isHolidayDate = isHoliday(dateKey);
+                      const holidayName = getHolidayName(dateKey);
+                      
+                      return (
+                        <th key={i} className="w-[35px] sm:w-[45px] p-1 text-xs sm:text-sm font-semibold border-l border-gray-200 dark:border-gray-700">
+                          {i + 1}
+                          {isHolidayDate && (
+                            <div className="text-purple-600 text-[8px] sm:text-[10px] truncate" title={holidayName}>
+                              {holidayName?.substring(0, 3)}
+                            </div>
+                          )}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {attendanceData?.attendanceDetail?.map((employee, index) => (
+                    <tr 
+                      key={employee.staffId || index} 
+                      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      style={{ height: '60px' }}
+                    >
+                      {/* Fixed Columns */}
+                      <td className="sticky left-0 z-10 bg-white dark:bg-gray-900 w-[40px] sm:w-[50px] p-1 sm:p-2 text-center border-r border-gray-200 dark:border-gray-700 text-xs sm:text-sm">
+                        {index + 1}
+                      </td>
+                      <td className="sticky left-[40px] sm:left-[50px] z-10 bg-white dark:bg-gray-900 w-[250px] sm:w-[300px] p-1 sm:p-2 border-r border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center">
+                          <img 
+                            src={employee?.staffProfile ? `${baseURL}${employee.staffProfile}` : noProfile} 
+                            alt="staff" 
+                            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover mr-2 sm:mr-3"
+                            crossOrigin="anonymous"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = noProfile;
+                            }}
+                          />
+                          <div className="text-left">
+                            <div className="font-semibold text-xs sm:text-sm truncate max-w-[150px] sm:max-w-[200px]">
+                              {employee?.staffName}
+                            </div>
+                            <div className="text-[10px] sm:text-xs text-gray-500">{employee?.staffCode}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="sticky left-[290px] sm:left-[350px] z-10 bg-white dark:bg-gray-900 w-[35px] sm:w-[40px] p-1 sm:p-2 text-center text-success font-bold border-r border-gray-200 dark:border-gray-700 text-xs sm:text-sm">
+                        {employee?.presentCount || 0}
+                      </td>
+                      <td className="sticky left-[325px] sm:left-[390px] z-10 bg-white dark:bg-gray-900 w-[35px] sm:w-[40px] p-1 sm:p-2 text-center text-primary font-bold border-r border-gray-200 dark:border-gray-700 text-xs sm:text-sm">
+                        {employee?.halfDayCount || 0}
+                      </td>
+                      <td className="sticky left-[360px] sm:left-[430px] z-10 bg-white dark:bg-gray-900 w-[35px] sm:w-[40px] p-1 sm:p-2 text-center text-danger font-bold border-r border-gray-200 dark:border-gray-700 text-xs sm:text-sm">
+                        {employee?.absentCount || 0}
+                      </td>
+
+                      {/* Scrollable Day Columns */}
+                      {[...Array(daysInMonth)].map((_, i) => {
+                        const day = String(i + 1).padStart(2, '0');
+                        const dateKey = `${moment(state.month).format('YYYY-MM')}-${day}`;
+                        const status = employee?.dailyStatus?.[dateKey] || "";
+                        return (
+                          <td key={i} className="w-[35px] sm:w-[45px] p-1 sm:p-2 text-center border-l border-gray-200 dark:border-gray-700">
+                            <div className="flex justify-center">
+                              {renderIcon(status, isHoliday(dateKey) ? dateKey : null)}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <h4 className="font-semibold mb-2">Attendance Legend</h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Mobile Card View - Visible only on mobile */}
+        <div className="md:hidden space-y-3">
+          {attendanceData?.attendanceDetail?.map((employee, index) => (
+            <div 
+              key={employee.staffId || index} 
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+              onClick={() => setSelectedEmployee(employee)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <img 
+                    src={employee?.staffProfile ? `${baseURL}${employee.staffProfile}` : noProfile} 
+                    alt="staff" 
+                    className="w-12 h-12 rounded-full object-cover mr-3"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = noProfile;
+                    }}
+                  />
+                  <div>
+                    <div className="font-semibold text-sm">{employee?.staffName}</div>
+                    <div className="text-xs text-gray-500">{employee?.staffCode}</div>
+                  </div>
+                </div>
+                <button 
+                  className="text-primary text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedEmployee(employee);
+                  }}
+                >
+                  View Details →
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-center">
+                  <div className="text-success font-bold text-lg">{employee?.presentCount || 0}</div>
+                  <div className="text-xs text-gray-500">Present</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-primary font-bold text-lg">{employee?.halfDayCount || 0}</div>
+                  <div className="text-xs text-gray-500">Half Day</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-danger font-bold text-lg">{employee?.absentCount || 0}</div>
+                  <div className="text-xs text-gray-500">Absent</div>
+                </div>
+              </div>
+
+              {/* Quick Status Preview */}
+              <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-xs text-gray-500 mb-1">Today's Status</div>
+                <div className="flex space-x-2">
+                  {[...Array(5)].map((_, i) => {
+                    const day = moment().date() - 2 + i;
+                    if (day < 1 || day > daysInMonth) return null;
+                    const dayStr = String(day).padStart(2, '0');
+                    const dateKey = `${moment(state.month).format('YYYY-MM')}-${dayStr}`;
+                    const status = employee?.dailyStatus?.[dateKey] || "";
+                    return (
+                      <div key={i} className="flex-1 text-center p-1 bg-gray-50 dark:bg-gray-700 rounded">
+                        <div className="text-[10px] text-gray-500">{day}</div>
+                        <div className="flex justify-center mt-1">
+                          {renderIcon(status, isHoliday(dateKey) ? dateKey : null)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Legend - Responsive */}
+        <div className="mt-4 p-3 sm:p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <h4 className="font-semibold text-sm sm:text-base mb-2">Attendance Legend</h4>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
             <div className="flex items-center space-x-2">
-              <IconCheckCircle className="w-4 h-4 text-success" />
-              <span className="text-sm">Present</span>
+              <IconCheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-success" />
+              <span className="text-xs sm:text-sm">Present</span>
             </div>
             <div className="flex items-center space-x-2">
-              <IconXCircle className="w-4 h-4 text-danger" />
-              <span className="text-sm">Absent</span>
+              <IconXCircle className="w-3 h-3 sm:w-4 sm:h-4 text-danger" />
+              <span className="text-xs sm:text-sm">Absent</span>
             </div>
             <div className="flex items-center space-x-2">
-              <IconClock className="w-4 h-4 text-primary" />
-              <span className="text-sm">Half Day</span>
+              <IconClock className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+              <span className="text-xs sm:text-sm">Half Day</span>
             </div>
             <div className="flex items-center space-x-2">
-              <IconMoodSmile className="w-4 h-4 text-purple-600" />
-              <span className="text-sm">Holiday</span>
+              <IconMoodSmile className="w-3 h-3 sm:w-4 sm:h-4 text-purple-600" />
+              <span className="text-xs sm:text-sm">Holiday</span>
             </div>
             <div className="flex items-center space-x-2">
-              <IconSun className="w-4 h-4 text-warning" />
-              <span className="text-sm">Sunday</span>
+              <IconSun className="w-3 h-3 sm:w-4 sm:h-4 text-warning" />
+              <span className="text-xs sm:text-sm">Sunday</span>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="text-gray-400">-</span>
-              <span className="text-sm">Not Marked</span>
+              <span className="text-gray-400 text-xs sm:text-sm">-</span>
+              <span className="text-xs sm:text-sm">Not Marked</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Mobile Employee Detail View */}
+      {selectedEmployee && (
+        <EmployeeMobileView 
+          employee={selectedEmployee} 
+          onClose={() => setSelectedEmployee(null)} 
+        />
+      )}
 
       {/* Holiday Form Modal */}
       {showHolidayForm && (
@@ -702,33 +885,35 @@ const AttendanceReport = () => {
               {holidays.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">No holidays added yet</div>
               ) : (
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Holiday Name</th>
-                      <th className="px-4 py-3 text-left">Date</th>
-                      <th className="px-4 py-3 text-left">Day</th>
-                      <th className="px-4 py-3 text-left">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {holidays.map(holiday => (
-                      <tr key={holiday.id} className="border-b dark:border-gray-700">
-                        <td className="px-4 py-3 font-medium">{holiday.holidayName}</td>
-                        <td className="px-4 py-3">{moment(holiday.holidayDate).format('DD MMMM YYYY')}</td>
-                        <td className="px-4 py-3">{moment(holiday.holidayDate).format('dddd')}</td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => deleteHoliday(holiday.holidayId)}
-                            className="btn btn-outline-danger btn-sm"
-                          >
-                            <IconTrashLines className="w-3 h-3 mr-1" /> Delete
-                          </button>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-900">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs sm:text-sm">Holiday Name</th>
+                        <th className="px-4 py-3 text-left text-xs sm:text-sm">Date</th>
+                        <th className="px-4 py-3 text-left text-xs sm:text-sm">Day</th>
+                        <th className="px-4 py-3 text-left text-xs sm:text-sm">Action</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {holidays.map(holiday => (
+                        <tr key={holiday.id} className="border-b dark:border-gray-700">
+                          <td className="px-4 py-3 text-xs sm:text-sm font-medium">{holiday.holidayName}</td>
+                          <td className="px-4 py-3 text-xs sm:text-sm">{moment(holiday.holidayDate).format('DD MMM YYYY')}</td>
+                          <td className="px-4 py-3 text-xs sm:text-sm">{moment(holiday.holidayDate).format('ddd')}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => deleteHoliday(holiday.holidayId)}
+                              className="btn btn-outline-danger btn-sm text-xs"
+                            >
+                              <IconTrashLines className="w-3 h-3 mr-1" /> Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
             <div className="p-4 border-t flex justify-end">
