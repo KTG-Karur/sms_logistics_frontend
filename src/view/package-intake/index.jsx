@@ -23,6 +23,7 @@ import { getPackageType } from '../../redux/packageTypeSlice';
 import { getCustomers, createCustomers } from '../../redux/customerSlice';
 import { getOfficeCentersWithLocations } from '../../redux/officeCenterSlice';
 import { createLocations } from '../../redux/locationSlice';
+import moment from 'moment';
 
 const PackageIntake = () => {
     const dispatch = useDispatch();
@@ -74,11 +75,12 @@ const PackageIntake = () => {
     const [newCustomer, setNewCustomer] = useState({ name: '', mobileNo: '' });
     const [newLocation, setNewLocation] = useState({ name: '', officeCenterId: null });
     const [paymentMode, setPaymentMode] = useState('cash');
-
+    const defaultFromDate = moment().subtract(30, 'days').format('YYYY-MM-DD');
+    const defaultToDate = moment().format('YYYY-MM-DD');
     // Filters state
     const [filters, setFilters] = useState({
-        fromDate: '',
-        toDate: '',
+        fromDate: defaultFromDate,
+        toDate: defaultToDate,
         deliveryStatus: '',
         paymentStatus: ''
     });
@@ -1456,7 +1458,7 @@ const PackageIntake = () => {
                                                         {/* Show pickup and drop prices below package type */}
                                                         {selectedPkg && (
                                                             <div className="mt-1 text-xs text-gray-500">
-                                                                <span>Pickup: ₹{safeToFixed(selectedPkg.pickupPrice)} | Drop: ₹{safeToFixed(selectedPkg.dropPrice)}</span>
+                                                                <span>Pickup: ₹{safeToFixed(selectedPkg.package_pickup_price)} | Drop: ₹{safeToFixed(selectedPkg.package_drop_price)}</span>
                                                             </div>
                                                         )}
                                                     </div>

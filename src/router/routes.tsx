@@ -422,7 +422,7 @@ const routes = [
         layout: 'blank',
     },
     {
-        path: '/audit/report-pdf',
+        path: '/reports/booking-pdf',
         element: <PackageReportPrint />,
     },
     {
@@ -510,7 +510,7 @@ const dontCkeckRouts = [
         layout: 'blank',
     },
     {
-        path: '/audit/report-pdf',
+        path: '/reports/booking-pdf',
         element: <PackageReportPrint />,
     },
 ];
