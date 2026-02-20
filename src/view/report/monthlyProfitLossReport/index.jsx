@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
 import IconDownload from '../../../components/Icon/IconFile';
 import IconPrinter from '../../../components/Icon/IconPrinter';
@@ -15,20 +15,37 @@ import IconReceipt from '../../../components/Icon/IconReceipt';
 import IconCheckCircle from '../../../components/Icon/IconCheckCircle';
 import IconClock from '../../../components/Icon/IconClock';
 import IconChartBar from '../../../components/Icon/IconChartBar';
+import IconBuilding from '../../../components/Icon/IconBuilding';
 import Table from '../../../util/Table';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
+import { getDateRangeProfitLossApi } from '../../../api/ReportApi';
+import { getOfficeCenters } from '../../../redux/officeCenterSlice';
+import { findArrObj, showMessage } from '../../../util/AllFunction';
+import Select from 'react-select';
+import _ from 'lodash';
 
 const ProfitLossReport = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
+
+    // Get login info and permissions
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Reports');
+    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+
+    // Get office centers from Redux
+    const officeCentersState = useSelector((state) => state.OfficeCenterSlice || {});
+    const { officeCentersData = [], loading: centersLoading = false } = officeCentersState;
 
     // Default to last 30 days
     const defaultFromDate = moment().subtract(30, 'days').format('YYYY-MM-DD');
     const defaultToDate = moment().format('YYYY-MM-DD');
 
     // States
+    const [selectedCenter, setSelectedCenter] = useState(null);
     const [dateRange, setDateRange] = useState({
         from: defaultFromDate,
         to: defaultToDate
@@ -46,111 +63,214 @@ const ProfitLossReport = () => {
         dailyData: [],
         filteredPackages: [],
         filteredExpenses: [],
-        totals: null
+        totals: null,
+        rawData: null
     });
     const [viewMode, setViewMode] = useState('summary'); // 'summary', 'packages', 'expenses', 'daily'
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
     // Initialize data
     useEffect(() => {
         dispatch(setPageTitle('Profit & Loss Report'));
-        loadReportData();
+        dispatch(getOfficeCenters({}));
     }, []);
 
-    const generateDateRangeData = (fromDate, toDate) => {
-        const dailyData = [];
-        let allPackages = [];
-        let allExpenses = [];
-        
-        // Generate data for each day in the range
-        const currentDate = moment(fromDate);
-        const endDate = moment(toDate);
-        
-        while (currentDate <= endDate) {
-            const dateStr = currentDate.format('YYYY-MM-DD');
-            
-            // Generate packages for this day
-            const dailyPackages = generatePackagesData(dateStr);
-            // Generate expenses for this day
-            const dailyExpenses = generateExpensesData(dateStr);
-            
-            // Calculate daily totals
-            const dailyRevenue = dailyPackages.reduce((sum, pkg) => sum + pkg.packageValue, 0);
-            const dailyExpense = dailyExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-            const dailyProfit = dailyRevenue - dailyExpense;
-            const profitMargin = dailyRevenue > 0 ? ((dailyProfit / dailyRevenue) * 100).toFixed(2) : 0;
-            
-            dailyData.push({
-                date: dateStr,
-                dayOfWeek: currentDate.format('dddd'),
-                packages: dailyPackages,
-                expenses: dailyExpenses,
-                dailyRevenue,
-                dailyExpense,
-                dailyProfit,
-                profitMargin: parseFloat(profitMargin),
-                isProfitDay: dailyProfit > 0,
-                totalPackages: dailyPackages.length,
-                totalExpenses: dailyExpenses.length,
-                
-                // Expense breakdown
-                vehicleExpense: dailyExpenses.filter(e => e.category === 'vehicle').reduce((sum, e) => sum + e.amount, 0),
-                staffExpense: dailyExpenses.filter(e => e.category === 'staff').reduce((sum, e) => sum + e.amount, 0),
-                otherExpense: dailyExpenses.filter(e => e.category === 'other').reduce((sum, e) => sum + e.amount, 0),
-            });
-            
-            allPackages = [...allPackages, ...dailyPackages];
-            allExpenses = [...allExpenses, ...dailyExpenses];
-            
-            currentDate.add(1, 'day');
+    useEffect(() => {
+        if (dateRange.from && dateRange.to) {
+            fetchReportData();
         }
+    }, [dateRange.from, dateRange.to, selectedCenter]);
+
+    const fetchReportData = async () => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const request = {
+                startDate: dateRange.from,
+                endDate: dateRange.to,
+                centerId: selectedCenter?.value || null
+            };
+
+            const response = await getDateRangeProfitLossApi(request);
+
+            if (response && response.data) {
+                const processedData = processApiData(response.data);
+                setReportData(processedData);
+            } else {
+                setError('No data found for selected date range');
+            }
+        } catch (err) {
+            setError(err.message || 'Failed to fetch report data');
+            showMessage('error', err.message || 'Failed to fetch report data');
+            console.error('Error fetching report:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const processApiData = (data) => {
+        // Extract payments and expenses
+        const payments = data?.transactions?.payments || [];
+        const expenses = data?.transactions?.expenses || [];
+        
+        // Group by date for daily data
+        const dailyMap = new Map();
+        
+        // Process payments
+        payments.forEach(payment => {
+            const date = payment.date;
+            if (!dailyMap.has(date)) {
+                dailyMap.set(date, {
+                    date,
+                    dayOfWeek: moment(date).format('dddd'),
+                    packages: [],
+                    expenses: [],
+                    dailyRevenue: 0,
+                    dailyExpense: 0,
+                    dailyProfit: 0,
+                    profitMargin: 0,
+                    isProfitDay: false,
+                    totalPackages: 0,
+                    totalExpenses: 0,
+                    vehicleExpense: 0,
+                    staffExpense: 0,
+                    otherExpense: 0
+                });
+            }
+            
+            const dayData = dailyMap.get(date);
+            
+            // Create package object from payment
+            const packageObj = {
+                id: payment.payment_id,
+                packageId: payment.payment_number,
+                date: payment.date,
+                packageType: payment.type || 'Standard',
+                weight: 'N/A',
+                dimensions: 'N/A',
+                fromLocation: payment.booking_center?.name || 'Unknown',
+                toLocation: payment.booking_center?.name || 'Unknown',
+                packageValue: parseFloat(payment.amount || 0),
+                packageCost: 0, // We don't have cost data
+                packageProfit: parseFloat(payment.amount || 0), // Assume profit equals revenue since no cost data
+                vehicleType: 'Standard',
+                staffMember: payment.customer?.name || 'N/A',
+                status: payment.type === 'full' ? 'Delivered' : 'In Transit',
+                deliveryTime: payment.date,
+                isProfitable: true // All payments are profitable in this context
+            };
+            
+            dayData.packages.push(packageObj);
+            dayData.dailyRevenue += parseFloat(payment.amount || 0);
+            dayData.totalPackages++;
+        });
+        
+        // Process expenses
+        expenses.forEach(expense => {
+            const date = expense.date;
+            if (!dailyMap.has(date)) {
+                dailyMap.set(date, {
+                    date,
+                    dayOfWeek: moment(date).format('dddd'),
+                    packages: [],
+                    expenses: [],
+                    dailyRevenue: 0,
+                    dailyExpense: 0,
+                    dailyProfit: 0,
+                    profitMargin: 0,
+                    isProfitDay: false,
+                    totalPackages: 0,
+                    totalExpenses: 0,
+                    vehicleExpense: 0,
+                    staffExpense: 0,
+                    otherExpense: 0
+                });
+            }
+            
+            const dayData = dailyMap.get(date);
+            
+            // Create expense object
+            const expenseObj = {
+                id: expense.expense_payment_id,
+                expenseId: `EXP-${moment(expense.date).format('DDMM')}-${dayData.expenses.length + 1}`,
+                date: expense.date,
+                name: expense.type || 'Expense',
+                description: expense.description || '',
+                category: getExpenseCategory(expense.type),
+                subCategory: expense.type || 'General',
+                type: 'daily',
+                amount: parseFloat(expense.amount || 0),
+                status: 'paid',
+                paidAmount: parseFloat(expense.amount || 0),
+                balance: 0,
+                vendor: 'N/A',
+                paymentMethod: expense.payment_type || 'Cash'
+            };
+            
+            dayData.expenses.push(expenseObj);
+            dayData.dailyExpense += parseFloat(expense.amount || 0);
+            dayData.totalExpenses++;
+            
+            // Categorize expense for breakdown
+            const category = getExpenseCategory(expense.type);
+            if (category === 'vehicle') {
+                dayData.vehicleExpense += parseFloat(expense.amount || 0);
+            } else if (category === 'staff') {
+                dayData.staffExpense += parseFloat(expense.amount || 0);
+            } else {
+                dayData.otherExpense += parseFloat(expense.amount || 0);
+            }
+        });
+        
+        // Calculate daily profits and convert map to array
+        const dailyData = Array.from(dailyMap.values()).map(day => {
+            day.dailyProfit = day.dailyRevenue - day.dailyExpense;
+            day.profitMargin = day.dailyRevenue > 0 ? (day.dailyProfit / day.dailyRevenue) * 100 : 0;
+            day.isProfitDay = day.dailyProfit > 0;
+            return day;
+        }).sort((a, b) => moment(a.date).diff(moment(b.date)));
         
         // Calculate overall totals
+        const allPackages = dailyData.flatMap(day => day.packages);
+        const allExpenses = dailyData.flatMap(day => day.expenses);
+        
         const totalRevenue = allPackages.reduce((sum, pkg) => sum + pkg.packageValue, 0);
         const totalExpenses = allExpenses.reduce((sum, exp) => sum + exp.amount, 0);
         const totalProfit = totalRevenue - totalExpenses;
-        const overallProfitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(2) : 0;
+        const overallProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
         
         // Count profit/loss days
         const profitDays = dailyData.filter(day => day.isProfitDay).length;
         const lossDays = dailyData.filter(day => !day.isProfitDay).length;
         
-        // Calculate averages
-        const totalDays = dailyData.length;
-        const avgDailyRevenue = totalRevenue / totalDays;
-        const avgDailyExpense = totalExpenses / totalDays;
-        const avgDailyProfit = totalProfit / totalDays;
-        
-        // Expense breakdown percentages
+        // Calculate totals by expense category
         const totalVehicleExpense = allExpenses.filter(e => e.category === 'vehicle').reduce((sum, e) => sum + e.amount, 0);
         const totalStaffExpense = allExpenses.filter(e => e.category === 'staff').reduce((sum, e) => sum + e.amount, 0);
         const totalOtherExpense = allExpenses.filter(e => e.category === 'other').reduce((sum, e) => sum + e.amount, 0);
         
         return {
             summary: {
-                dateRange: { from: fromDate, to: toDate },
-                totalDays,
+                dateRange: { from: dateRange.from, to: dateRange.to },
+                totalDays: dailyData.length,
                 profitDays,
                 lossDays,
-                profitPercentage: ((profitDays / totalDays) * 100).toFixed(1),
+                profitPercentage: dailyData.length > 0 ? ((profitDays / dailyData.length) * 100).toFixed(1) : 0,
                 
-                // Financial totals
                 totalRevenue,
                 totalExpenses,
                 totalProfit,
-                overallProfitMargin: parseFloat(overallProfitMargin),
+                overallProfitMargin: parseFloat(overallProfitMargin.toFixed(1)),
                 isOverallProfit: totalProfit > 0,
                 
-                // Averages
-                avgDailyRevenue,
-                avgDailyExpense,
-                avgDailyProfit,
+                avgDailyRevenue: dailyData.length > 0 ? totalRevenue / dailyData.length : 0,
+                avgDailyExpense: dailyData.length > 0 ? totalExpenses / dailyData.length : 0,
+                avgDailyProfit: dailyData.length > 0 ? totalProfit / dailyData.length : 0,
                 
-                // Counts
                 totalPackages: allPackages.length,
                 totalExpenseItems: allExpenses.length,
                 
-                // Expense breakdown
                 totalVehicleExpense,
                 totalStaffExpense,
                 totalOtherExpense,
@@ -158,18 +278,18 @@ const ProfitLossReport = () => {
                 staffExpensePercentage: totalExpenses > 0 ? ((totalStaffExpense / totalExpenses) * 100).toFixed(1) : 0,
                 otherExpensePercentage: totalExpenses > 0 ? ((totalOtherExpense / totalExpenses) * 100).toFixed(1) : 0,
                 
-                // Payment status
                 paidExpenses: allExpenses.filter(e => e.status === 'paid').length,
                 unpaidExpenses: allExpenses.filter(e => e.status === 'unpaid').length,
                 partialExpenses: allExpenses.filter(e => e.status === 'partially_paid').length,
                 
-                // Package stats
-                profitablePackages: allPackages.filter(p => p.packageProfit > 0).length,
-                lossPackages: allPackages.filter(p => p.packageProfit <= 0).length,
+                profitablePackages: allPackages.filter(p => p.isProfitable).length,
+                lossPackages: allPackages.filter(p => !p.isProfitable).length,
             },
             dailyData,
             allPackages,
             allExpenses,
+            filteredPackages: allPackages,
+            filteredExpenses: allExpenses,
             totals: {
                 totalRevenue,
                 totalExpenses,
@@ -177,149 +297,18 @@ const ProfitLossReport = () => {
                 totalVehicleExpense,
                 totalStaffExpense,
                 totalOtherExpense
-            }
+            },
+            rawData: data
         };
     };
 
-    const generatePackagesData = (date) => {
-        const packages = [];
-        const packageTypes = ['Small Package', 'Medium Package', 'Large Package', 'XL Package', 'Document'];
-        const vehicleTypes = ['Tata Ace', 'Eicher Truck', 'Ashok Leyland', 'Mahindra Bolero', 'Tata 407'];
-        const staffMembers = ['Rajesh Kumar', 'Vikram Singh', 'Sanjay Verma', 'Arun Mehta', 'Mohan Reddy'];
+    const getExpenseCategory = (expenseType) => {
+        const vehicleTypes = ['Fuel', 'Diesel', 'Petrol', 'Maintenance', 'Repair', 'Toll', 'Parking'];
+        const staffTypes = ['Salary', 'Wage', 'Staff', 'Driver', 'Overtime', 'Bonus'];
         
-        const packageCount = Math.floor(Math.random() * 15) + 10;
-        
-        for (let i = 1; i <= packageCount; i++) {
-            const packageType = packageTypes[Math.floor(Math.random() * packageTypes.length)];
-            const vehicleType = vehicleTypes[Math.floor(Math.random() * vehicleTypes.length)];
-            const staffMember = staffMembers[Math.floor(Math.random() * staffMembers.length)];
-            
-            let packageValue = 0;
-            switch(packageType) {
-                case 'Small Package': packageValue = Math.floor(Math.random() * 500) + 200; break;
-                case 'Medium Package': packageValue = Math.floor(Math.random() * 1000) + 500; break;
-                case 'Large Package': packageValue = Math.floor(Math.random() * 2000) + 1000; break;
-                case 'XL Package': packageValue = Math.floor(Math.random() * 5000) + 2000; break;
-                case 'Document': packageValue = Math.floor(Math.random() * 200) + 50; break;
-            }
-            
-            // Simulate package cost (for profit calculation)
-            const packageCost = packageValue * (0.3 + Math.random() * 0.4); // 30-70% of value
-            const packageProfit = packageValue - packageCost;
-            
-            packages.push({
-                id: `${date.replace(/-/g, '')}-${i}`,
-                packageId: `PKG-${moment(date).format('DDMM')}-${i.toString().padStart(3, '0')}`,
-                date,
-                packageType,
-                weight: `${Math.floor(Math.random() * 50) + 5} kg`,
-                dimensions: `${Math.floor(Math.random() * 50) + 20}x${Math.floor(Math.random() * 50) + 20}x${Math.floor(Math.random() * 50) + 20} cm`,
-                fromLocation: ['Chennai', 'Bangalore', 'Mumbai', 'Delhi', 'Hyderabad'][Math.floor(Math.random() * 5)],
-                toLocation: ['Chennai', 'Bangalore', 'Mumbai', 'Delhi', 'Hyderabad'][Math.floor(Math.random() * 5)],
-                packageValue,
-                packageCost,
-                packageProfit,
-                vehicleType,
-                staffMember,
-                status: ['Delivered', 'In Transit', 'Pending'][Math.floor(Math.random() * 3)],
-                deliveryTime: moment(date).add(Math.floor(Math.random() * 8), 'hours').format('HH:mm'),
-                isProfitable: packageProfit > 0,
-            });
-        }
-        
-        return packages;
-    };
-
-    const generateExpensesData = (date) => {
-        const expenses = [];
-        
-        // Expense categories
-        const categories = [
-            { category: 'vehicle', subCategories: ['fuel', 'maintenance', 'toll', 'parking', 'insurance'] },
-            { category: 'staff', subCategories: ['salary', 'overtime', 'benefits', 'bonus'] },
-            { category: 'overhead', subCategories: ['rent', 'utilities', 'internet', 'office_supplies'] },
-            { category: 'other', subCategories: ['miscellaneous', 'repairs', 'training'] }
-        ];
-        
-        // Generate 8-15 expenses per day
-        const expenseCount = Math.floor(Math.random() * 8) + 8;
-        
-        for (let i = 1; i <= expenseCount; i++) {
-            const categoryObj = categories[Math.floor(Math.random() * categories.length)];
-            const subCategory = categoryObj.subCategories[Math.floor(Math.random() * categoryObj.subCategories.length)];
-            
-            // Generate amount based on category
-            let amount = 0;
-            if (categoryObj.category === 'vehicle') {
-                amount = Math.floor(Math.random() * 3000) + 500;
-            } else if (categoryObj.category === 'staff') {
-                amount = Math.floor(Math.random() * 2000) + 300;
-            } else if (categoryObj.category === 'overhead') {
-                amount = Math.floor(Math.random() * 1000) + 100;
-            } else {
-                amount = Math.floor(Math.random() * 500) + 50;
-            }
-            
-            // Payment status
-            const statusOptions = ['paid', 'unpaid', 'partially_paid'];
-            const status = statusOptions[Math.floor(Math.random() * statusOptions.length)];
-            const paidAmount = status === 'paid' ? amount : (status === 'partially_paid' ? amount * 0.5 : 0);
-            const balance = amount - paidAmount;
-            
-            // Generate meaningful description
-            const descriptions = {
-                fuel: `Fuel purchase for vehicles - ${date}`,
-                maintenance: `Vehicle maintenance and service`,
-                toll: `Highway toll charges`,
-                parking: `Daily parking fees`,
-                insurance: `Vehicle insurance premium`,
-                salary: `Staff salary payment`,
-                overtime: `Overtime compensation`,
-                benefits: `Employee benefits`,
-                bonus: `Performance bonus`,
-                rent: `Office rent for the month`,
-                utilities: `Electricity and water bills`,
-                internet: `Internet service charges`,
-                office_supplies: `Office stationery and supplies`,
-                miscellaneous: `Miscellaneous expenses`,
-                repairs: `Office equipment repairs`,
-                training: `Staff training program`
-            };
-            
-            expenses.push({
-                id: `${date.replace(/-/g, '')}-${i}`,
-                expenseId: `EXP-${moment(date).format('DDMM')}-${i.toString().padStart(3, '0')}`,
-                date,
-                name: `${categoryObj.category.toUpperCase()} - ${subCategory.replace('_', ' ')}`,
-                category: categoryObj.category,
-                subCategory,
-                description: descriptions[subCategory] || `${subCategory} expense`,
-                amount,
-                type: Math.random() > 0.7 ? 'monthly' : (Math.random() > 0.5 ? 'weekly' : 'daily'),
-                status,
-                paidAmount,
-                balance,
-                vendor: ['Indian Oil', 'Bharat Petroleum', 'Local Garage', 'Staff Account'][Math.floor(Math.random() * 4)],
-                paymentMethod: ['Cash', 'Bank Transfer', 'UPI', 'Cheque'][Math.floor(Math.random() * 4)],
-            });
-        }
-        
-        return expenses;
-    };
-
-    const loadReportData = () => {
-        setLoading(true);
-        setTimeout(() => {
-            const data = generateDateRangeData(dateRange.from, dateRange.to);
-            setReportData(data);
-            // Initially show all data
-            setReportData(prev => ({
-                ...prev,
-                filteredPackages: data.allPackages,
-                filteredExpenses: data.allExpenses
-            }));
-            setLoading(false);
-        }, 1000);
+        if (vehicleTypes.includes(expenseType)) return 'vehicle';
+        if (staffTypes.includes(expenseType)) return 'staff';
+        return 'other';
     };
 
     const handleDateRangeChange = (e) => {
@@ -328,6 +317,10 @@ const ProfitLossReport = () => {
             ...prev,
             [name]: value
         }));
+    };
+
+    const handleCenterChange = (selectedOption) => {
+        setSelectedCenter(selectedOption);
     };
 
     const handleFilterChange = (e) => {
@@ -339,6 +332,8 @@ const ProfitLossReport = () => {
     };
 
     const applyFilters = () => {
+        if (!reportData.allPackages || !reportData.allExpenses) return;
+        
         setLoading(true);
         
         setTimeout(() => {
@@ -391,6 +386,7 @@ const ProfitLossReport = () => {
             vehicleType: 'all',
             staffMember: 'all'
         });
+        
         setReportData(prev => ({
             ...prev,
             filteredPackages: prev.allPackages,
@@ -403,16 +399,6 @@ const ProfitLossReport = () => {
         const fromDate = moment().subtract(days, 'days').format('YYYY-MM-DD');
         
         setDateRange({ from: fromDate, to: toDate });
-        
-        // Reload data with new range
-        setTimeout(() => {
-            const data = generateDateRangeData(fromDate, toDate);
-            setReportData({
-                ...data,
-                filteredPackages: data.allPackages,
-                filteredExpenses: data.allExpenses
-            });
-        }, 500);
     };
 
     const formatCurrency = (amount) => {
@@ -420,11 +406,45 @@ const ProfitLossReport = () => {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0
-        }).format(amount);
+        }).format(amount || 0);
     };
 
     const formatNumber = (num) => {
-        return new Intl.NumberFormat('en-IN').format(num);
+        return new Intl.NumberFormat('en-IN').format(num || 0);
+    };
+
+    // Transform office centers for react-select
+    const centerOptions = [
+        { value: '', label: 'All Centers' },
+        ...(officeCentersData || []).map((center) => ({
+            value: center.id,
+            label: center.officeCentersName,
+        })),
+    ];
+
+    // Custom styles for react-select
+    const selectStyles = {
+        control: (provided) => ({
+            ...provided,
+            minHeight: '42px',
+            borderColor: '#e2e8f0',
+            '&:hover': {
+                borderColor: '#cbd5e0',
+            },
+        }),
+        option: (provided, state) => ({
+            ...provided,
+            backgroundColor: state.isSelected ? '#3b82f6' : state.isFocused ? '#e2e8f0' : 'white',
+            color: state.isSelected ? 'white' : '#1e293b',
+            cursor: 'pointer',
+            '&:active': {
+                backgroundColor: state.isSelected ? '#2563eb' : '#cbd5e0',
+            },
+        }),
+        menu: (provided) => ({
+            ...provided,
+            zIndex: 50,
+        }),
     };
 
     // Package Columns
@@ -441,20 +461,17 @@ const ProfitLossReport = () => {
             ),
         },
         {
-            Header: 'Package ID',
+            Header: 'Payment ID',
             accessor: 'packageId',
             width: 120,
             Cell: ({ value }) => <span className="font-bold text-blue-600">{value}</span>,
         },
         {
-            Header: 'Package Details',
+            Header: 'Payment Details',
             accessor: 'packageDetails',
             Cell: ({ row }) => (
                 <div>
                     <div className="font-medium">{row.original.packageType}</div>
-                    <div className="text-xs text-gray-500">
-                        {row.original.weight} | {row.original.dimensions}
-                    </div>
                     <div className="text-xs text-gray-500">
                         {row.original.fromLocation} → {row.original.toLocation}
                     </div>
@@ -462,33 +479,25 @@ const ProfitLossReport = () => {
             ),
         },
         {
-            Header: 'Value',
+            Header: 'Amount',
             accessor: 'packageValue',
-            Cell: ({ value, row }) => (
+            Cell: ({ value }) => (
                 <div>
                     <div className="font-bold text-green-700">{formatCurrency(value)}</div>
-                    <div className="text-xs text-gray-500">
-                        Profit: <span className={row.original.packageProfit > 0 ? 'text-green-600' : 'text-red-600'}>
-                            {formatCurrency(row.original.packageProfit)}
-                        </span>
-                    </div>
                 </div>
             ),
         },
         {
-            Header: 'Vehicle & Staff',
-            accessor: 'vehicleStaff',
-            Cell: ({ row }) => (
-                <div className="text-sm">
-                    <div className="font-medium">{row.original.vehicleType}</div>
-                    <div className="text-xs text-gray-500">{row.original.staffMember}</div>
-                </div>
+            Header: 'Customer',
+            accessor: 'staffMember',
+            Cell: ({ value }) => (
+                <div className="text-sm font-medium">{value}</div>
             ),
         },
         {
             Header: 'Status',
             accessor: 'status',
-            Cell: ({ value, row }) => (
+            Cell: ({ value }) => (
                 <div>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         value === 'Delivered' ? 'bg-green-100 text-green-800' : 
@@ -497,9 +506,6 @@ const ProfitLossReport = () => {
                     }`}>
                         {value}
                     </span>
-                    <div className={`text-xs mt-1 px-2 py-0.5 rounded-full ${row.original.isProfitable ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                        {row.original.isProfitable ? 'Profitable' : 'Loss'}
-                    </div>
                 </div>
             ),
         },
@@ -531,20 +537,14 @@ const ProfitLossReport = () => {
                 <div>
                     <div className="font-medium">{row.original.name}</div>
                     <div className="text-xs text-gray-500">{row.original.description}</div>
-                    <div className="text-xs text-gray-500">Vendor: {row.original.vendor}</div>
                 </div>
             ),
         },
         {
             Header: 'Amount',
             accessor: 'amount',
-            Cell: ({ value, row }) => (
-                <div>
-                    <div className="font-bold text-red-700">{formatCurrency(value)}</div>
-                    <div className="text-xs text-gray-500">
-                        {row.original.type} • {row.original.paymentMethod}
-                    </div>
-                </div>
+            Cell: ({ value }) => (
+                <div className="font-bold text-red-700">{formatCurrency(value)}</div>
             ),
         },
         {
@@ -559,27 +559,19 @@ const ProfitLossReport = () => {
                     }`}>
                         {row.original.status.replace('_', ' ').toUpperCase()}
                     </span>
-                    <div className="text-xs text-gray-500 mt-1">
-                        Paid: {formatCurrency(row.original.paidAmount)} | 
-                        Due: {formatCurrency(row.original.balance)}
-                    </div>
                 </div>
             ),
         },
         {
             Header: 'Category',
             accessor: 'category',
-            Cell: ({ value, row }) => (
-                <div className="text-sm">
-                    <div className={`font-medium capitalize px-2 py-1 rounded-full text-xs ${
-                        value === 'vehicle' ? 'bg-blue-100 text-blue-800' :
-                        value === 'staff' ? 'bg-green-100 text-green-800' :
-                        value === 'overhead' ? 'bg-purple-100 text-purple-800' :
-                        'bg-gray-100 text-gray-800'
-                    }`}>
-                        {value}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1 capitalize">{row.original.subCategory}</div>
+            Cell: ({ value }) => (
+                <div className={`font-medium capitalize px-2 py-1 rounded-full text-xs ${
+                    value === 'vehicle' ? 'bg-blue-100 text-blue-800' :
+                    value === 'staff' ? 'bg-green-100 text-green-800' :
+                    'bg-gray-100 text-gray-800'
+                }`}>
+                    {value}
                 </div>
             ),
         },
@@ -599,7 +591,7 @@ const ProfitLossReport = () => {
             ),
         },
         {
-            Header: 'Packages',
+            Header: 'Payments',
             accessor: 'totalPackages',
             Cell: ({ value }) => (
                 <div className="text-center">
@@ -624,7 +616,7 @@ const ProfitLossReport = () => {
         {
             Header: 'Profit/Loss',
             accessor: 'dailyProfit',
-            Cell: ({ value, row }) => (
+            Cell: ({ value }) => (
                 <div className={`font-bold ${value >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                     {formatCurrency(value)}
                 </div>
@@ -671,6 +663,7 @@ const ProfitLossReport = () => {
         const summaryHeader = [
             ['PROFIT & LOSS REPORT - SUMMARY'],
             [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
+            [`Center: ${selectedCenter?.label || 'All Centers'}`],
             [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
             [],
             ['OVERALL SUMMARY'],
@@ -699,13 +692,8 @@ const ProfitLossReport = () => {
             ['Other Expenses', reportData.summary.totalOtherExpense],
             [],
             ['COUNTS', ''],
-            ['Total Packages', reportData.summary.totalPackages],
+            ['Total Payments', reportData.summary.totalPackages],
             ['Total Expense Items', reportData.summary.totalExpenseItems],
-            ['Profitable Packages', reportData.summary.profitablePackages],
-            ['Loss Packages', reportData.summary.lossPackages],
-            ['Paid Expenses', reportData.summary.paidExpenses],
-            ['Unpaid Expenses', reportData.summary.unpaidExpenses],
-            ['Partially Paid Expenses', reportData.summary.partialExpenses],
         ];
 
         const summaryWs = XLSX.utils.aoa_to_sheet(summaryHeader);
@@ -716,7 +704,7 @@ const ProfitLossReport = () => {
             ['DAILY PROFIT & LOSS DETAILS'],
             [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
             [],
-            ['Date', 'Day', 'Packages', 'Revenue', 'Expenses', 'Profit/Loss', 'Margin %', 'Status', 'Vehicle Expense', 'Staff Expense', 'Other Expense']
+            ['Date', 'Day', 'Payments', 'Revenue', 'Expenses', 'Profit/Loss', 'Margin %', 'Status', 'Vehicle Expense', 'Staff Expense', 'Other Expense']
         ];
 
         const dailyData = reportData.dailyData.map(day => [
@@ -726,7 +714,7 @@ const ProfitLossReport = () => {
             day.dailyRevenue,
             day.dailyExpense,
             day.dailyProfit,
-            `${day.profitMargin}%`,
+            `${day.profitMargin.toFixed(1)}%`,
             day.isProfitDay ? 'Profit' : 'Loss',
             day.vehicleExpense,
             day.staffExpense,
@@ -742,44 +730,36 @@ const ProfitLossReport = () => {
 
         // Packages Sheet
         const packageHeader = [
-            ['PACKAGES DETAIL'],
+            ['PAYMENT DETAILS'],
             [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
             [],
-            ['Date', 'Package ID', 'Package Type', 'Weight', 'Dimensions', 'From', 'To', 'Package Value', 'Cost', 'Profit', 'Vehicle', 'Staff', 'Status', 'Delivery Time', 'Profit Status']
+            ['Date', 'Payment ID', 'Type', 'From', 'To', 'Amount', 'Customer', 'Status']
         ];
 
         const packageRows = reportData.filteredPackages.map(pkg => [
             moment(pkg.date).format('DD/MM/YYYY'),
             pkg.packageId,
             pkg.packageType,
-            pkg.weight,
-            pkg.dimensions,
             pkg.fromLocation,
             pkg.toLocation,
             pkg.packageValue,
-            pkg.packageCost,
-            pkg.packageProfit,
-            pkg.vehicleType,
             pkg.staffMember,
-            pkg.status,
-            pkg.deliveryTime,
-            pkg.isProfitable ? 'Profitable' : 'Loss'
+            pkg.status
         ]);
 
         const packageData = [...packageHeader, ...packageRows];
         const packageWs = XLSX.utils.aoa_to_sheet(packageData);
         packageWs['!cols'] = [
-            { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 10 },
-            { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 },
-            { wch: 12 }, { wch: 10 }, { wch: 12 }
+            { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+            { wch: 12 }, { wch: 15 }, { wch: 12 }
         ];
 
         // Expenses Sheet
         const expenseHeader = [
-            ['EXPENSES DETAIL'],
+            ['EXPENSES DETAILS'],
             [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
             [],
-            ['Date', 'Expense ID', 'Name', 'Description', 'Category', 'Sub-Category', 'Type', 'Amount', 'Status', 'Paid Amount', 'Balance', 'Vendor', 'Payment Method']
+            ['Date', 'Expense ID', 'Name', 'Description', 'Category', 'Amount', 'Status', 'Payment Method']
         ];
 
         const expenseRows = reportData.filteredExpenses.map(exp => [
@@ -788,47 +768,28 @@ const ProfitLossReport = () => {
             exp.name,
             exp.description,
             exp.category,
-            exp.subCategory,
-            exp.type,
             exp.amount,
             exp.status,
-            exp.paidAmount,
-            exp.balance,
-            exp.vendor,
             exp.paymentMethod
         ]);
 
         const expenseData = [...expenseHeader, ...expenseRows];
         const expenseWs = XLSX.utils.aoa_to_sheet(expenseData);
         expenseWs['!cols'] = [
-            { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 12 }, { wch: 15 },
-            { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }
+            { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 12 },
+            { wch: 12 }, { wch: 12 }, { wch: 15 }
         ];
 
         XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
         XLSX.utils.book_append_sheet(wb, dailyWs, 'Daily Details');
-        XLSX.utils.book_append_sheet(wb, packageWs, 'Packages');
+        XLSX.utils.book_append_sheet(wb, packageWs, 'Payments');
         XLSX.utils.book_append_sheet(wb, expenseWs, 'Expenses');
 
         const fileName = `PL-Report-${moment(dateRange.from).format('DD-MM-YY')}-to-${moment(dateRange.to).format('DD-MM-YY')}.xlsx`;
         XLSX.writeFile(wb, fileName);
     };
 
-    const onGeneratePDF = async () => {
-        if (!reportData.summary) return;
-
-        const pdfData = {
-            reportData: reportData,
-            dateRange: dateRange,
-            selectedFilters: selectedFilters,
-            generatedDate: moment().format('DD/MM/YYYY HH:mm'),
-            viewMode: viewMode
-        };
-
-        navigate('/documents/pl-report-pdf', { state: pdfData });
-    };
-
-    if (loading || !reportData.summary) {
+    if (loading || centersLoading || !reportData.summary) {
         return (
             <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-center h-64">
@@ -836,6 +797,21 @@ const ProfitLossReport = () => {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                         <p className="mt-4 text-gray-600">Loading report data...</p>
                     </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="p-4 sm:p-6">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+                    <IconTrendingDown className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Report</h3>
+                    <p className="text-red-600">{error}</p>
+                    <button onClick={fetchReportData} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                        Retry
+                    </button>
                 </div>
             </div>
         );
@@ -849,11 +825,11 @@ const ProfitLossReport = () => {
                 <p className="text-gray-600 mt-1 sm:mt-2">Comprehensive financial analysis with date range filtering</p>
             </div>
 
-            {/* Date Range Selection */}
+            {/* Date Range and Center Selection */}
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6 border border-gray-200">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-800 mb-1">Select Date Range</h2>
+                        <h2 className="text-lg font-bold text-gray-800 mb-1">Select Date Range & Center</h2>
                         <p className="text-sm text-gray-600">Choose the period for your profit & loss analysis</p>
                     </div>
                     
@@ -885,7 +861,7 @@ const ProfitLossReport = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             <IconCalendar className="inline w-4 h-4 mr-1" />
@@ -916,9 +892,26 @@ const ProfitLossReport = () => {
                         />
                     </div>
                     
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <IconBuilding className="inline w-4 h-4 mr-1" />
+                            Filter by Center
+                        </label>
+                        <Select
+                            options={centerOptions}
+                            value={selectedCenter}
+                            onChange={handleCenterChange}
+                            placeholder="Select a center..."
+                            isClearable
+                            styles={selectStyles}
+                            className="react-select-container"
+                            classNamePrefix="react-select"
+                        />
+                    </div>
+                    
                     <div className="flex items-end">
                         <button
-                            onClick={loadReportData}
+                            onClick={fetchReportData}
                             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium"
                         >
                             Generate Report
@@ -928,7 +921,7 @@ const ProfitLossReport = () => {
 
                 <div className="text-center pt-4 border-t border-gray-200">
                     <h3 className="text-lg font-semibold text-gray-800">
-                        {moment(dateRange.from).format('DD MMM YYYY')} - {moment(dateRange.to).format('DD MMM YYYY')}
+                        {moment(dateRange.from).format('DD MMM YYYY')} - {moment(dateRange.to).format('DD MMM YYYY')} | {selectedCenter?.label || 'All Centers'}
                     </h3>
                     <p className="text-gray-600 text-sm">
                         {reportData.summary.totalDays} days • {reportData.summary.profitDays} profit days • {reportData.summary.lossDays} loss days
@@ -936,160 +929,16 @@ const ProfitLossReport = () => {
                 </div>
             </div>
 
-            {/* Filters Section */}
-            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6 border border-gray-200">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-4">
-                    <div className="flex items-center gap-2">
-                        <IconFilter className="w-5 h-5 text-gray-600" />
-                        <h3 className="text-lg font-bold text-gray-800">Filters</h3>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={applyFilters}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 text-sm font-medium flex items-center"
-                        >
-                            Apply Filters
-                        </button>
-                        <button
-                            onClick={resetFilters}
-                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 text-sm font-medium"
-                        >
-                            Reset All
-                        </button>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Package Filters */}
-                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                        <h4 className="font-semibold text-gray-700 text-sm">Package Filters</h4>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Package Type</label>
-                            <select
-                                name="packageType"
-                                value={selectedFilters.packageType}
-                                onChange={handleFilterChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Package Types</option>
-                                <option value="Small Package">Small Package</option>
-                                <option value="Medium Package">Medium Package</option>
-                                <option value="Large Package">Large Package</option>
-                                <option value="XL Package">XL Package</option>
-                                <option value="Document">Document</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Profit Status</label>
-                            <select
-                                name="profitStatus"
-                                value={selectedFilters.profitStatus}
-                                onChange={handleFilterChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Packages</option>
-                                <option value="profit">Profitable Only</option>
-                                <option value="loss">Loss Making Only</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Expense Filters */}
-                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                        <h4 className="font-semibold text-gray-700 text-sm">Expense Filters</h4>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Category</label>
-                            <select
-                                name="expenseCategory"
-                                value={selectedFilters.expenseCategory}
-                                onChange={handleFilterChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Categories</option>
-                                <option value="vehicle">Vehicle</option>
-                                <option value="staff">Staff</option>
-                                <option value="overhead">Overhead</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Payment Status</label>
-                            <select
-                                name="paymentStatus"
-                                value={selectedFilters.paymentStatus}
-                                onChange={handleFilterChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Status</option>
-                                <option value="paid">Paid Only</option>
-                                <option value="unpaid">Unpaid Only</option>
-                                <option value="partially_paid">Partially Paid</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Additional Filters */}
-                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-                        <h4 className="font-semibold text-gray-700 text-sm">Additional Filters</h4>
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Vehicle Type</label>
-                            <select
-                                name="vehicleType"
-                                value={selectedFilters.vehicleType}
-                                onChange={handleFilterChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Vehicles</option>
-                                <option value="Tata Ace">Tata Ace</option>
-                                <option value="Eicher Truck">Eicher Truck</option>
-                                <option value="Ashok Leyland">Ashok Leyland</option>
-                                <option value="Mahindra Bolero">Mahindra Bolero</option>
-                                <option value="Tata 407">Tata 407</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Staff Member</label>
-                            <select
-                                name="staffMember"
-                                value={selectedFilters.staffMember}
-                                onChange={handleFilterChange}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                                <option value="all">All Staff</option>
-                                <option value="Rajesh Kumar">Rajesh Kumar</option>
-                                <option value="Vikram Singh">Vikram Singh</option>
-                                <option value="Sanjay Verma">Sanjay Verma</option>
-                                <option value="Arun Mehta">Arun Mehta</option>
-                                <option value="Mohan Reddy">Mohan Reddy</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Export Buttons */}
+            {/* Export Button */}
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={onDownloadExcel}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
-                        >
-                            <IconDownload className="mr-2 w-4 h-4" />
-                            Export Excel Report
-                        </button>
-                        <button
-                            onClick={onGeneratePDF}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
-                        >
-                            <IconPrinter className="mr-2 w-4 h-4" />
-                            Generate PDF
-                        </button>
-                    </div>
+                    <button
+                        onClick={onDownloadExcel}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
+                    >
+                        <IconDownload className="mr-2 w-4 h-4" />
+                        Export Excel Report
+                    </button>
                     
                     <div className="text-sm text-gray-600">
                         Showing {reportData.summary.totalDays} days of data
@@ -1131,8 +980,8 @@ const ProfitLossReport = () => {
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
-                            <IconPackage className="w-4 h-4 mr-2" />
-                            Packages ({reportData.filteredPackages.length})
+                            <IconMoney className="w-4 h-4 mr-2" />
+                            Payments ({reportData.filteredPackages.length})
                         </button>
                         <button
                             onClick={() => setViewMode('expenses')}
@@ -1150,7 +999,7 @@ const ProfitLossReport = () => {
                     <div className="text-sm text-gray-600">
                         {viewMode === 'summary' && 'Financial Summary'}
                         {viewMode === 'daily' && 'Daily Profit/Loss Breakdown'}
-                        {viewMode === 'packages' && 'Package Revenue Details'}
+                        {viewMode === 'packages' && 'Payment Details'}
                         {viewMode === 'expenses' && 'Expense Details'}
                     </div>
                 </div>
@@ -1174,7 +1023,7 @@ const ProfitLossReport = () => {
                             Avg: {formatCurrency(reportData.summary.avgDailyRevenue)}/day
                         </div>
                         <div className="text-xs text-gray-500 mt-1">
-                            {formatNumber(reportData.summary.totalPackages)} packages
+                            {formatNumber(reportData.summary.totalPackages)} payments
                         </div>
                     </div>
                 </div>
@@ -1383,25 +1232,6 @@ const ProfitLossReport = () => {
                                 </div>
                             </div>
 
-                            {/* Package Performance */}
-                            <div className="pt-4 border-t">
-                                <h4 className="font-medium text-gray-700 mb-3">Package Performance</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="bg-green-50 p-3 rounded-lg">
-                                        <div className="text-green-700 font-bold text-xl">
-                                            {reportData.summary.profitablePackages}
-                                        </div>
-                                        <div className="text-sm text-gray-600">Profitable Packages</div>
-                                    </div>
-                                    <div className="bg-red-50 p-3 rounded-lg">
-                                        <div className="text-red-700 font-bold text-xl">
-                                            {reportData.summary.lossPackages}
-                                        </div>
-                                        <div className="text-sm text-gray-600">Loss Packages</div>
-                                    </div>
-                                </div>
-                            </div>
-
                             {/* Payment Status */}
                             <div className="pt-4 border-t">
                                 <h4 className="font-medium text-gray-700 mb-3">Expense Payment Status</h4>
@@ -1481,10 +1311,10 @@ const ProfitLossReport = () => {
                         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                             <div>
                                 <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
-                                    Package Revenue Details
+                                    Payment Details
                                 </h3>
                                 <p className="text-gray-600 text-sm">
-                                    {reportData.filteredPackages.length} packages showing ({reportData.summary.profitablePackages} profitable, {reportData.summary.lossPackages} loss)
+                                    {reportData.filteredPackages.length} payments showing
                                 </p>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 text-sm">
@@ -1495,7 +1325,7 @@ const ProfitLossReport = () => {
                                     </span>
                                 </div>
                                 <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Avg per Package: </span>
+                                    <span className="text-gray-600">Avg per Payment: </span>
                                     <span className="font-semibold text-blue-600">
                                         {formatCurrency(reportData.filteredPackages.reduce((sum, pkg) => sum + pkg.packageValue, 0) / reportData.filteredPackages.length)}
                                     </span>
@@ -1591,7 +1421,7 @@ const ProfitLossReport = () => {
                             {reportData.summary.vehicleExpensePercentage}% of total expenses
                         </div>
                         <div className="text-xs text-gray-500 mt-2">
-                            Largest expense category
+                            Includes fuel, maintenance, repairs
                         </div>
                     </div>
                 </div>
@@ -1610,7 +1440,7 @@ const ProfitLossReport = () => {
                             {reportData.summary.staffExpensePercentage}% of total expenses
                         </div>
                         <div className="text-xs text-gray-500 mt-2">
-                            Includes salaries, overtime, and benefits
+                            Salaries and staff-related costs
                         </div>
                     </div>
                 </div>
@@ -1655,7 +1485,7 @@ const ProfitLossReport = () => {
                     <div>
                         <h4 className="font-medium text-gray-700 mb-2">Key Metrics</h4>
                         <ul className="space-y-1 text-sm text-gray-600">
-                            <li>• Total Packages: {formatNumber(reportData.summary.totalPackages)}</li>
+                            <li>• Total Payments: {formatNumber(reportData.summary.totalPackages)}</li>
                             <li>• Total Revenue: {formatCurrency(reportData.summary.totalRevenue)}</li>
                             <li>• Total Expenses: {formatCurrency(reportData.summary.totalExpenses)}</li>
                             <li>• Net Profit/Loss: <span className={reportData.summary.isOverallProfit ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>

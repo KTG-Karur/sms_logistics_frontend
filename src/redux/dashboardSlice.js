@@ -1,136 +1,104 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { getDashboardDataApi, getDashboardStatisticsApi, getRecentEnquiriesApi, getTopProductsApi, getCountrySummaryApi, getExpoPerformanceApi, getQuickStatsApi } from '../api/DashboardApi';
+import { getDashboardDataApi } from '../api/DashboardApi';
 
-// Thunks for all dashboard data
+// Thunk for dashboard data
 export const getDashboardData = createAsyncThunk('dashboard/getDashboardData', async (request = {}) => {
     return await getDashboardDataApi(request);
-});
-
-export const getDashboardStatistics = createAsyncThunk('dashboard/getDashboardStatistics', async (request = {}) => {
-    return await getDashboardStatisticsApi(request);
-});
-
-export const getRecentEnquiries = createAsyncThunk('dashboard/getRecentEnquiries', async (limit = 5) => {
-    return await getRecentEnquiriesApi(limit);
-});
-
-export const getTopProducts = createAsyncThunk('dashboard/getTopProducts', async (limit = 5) => {
-    return await getTopProductsApi(limit);
-});
-
-export const getCountrySummary = createAsyncThunk('dashboard/getCountrySummary', async (limit = 10) => {
-    return await getCountrySummaryApi(limit);
-});
-
-export const getExpoPerformance = createAsyncThunk('dashboard/getExpoPerformance', async () => {
-    return await getExpoPerformanceApi();
-});
-
-export const getQuickStats = createAsyncThunk('dashboard/getQuickStats', async () => {
-    return await getQuickStatsApi();
 });
 
 const dashboardSlice = createSlice({
     name: 'dashboard',
     initialState: {
-        // Main dashboard data
         dashboardData: null,
-
-        // Individual data components
-        statistics: {
-            totalVisitors: 0,
-            activeEnquiries: 0,
-            totalProducts: 0,
-            sampleRequests: 0,
-        },
-        recentEnquiries: [],
-        topProducts: [],
-        countrySummary: [],
-        expoPerformance: [],
-        quickStats: {
-            avgProducts: '0.0',
-            conversionRate: '0.0',
-            topCountry: 'N/A',
-        },
-
-        // Loading states
         loading: false,
-        statisticsLoading: false,
-        enquiriesLoading: false,
-        productsLoading: false,
-        countryLoading: false,
-        expoLoading: false,
-        statsLoading: false,
-
-        // Error states
         error: null,
-        statisticsError: null,
-        enquiriesError: null,
-        productsError: null,
-        countryError: null,
-        expoError: null,
-        statsError: null,
-
-        // Success states
         getDashboardDataSuccess: false,
         getDashboardDataFailed: false,
-        getStatisticsSuccess: false,
-        getStatisticsFailed: false,
-        getEnquiriesSuccess: false,
-        getEnquiriesFailed: false,
-        getTopProductsSuccess: false,
-        getTopProductsFailed: false,
-        getCountrySummarySuccess: false,
-        getCountrySummaryFailed: false,
-        getExpoPerformanceSuccess: false,
-        getExpoPerformanceFailed: false,
-        getQuickStatsSuccess: false,
-        getQuickStatsFailed: false,
+        
+        // Processed data for UI
+        statistics: {
+            totalTrips: 0,
+            completedTrips: 0,
+            inProgressTrips: 0,
+            delayedTrips: 0,
+            totalBookings: 0,
+            totalPayments: 0,
+        },
+        todayStats: {
+            bookings: 0,
+            trips: 0,
+            payments: "0.00"
+        },
+        thisWeekStats: {
+            bookings: 0,
+            payments: "0.00"
+        },
+        thisMonthStats: {
+            bookings: 0,
+            trips: 0,
+            payments: "0.00"
+        },
+        statusBreakdown: {
+            bookings: {
+                not_started: 0,
+                delivered: 0
+            },
+            trips: {
+                in_progress: 0
+            }
+        },
+        upcomingTrips: [],
+        recentPayments: [],
+        topCustomers: [],
     },
     reducers: {
         resetDashboardStatus: (state) => {
             state.getDashboardDataSuccess = false;
             state.getDashboardDataFailed = false;
-            state.getStatisticsSuccess = false;
-            state.getStatisticsFailed = false;
-            state.getEnquiriesSuccess = false;
-            state.getEnquiriesFailed = false;
-            state.getTopProductsSuccess = false;
-            state.getTopProductsFailed = false;
-            state.getCountrySummarySuccess = false;
-            state.getCountrySummaryFailed = false;
-            state.getExpoPerformanceSuccess = false;
-            state.getExpoPerformanceFailed = false;
-            state.getQuickStatsSuccess = false;
-            state.getQuickStatsFailed = false;
             state.error = null;
             state.loading = false;
         },
         clearDashboardData: (state) => {
             state.dashboardData = null;
             state.statistics = {
-                totalVisitors: 0,
-                activeEnquiries: 0,
-                totalProducts: 0,
-                sampleRequests: 0,
+                totalTrips: 0,
+                completedTrips: 0,
+                inProgressTrips: 0,
+                delayedTrips: 0,
+                totalBookings: 0,
+                totalPayments: 0,
             };
-            state.recentEnquiries = [];
-            state.topProducts = [];
-            state.countrySummary = [];
-            state.expoPerformance = [];
-            state.quickStats = {
-                avgProducts: '0.0',
-                conversionRate: '0.0',
-                topCountry: 'N/A',
+            state.todayStats = {
+                bookings: 0,
+                trips: 0,
+                payments: "0.00"
             };
-        },
-        setAnimatedValues: (state, action) => {
-            state.animatedValues = action.payload;
+            state.thisWeekStats = {
+                bookings: 0,
+                payments: "0.00"
+            };
+            state.thisMonthStats = {
+                bookings: 0,
+                trips: 0,
+                payments: "0.00"
+            };
+            state.statusBreakdown = {
+                bookings: {
+                    not_started: 0,
+                    delivered: 0
+                },
+                trips: {
+                    in_progress: 0
+                }
+            };
+            state.upcomingTrips = [];
+            state.recentPayments = [];
+            state.topCustomers = [];
         },
     },
     extraReducers: (builder) => {
         builder
-            // GET DASHBOARD DATA (All data at once)
+            // GET DASHBOARD DATA
             .addCase(getDashboardData.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -140,12 +108,58 @@ const dashboardSlice = createSlice({
             .addCase(getDashboardData.fulfilled, (state, action) => {
                 state.loading = false;
                 state.dashboardData = action.payload.data;
-                state.statistics = action.payload.data?.statistics || state.statistics;
-                state.recentEnquiries = action.payload.data?.recentEnquiries || [];
-                state.topProducts = action.payload.data?.topProducts || [];
-                state.countrySummary = action.payload.data?.countrySummary || [];
-                state.expoPerformance = action.payload.data?.expoPerformance || [];
-                state.quickStats = action.payload.data?.quickStats || state.quickStats;
+                
+                // Map API data to our structure
+                const apiData = action.payload.data || {};
+                
+                state.todayStats = apiData.today || {
+                    bookings: 0,
+                    trips: 0,
+                    payments: "0.00"
+                };
+                
+                state.thisWeekStats = apiData.this_week || {
+                    bookings: 0,
+                    payments: "0.00"
+                };
+                
+                state.thisMonthStats = apiData.this_month || {
+                    bookings: 0,
+                    trips: 0,
+                    payments: "0.00"
+                };
+                
+                state.statusBreakdown = apiData.status_breakdown || {
+                    bookings: {
+                        not_started: 0,
+                        delivered: 0
+                    },
+                    trips: {
+                        in_progress: 0
+                    }
+                };
+                
+                state.upcomingTrips = apiData.upcoming_trips || [];
+                state.recentPayments = apiData.recent_payments || [];
+                state.topCustomers = apiData.top_customers || [];
+                
+                // Calculate statistics for the dashboard
+                const totalBookings = (apiData.status_breakdown?.bookings?.not_started || 0) + 
+                                     (apiData.status_breakdown?.bookings?.delivered || 0);
+                
+                state.statistics = {
+                    totalTrips: apiData.this_month?.trips || 0,
+                    completedTrips: apiData.status_breakdown?.bookings?.delivered || 0,
+                    inProgressTrips: apiData.status_breakdown?.trips?.in_progress || 0,
+                    delayedTrips: 0, // API doesn't provide this yet
+                    totalBookings: totalBookings,
+                    deliveredBookings: apiData.status_breakdown?.bookings?.delivered || 0,
+                    pendingBookings: apiData.status_breakdown?.bookings?.not_started || 0,
+                    totalPayments: parseFloat(apiData.this_month?.payments || 0),
+                    thisWeekPayments: parseFloat(apiData.this_week?.payments || 0),
+                    todayPayments: parseFloat(apiData.today?.payments || 0),
+                };
+                
                 state.getDashboardDataSuccess = true;
                 state.getDashboardDataFailed = false;
             })
@@ -154,129 +168,9 @@ const dashboardSlice = createSlice({
                 state.error = action.error.message || 'Failed to fetch dashboard data';
                 state.getDashboardDataSuccess = false;
                 state.getDashboardDataFailed = true;
-            })
-
-            // GET STATISTICS
-            .addCase(getDashboardStatistics.pending, (state) => {
-                state.statisticsLoading = true;
-                state.statisticsError = null;
-                state.getStatisticsSuccess = false;
-                state.getStatisticsFailed = false;
-            })
-            .addCase(getDashboardStatistics.fulfilled, (state, action) => {
-                state.statisticsLoading = false;
-                state.statistics = action.payload.data;
-                state.getStatisticsSuccess = true;
-                state.getStatisticsFailed = false;
-            })
-            .addCase(getDashboardStatistics.rejected, (state, action) => {
-                state.statisticsLoading = false;
-                state.statisticsError = action.error.message || 'Failed to fetch statistics';
-                state.getStatisticsSuccess = false;
-                state.getStatisticsFailed = true;
-            })
-
-            // GET RECENT ENQUIRIES
-            .addCase(getRecentEnquiries.pending, (state) => {
-                state.enquiriesLoading = true;
-                state.enquiriesError = null;
-                state.getEnquiriesSuccess = false;
-                state.getEnquiriesFailed = false;
-            })
-            .addCase(getRecentEnquiries.fulfilled, (state, action) => {
-                state.enquiriesLoading = false;
-                state.recentEnquiries = action.payload.data || [];
-                state.getEnquiriesSuccess = true;
-                state.getEnquiriesFailed = false;
-            })
-            .addCase(getRecentEnquiries.rejected, (state, action) => {
-                state.enquiriesLoading = false;
-                state.enquiriesError = action.error.message || 'Failed to fetch recent enquiries';
-                state.getEnquiriesSuccess = false;
-                state.getEnquiriesFailed = true;
-            })
-
-            // GET TOP PRODUCTS
-            .addCase(getTopProducts.pending, (state) => {
-                state.productsLoading = true;
-                state.productsError = null;
-                state.getTopProductsSuccess = false;
-                state.getTopProductsFailed = false;
-            })
-            .addCase(getTopProducts.fulfilled, (state, action) => {
-                state.productsLoading = false;
-                state.topProducts = action.payload.data || [];
-                state.getTopProductsSuccess = true;
-                state.getTopProductsFailed = false;
-            })
-            .addCase(getTopProducts.rejected, (state, action) => {
-                state.productsLoading = false;
-                state.productsError = action.error.message || 'Failed to fetch top products';
-                state.getTopProductsSuccess = false;
-                state.getTopProductsFailed = true;
-            })
-
-            // GET COUNTRY SUMMARY
-            .addCase(getCountrySummary.pending, (state) => {
-                state.countryLoading = true;
-                state.countryError = null;
-                state.getCountrySummarySuccess = false;
-                state.getCountrySummaryFailed = false;
-            })
-            .addCase(getCountrySummary.fulfilled, (state, action) => {
-                state.countryLoading = false;
-                state.countrySummary = action.payload.data || [];
-                state.getCountrySummarySuccess = true;
-                state.getCountrySummaryFailed = false;
-            })
-            .addCase(getCountrySummary.rejected, (state, action) => {
-                state.countryLoading = false;
-                state.countryError = action.error.message || 'Failed to fetch country summary';
-                state.getCountrySummarySuccess = false;
-                state.getCountrySummaryFailed = true;
-            })
-
-            // GET EXPO PERFORMANCE
-            .addCase(getExpoPerformance.pending, (state) => {
-                state.expoLoading = true;
-                state.expoError = null;
-                state.getExpoPerformanceSuccess = false;
-                state.getExpoPerformanceFailed = false;
-            })
-            .addCase(getExpoPerformance.fulfilled, (state, action) => {
-                state.expoLoading = false;
-                state.expoPerformance = action.payload.data || [];
-                state.getExpoPerformanceSuccess = true;
-                state.getExpoPerformanceFailed = false;
-            })
-            .addCase(getExpoPerformance.rejected, (state, action) => {
-                state.expoLoading = false;
-                state.expoError = action.error.message || 'Failed to fetch expo performance';
-                state.getExpoPerformanceSuccess = false;
-                state.getExpoPerformanceFailed = true;
-            })
-
-            // GET QUICK STATS
-            .addCase(getQuickStats.pending, (state) => {
-                state.statsLoading = true;
-                state.statsError = null;
-                state.getQuickStatsSuccess = false;
-                state.getQuickStatsFailed = false;
-            })
-            .addCase(getQuickStats.fulfilled, (state, action) => {
-                state.statsLoading = false;
-                state.quickStats = action.payload.data || state.quickStats;
-                state.getQuickStatsSuccess = true;
-                state.getQuickStatsFailed = false;
-            })
-            .addCase(getQuickStats.rejected, (state, action) => {
-                state.statsLoading = false;
-                state.statsError = action.error.message || 'Failed to fetch quick stats';
-                state.getQuickStatsSuccess = false;
-                state.getQuickStatsFailed = true;
             });
     },
 });
 
-export const { resetDashboardStatus, clearDashboardData, setAnimatedValues } = dashboardSlice.actions;
+export const { resetDashboardStatus, clearDashboardData } = dashboardSlice.actions;
 export default dashboardSlice.reducer;
