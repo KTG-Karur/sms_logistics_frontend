@@ -4,7 +4,8 @@ import {
     getDailyProfitLossApi,
     getDateRangeProfitLossApi,
     getPackageReportApi,
-    getTripReportApi
+    getTripReportApi,
+    getAllBookingsWithDetailsApi
 } from '../api/ReportApi';
 
 // Daily Profit & Loss
@@ -25,6 +26,11 @@ export const getPackageReport = createAsyncThunk('report/getPackageReport', asyn
 // Trip Report
 export const getTripReport = createAsyncThunk('report/getTripReport', async (request) => {
     return await getTripReportApi(request);
+});
+
+// All Bookings With Details
+export const getAllBookingsWithDetails = createAsyncThunk('report/getAllBookingsWithDetails', async (request) => {
+    return await getAllBookingsWithDetailsApi(request);
 });
 
 const reportSlice = createSlice({
@@ -57,6 +63,13 @@ const reportSlice = createSlice({
         errorTrip: null,
         getTripSuccess: false,
         getTripFailed: false,
+
+        // All Bookings With Details
+        bookingsWithDetailsData: [],
+        loadingBookingsWithDetails: false,
+        errorBookingsWithDetails: null,
+        getBookingsWithDetailsSuccess: false,
+        getBookingsWithDetailsFailed: false,
     },
     reducers: {
         resetDailyReportStatus: (state) => {
@@ -87,6 +100,13 @@ const reportSlice = createSlice({
             state.loadingTrip = false;
             state.tripReportData = [];
         },
+        resetBookingsWithDetailsStatus: (state) => {
+            state.getBookingsWithDetailsSuccess = false;
+            state.getBookingsWithDetailsFailed = false;
+            state.errorBookingsWithDetails = null;
+            state.loadingBookingsWithDetails = false;
+            state.bookingsWithDetailsData = [];
+        },
         resetAllReportStatus: (state) => {
             state.getDailySuccess = false;
             state.getDailyFailed = false;
@@ -96,14 +116,20 @@ const reportSlice = createSlice({
             state.getPackageFailed = false;
             state.getTripSuccess = false;
             state.getTripFailed = false;
+            state.getBookingsWithDetailsSuccess = false;
+            state.getBookingsWithDetailsFailed = false;
+            
             state.errorDaily = null;
             state.errorRange = null;
             state.errorPackage = null;
             state.errorTrip = null;
+            state.errorBookingsWithDetails = null;
+            
             state.loadingDaily = false;
             state.loadingRange = false;
             state.loadingPackage = false;
             state.loadingTrip = false;
+            state.loadingBookingsWithDetails = false;
         },
     },
     extraReducers: (builder) => {
@@ -186,6 +212,26 @@ const reportSlice = createSlice({
                 state.errorTrip = action.error.message || 'Fetch failed';
                 state.getTripSuccess = false;
                 state.getTripFailed = true;
+            })
+
+            // ALL BOOKINGS WITH DETAILS
+            .addCase(getAllBookingsWithDetails.pending, (state) => {
+                state.loadingBookingsWithDetails = true;
+                state.errorBookingsWithDetails = null;
+                state.getBookingsWithDetailsSuccess = false;
+                state.getBookingsWithDetailsFailed = false;
+            })
+            .addCase(getAllBookingsWithDetails.fulfilled, (state, action) => {
+                state.loadingBookingsWithDetails = false;
+                state.bookingsWithDetailsData = action.payload;
+                state.getBookingsWithDetailsSuccess = true;
+                state.getBookingsWithDetailsFailed = false;
+            })
+            .addCase(getAllBookingsWithDetails.rejected, (state, action) => {
+                state.loadingBookingsWithDetails = false;
+                state.errorBookingsWithDetails = action.error.message || 'Fetch failed';
+                state.getBookingsWithDetailsSuccess = false;
+                state.getBookingsWithDetailsFailed = true;
             });
     },
 });
@@ -195,6 +241,7 @@ export const {
     resetRangeReportStatus,
     resetPackageReportStatus,
     resetTripReportStatus,
+    resetBookingsWithDetailsStatus,
     resetAllReportStatus 
 } = reportSlice.actions;
 
