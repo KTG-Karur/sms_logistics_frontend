@@ -13,7 +13,8 @@ import {
 import { 
     getHoliday, 
     createHoliday, 
-    resetHolidayStatus 
+    resetHolidayStatus,
+    deleteHoliday
 } from '../../../redux/holidaySlice';
 import moment from 'moment';
 import IconCalendar from '../../../components/Icon/IconCalendar';
@@ -123,14 +124,15 @@ const Attendance = () => {
         }
     };
 
-    const fetchHolidays = async () => {
-        try {
-            await dispatch(getHoliday({ is_active: 1 }));
-        } catch (error) {
-            console.error('Failed to fetch holidays:', error);
-        }
-    };
-
+// In your React component, when fetching holidays:
+const fetchHolidays = async () => {
+  try {
+    // This will now automatically get only active holidays (is_active = 1)
+    await dispatch(getHoliday({ is_active: 1 }));
+  } catch (error) {
+    console.error('Failed to fetch holidays:', error);
+  }
+};
     // ============= PROCESS EMPLOYEE DATA =============
     useEffect(() => {
         if (employeeData) {
@@ -414,16 +416,16 @@ const Attendance = () => {
         }
     };
 
-    const deleteHoliday = (holidayId) => {
-        showMessage(
-            'warning',
-            'Are you sure you want to delete this holiday?',
-            async () => {
-                showMessage('info', 'Delete functionality requires backend implementation');
-            },
-            'Yes, delete it'
-        );
-    };
+  const handleDeleteHoliday = async (holidayId) => {
+    try {
+        await dispatch(deleteHoliday(holidayId));
+        showMessage('success', 'Holiday deleted successfully');
+    } catch (error) {
+        console.log(error)
+        showMessage('error', 'Failed to delete holiday');
+    }
+};
+
 
     // ============= UTILITY FUNCTIONS =============
     const getAttendanceStatus = (employeeId) => {
@@ -1291,7 +1293,7 @@ const Attendance = () => {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <button
-                                                            onClick={() => deleteHoliday(holiday.holidayId)}
+                                                          onClick={() => handleDeleteHoliday(holiday.holidayId)}
                                                             className="btn btn-outline-danger btn-sm"
                                                         >
                                                             <IconTrashLines className="w-3 h-3 mr-1" />
