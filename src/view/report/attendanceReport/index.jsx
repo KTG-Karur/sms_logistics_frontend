@@ -558,7 +558,7 @@ const AttendanceReport = () => {
               <span className="hidden sm:inline">Export Excel</span>
               <span className="sm:hidden">Export</span>
             </button>
-            <div className="flex space-x-2">
+            {/* <div className="flex space-x-2">
               <button onClick={() => setShowHolidayForm(true)} className="btn btn-info flex-1 sm:flex-none">
                 <IconPlus className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">Add</span>
@@ -567,7 +567,7 @@ const AttendanceReport = () => {
                 <IconEye className="w-4 h-4 sm:mr-2" />
                 <span className="hidden sm:inline">View</span>
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
 

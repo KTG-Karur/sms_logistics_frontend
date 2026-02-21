@@ -80,6 +80,19 @@ const Attendance = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
+    // ============= UTILITY FUNCTIONS =============
+    const isFutureDate = (date) => {
+        return moment(date).isAfter(moment(), 'day');
+    };
+
+    const isPastDate = (date) => {
+        return moment(date).isBefore(moment(), 'day');
+    };
+
+    const isToday = (date) => {
+        return moment(date).isSame(moment(), 'day');
+    };
+
     // ============= INITIAL LOAD =============
     useEffect(() => {
         dispatch(setPageTitle('Attendance Management'));
@@ -95,7 +108,7 @@ const Attendance = () => {
             // Fetch only active employees with salary
             await dispatch(getEmployee({ 
                 is_active: 1,
-                has_salary: true  // Add this filter to get only employees with salary
+                has_salary: true
             }));
         } catch (error) {
             showMessage('error', 'Failed to load employees');
@@ -124,15 +137,14 @@ const Attendance = () => {
         }
     };
 
-// In your React component, when fetching holidays:
-const fetchHolidays = async () => {
-  try {
-    // This will now automatically get only active holidays (is_active = 1)
-    await dispatch(getHoliday({ is_active: 1 }));
-  } catch (error) {
-    console.error('Failed to fetch holidays:', error);
-  }
-};
+    const fetchHolidays = async () => {
+        try {
+            await dispatch(getHoliday({ is_active: 1 }));
+        } catch (error) {
+            console.error('Failed to fetch holidays:', error);
+        }
+    };
+    
     // ============= PROCESS EMPLOYEE DATA =============
     useEffect(() => {
         if (employeeData) {
@@ -326,6 +338,12 @@ const fetchHolidays = async () => {
     };
 
     const handleAttendanceChange = async (employeeId, status, date = selectedDate) => {
+        // Check if trying to mark attendance for future date
+        if (isFutureDate(date)) {
+            showMessage('error', 'Cannot mark attendance for future dates');
+            return;
+        }
+
         if (isHoliday(date)) {
             showMessage('info', `Cannot mark attendance on ${getHolidayName(date)} holiday`);
             return;
@@ -361,6 +379,12 @@ const fetchHolidays = async () => {
     };
 
     const markAllAttendance = async (status) => {
+        // Check if trying to mark attendance for future date
+        if (isFutureDate(selectedDate)) {
+            showMessage('error', 'Cannot mark attendance for future dates');
+            return;
+        }
+
         if (isHoliday(selectedDate)) {
             showMessage('info', `Cannot mark attendance on ${getHolidayName(selectedDate)} holiday`);
             return;
@@ -409,6 +433,12 @@ const fetchHolidays = async () => {
             return;
         }
 
+        // Check if trying to add holiday for past date
+        if (isPastDate(holidayForm.holiday_date) && !isToday(holidayForm.holiday_date)) {
+            showMessage('error', 'Cannot add holiday for past dates');
+            return;
+        }
+
         try {
             await dispatch(createHoliday(holidayForm));
         } catch (error) {
@@ -416,16 +446,15 @@ const fetchHolidays = async () => {
         }
     };
 
-  const handleDeleteHoliday = async (holidayId) => {
-    try {
-        await dispatch(deleteHoliday(holidayId));
-        showMessage('success', 'Holiday deleted successfully');
-    } catch (error) {
-        console.log(error)
-        showMessage('error', 'Failed to delete holiday');
-    }
-};
-
+    const handleDeleteHoliday = async (holidayId) => {
+        try {
+            await dispatch(deleteHoliday(holidayId));
+            showMessage('success', 'Holiday deleted successfully');
+        } catch (error) {
+            console.log(error)
+            showMessage('error', 'Failed to delete holiday');
+        }
+    };
 
     // ============= UTILITY FUNCTIONS =============
     const getAttendanceStatus = (employeeId) => {
@@ -465,6 +494,11 @@ const fetchHolidays = async () => {
                 label: 'Sunday' 
             },
             'pending': { 
+                color: 'light', 
+                icon: IconMinus, 
+                label: 'Pending' 
+            },
+            '-': { 
                 color: 'light', 
                 icon: IconMinus, 
                 label: 'Pending' 
@@ -690,16 +724,23 @@ const fetchHolidays = async () => {
                                         type="date"
                                         value={selectedDate}
                                         onChange={(e) => handleDateChange(e.target.value)}
+                                        max={moment().format('YYYY-MM-DD')}
                                         className="form-input bg-transparent border-0 focus:ring-0"
                                     />
                                 </div>
-                                {isHoliday(selectedDate) && (
+                                {isFutureDate(selectedDate) && (
+                                    <div className="inline-flex items-center px-3 py-2 rounded-full bg-warning-100 text-warning-800 dark:bg-warning-900 dark:text-warning-200 text-sm font-medium">
+                                        <IconXCircle className="w-4 h-4 mr-2" />
+                                        Cannot mark attendance for future dates
+                                    </div>
+                                )}
+                                {isHoliday(selectedDate) && !isFutureDate(selectedDate) && (
                                     <div className="inline-flex items-center px-3 py-2 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200 text-sm font-medium">
                                         <IconSun className="w-4 h-4 mr-2" />
                                         {getHolidayName(selectedDate)} - Holiday
                                     </div>
                                 )}
-                                {isSunday(selectedDate) && !isHoliday(selectedDate) && (
+                                {isSunday(selectedDate) && !isHoliday(selectedDate) && !isFutureDate(selectedDate) && (
                                     <div className="inline-flex items-center px-3 py-2 rounded-full bg-info-100 text-info-800 dark:bg-info-900 dark:text-info-200 text-sm font-medium">
                                         <IconSun className="w-4 h-4 mr-2" />
                                         Sunday - Weekly Off
@@ -805,8 +846,8 @@ const fetchHolidays = async () => {
                     )}
                 </div>
 
-                {/* Action Buttons - Only for Daily View */}
-                {viewMode === 'daily' && !isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                {/* Action Buttons - Only for Daily View and non-future dates */}
+                {viewMode === 'daily' && !isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && (
                     <div className="mt-6 flex flex-wrap gap-2">
                         <button
                             onClick={() => markAllAttendance('present')}
@@ -895,6 +936,7 @@ const fetchHolidays = async () => {
                                                 const dayName = moment(date).format('ddd');
                                                 const isWeekend = moment(date).day() === 0;
                                                 const isHolidayDate = isHoliday(date);
+                                                const isFuture = isFutureDate(date);
                                                 
                                                 return (
                                                     <th 
@@ -903,6 +945,8 @@ const fetchHolidays = async () => {
                                                             isWeekend ? 'bg-gray-100 dark:bg-gray-900' : ''
                                                         } ${
                                                             isHolidayDate ? 'bg-purple-50 dark:bg-purple-900/20' : ''
+                                                        } ${
+                                                            isFuture ? 'opacity-50' : ''
                                                         }`}
                                                     >
                                                         <div className="text-sm font-medium">{day}</div>
@@ -910,6 +954,11 @@ const fetchHolidays = async () => {
                                                         {isHolidayDate && (
                                                             <div className="text-xs text-purple-600 truncate max-w-[60px]">
                                                                 🎉
+                                                            </div>
+                                                        )}
+                                                        {isFuture && (
+                                                            <div className="text-xs text-warning-600">
+                                                                Future
                                                             </div>
                                                         )}
                                                     </th>
@@ -942,6 +991,7 @@ const fetchHolidays = async () => {
                                                     const color = getStatusColor(status);
                                                     const isWeekend = moment(date).day() === 0;
                                                     const isHolidayDate = isHoliday(date);
+                                                    const isFuture = isFutureDate(date);
                                                     
                                                     return (
                                                         <td 
@@ -950,9 +1000,11 @@ const fetchHolidays = async () => {
                                                                 isWeekend ? 'bg-gray-50 dark:bg-gray-900/50' : ''
                                                             } ${
                                                                 isHolidayDate ? 'bg-purple-50 dark:bg-purple-900/10' : ''
+                                                            } ${
+                                                                isFuture ? 'opacity-50' : ''
                                                             }`}
                                                         >
-                                                            {status !== '-' && status !== 'sunday' && status !== 'holiday' ? (
+                                                            {status !== '-' && status !== 'sunday' && status !== 'holiday' && !isFuture ? (
                                                                 <button
                                                                     onClick={() => {
                                                                         setSelectedDate(date);
@@ -970,7 +1022,8 @@ const fetchHolidays = async () => {
                                                                     'text-gray-400'
                                                                 }`}>
                                                                     {status === 'sunday' ? 'SUN' : 
-                                                                     status === 'holiday' ? 'HOL' : '-'}
+                                                                     status === 'holiday' ? 'HOL' : 
+                                                                     isFuture ? '—' : '-'}
                                                                 </span>
                                                             )}
                                                         </td>
@@ -1001,7 +1054,7 @@ const fetchHolidays = async () => {
                                                 <th className="px-4 py-3 text-left">S.No</th>
                                                 <th className="px-4 py-3 text-left">Employee</th>
                                                 <th className="px-4 py-3 text-left">Status</th>
-                                                {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                                                {!isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && (
                                                     <th className="px-4 py-3 text-left">Actions</th>
                                                 )}
                                             </tr>
@@ -1009,7 +1062,7 @@ const fetchHolidays = async () => {
                                         <tbody>
                                             {currentItems.map((employee, index) => {
                                                 const status = getEmployeeAttendanceStatus(employee.employeeId, selectedDate);
-                                                const isDisabled = status === 'holiday' || status === 'sunday';
+                                                const isDisabled = status === 'holiday' || status === 'sunday' || isFutureDate(selectedDate);
                                                 
                                                 return (
                                                     <tr
@@ -1030,15 +1083,9 @@ const fetchHolidays = async () => {
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3">
-        {status === 'present' && <IconCheckCircle className="w-4 h-4 text-success" />}
-        {status === 'absent' && <IconXCircle className="w-4 h-4 text-danger" />}
-        {status === 'halfday' && <IconClock className="w-4 h-4 text-warning" />}
-        {status === 'holiday' && <IconSun className="w-4 h-4 text-primary"/>}
-        {status === 'sunday' && <IconSun className="w-4 h-4 text-secondary" />}
-        {(status === 'pending' || status === '-') && <IconMinus className="w-4 h-4" />}
-   
+                                                            <StatusBadge status={status} />
                                                         </td>
-                                                        {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                                                        {!isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && (
                                                             <td className="px-4 py-3">
                                                                 <div className="flex items-center space-x-2">
                                                                     <button
@@ -1085,7 +1132,7 @@ const fetchHolidays = async () => {
                                 <div className="md:hidden space-y-4">
                                     {currentItems.map((employee, index) => {
                                         const status = getEmployeeAttendanceStatus(employee.employeeId, selectedDate);
-                                        const isDisabled = status === 'holiday' || status === 'sunday';
+                                        const canMarkAttendance = !isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate);
                                         
                                         return (
                                             <div
@@ -1105,7 +1152,7 @@ const fetchHolidays = async () => {
                                                     <StatusBadge status={status} />
                                                 </div>
                                                 
-                                                {!isHoliday(selectedDate) && !isSunday(selectedDate) && (
+                                                {canMarkAttendance && (
                                                     <div className="grid grid-cols-3 gap-2 pt-3 border-t">
                                                         <button
                                                             onClick={() => handleAttendanceChange(employee.employeeId, 'present')}
@@ -1225,8 +1272,12 @@ const fetchHolidays = async () => {
                                         ...prev,
                                         holiday_date: e.target.value
                                     }))}
+                                    min={moment().format('YYYY-MM-DD')}
                                     className="form-input w-full"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    * You can only add holidays for today or future dates
+                                </p>
                             </div>
                         </div>
                         <div className="p-4 border-t flex justify-end space-x-2">
@@ -1293,7 +1344,7 @@ const fetchHolidays = async () => {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <button
-                                                          onClick={() => handleDeleteHoliday(holiday.holidayId)}
+                                                            onClick={() => handleDeleteHoliday(holiday.holidayId)}
                                                             className="btn btn-outline-danger btn-sm"
                                                         >
                                                             <IconTrashLines className="w-3 h-3 mr-1" />

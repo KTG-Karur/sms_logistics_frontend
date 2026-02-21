@@ -45,6 +45,8 @@ import {
     ExpensesSettlement,
     ProfitLossReport,
     PackageDelivery,
+    LoadmanSalary,
+    LoadmanAssign,
     TripReport,
     OfficeCenter,
     Customer,
@@ -329,6 +331,14 @@ const routes = [
       {
         path: '/package/delivery',
         element: <PackageDelivery/>,
+    },
+      {
+        path: '/loadman-salary',
+        element: <LoadmanSalary/>,
+    },
+    {
+        path: '/loadman-salary/trip/:tripId/assign',
+        element: <LoadmanAssign/>,
     },
     {
      path: '/report/profit-loss',

@@ -135,6 +135,8 @@ export const AuditReSchedule = lazy(() => import('../view/reasignAudit'));
 export const VehicleType = lazy(() => import('../view/master/vehicleType'));
 export const ExpenceType = lazy(() => import('../view/master/expenceType'));
 export const PackageDelivery = lazy(() => import('../view/package-delivery'));
+export const LoadmanSalary = lazy(()=>import('../view/loadman-salary'))
+export const LoadmanAssign = lazy(()=>import('../view/loadman-assign'))
 export const TripReport = lazy(() => import('../view/report/tripReport'));
 export const OfficeCenter = lazy(() => import('../view/master/officeCenter'));
 export const Customer = lazy(() => import('../view/master/customer'));
