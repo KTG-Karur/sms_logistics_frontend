@@ -5,9 +5,6 @@ import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Tippy from '@tippyjs/react';
 import { showMessage, findArrObj, formatDate } from '../../util/AllFunction';
 import Select from 'react-select';
-// import DatePicker from 'react-datepicker';
-// import 'react-datepicker/dist/react-datepicker.css';
-import Modal from '../../components/Modal';
 import IconPlus from '../../components/Icon/IconPlus';
 import IconUser from '../../components/Icon/IconUser';
 import IconPackage from '../../components/Icon/IconBox';
@@ -23,11 +20,12 @@ import IconSearch from '../../components/Icon/IconSearch';
 import IconFilter from '../../components/Icon/IconCoffee';
 import IconX from '../../components/Icon/IconX';
 import IconDownload from '../../components/Icon/IconDownload';
-import IconPrinter from '../../components/Icon/IconPrinter';
 import IconRefresh from '../../components/Icon/IconRefresh';
 import IconUsers from '../../components/Icon/IconUsers';
 import IconHistory from '../../components/Icon/IconMapPin';
 import IconChart from '../../components/Icon/IconChartSquare';
+import IconChevronRight from '../../components/Icon/IconChevronRight';
+import IconChevronLeft from '../../components/Icon/IconChevronLeft';
 
 import {
   getAllLoadmenSalarySummary,
@@ -71,11 +69,12 @@ const LoadmanSalaryManagement = () => {
   const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
   const { officeCentersData = [] } = officeCenterState;
 
+
   // Local states
-  const [activeTab, setActiveTab] = useState('summary'); // summary, payments, details
-  const [viewMode, setViewMode] = useState('all'); // all, single
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showCalculateModal, setShowCalculateModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('summary');
+  const [viewMode, setViewMode] = useState('all');
+  const [showPaymentPanel, setShowPaymentPanel] = useState(false);
+  const [showCalculatePanel, setShowCalculatePanel] = useState(false);
   const [selectedLoadman, setSelectedLoadman] = useState(null);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [filters, setFilters] = useState({
@@ -117,16 +116,14 @@ const LoadmanSalaryManagement = () => {
   useEffect(() => {
     if (paymentSuccess) {
       showMessage('success', 'Salary payment processed successfully');
-      setShowPaymentModal(false);
+      setShowPaymentPanel(false);
       resetPaymentForm();
       fetchData();
       dispatch(resetLoadmanSalaryStatus());
     }
-    
     if (getDataSuccess) {
       dispatch(resetLoadmanSalaryStatus());
     }
-    
     if (error) {
       showMessage('error', error);
       dispatch(resetLoadmanSalaryStatus());
@@ -136,7 +133,7 @@ const LoadmanSalaryManagement = () => {
   // Fetch data based on active tab and filters
   useEffect(() => {
     fetchData();
-  }, [activeTab, filters.startDate, filters.endDate, filters.loadmanId, filters.status, filters.page, filters.limit]);
+  }, [activeTab, filters.startDate, filters.endDate, filters.loadmanId, filters.status, filters.page, filters.limit, filters.search]);
 
   const fetchInitialData = async () => {
     try {
@@ -150,42 +147,38 @@ const LoadmanSalaryManagement = () => {
   };
 
   const fetchData = () => {
+    const filterParams = {
+      startDate: filters.startDate,
+      endDate: filters.endDate,
+      page: filters.page,
+      limit: filters.limit
+    };
+    
+    if (filters.status) filterParams.status = filters.status;
+    if (filters.search) filterParams.search = filters.search;
+    
     if (activeTab === 'summary') {
-      if (viewMode === 'all' || !filters.loadmanId) {
-        dispatch(getAllLoadmenSalarySummary({
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-          status: filters.status,
-          search: filters.search
-        }));
-      } else {
+      if (viewMode === 'single' && filters.loadmanId) {
         dispatch(getLoadmanSalarySummary({
           loadmanId: filters.loadmanId,
-          startDate: filters.startDate,
-          endDate: filters.endDate,
-          status: filters.status,
-          page: filters.page,
-          limit: filters.limit
+          ...filterParams
         }));
+      } else {
+        dispatch(getAllLoadmenSalarySummary(filterParams));
       }
     } else if (activeTab === 'payments') {
-      dispatch(getLoadmanPayments({
-        loadmanId: filters.loadmanId,
-        startDate: filters.startDate,
-        endDate: filters.endDate,
-        page: filters.page,
-        limit: filters.limit
-      }));
+      if (filters.loadmanId) filterParams.loadmanId = filters.loadmanId;
+      dispatch(getLoadmanPayments(filterParams));
     }
   };
 
   // Loadman options for select
   const loadmanOptions = useMemo(() => {
     return (employeeData || [])
-      .filter(emp => emp.is_loadman)
+      .filter(emp => emp.isLoadman === true)
       .map(loadman => ({
-        value: loadman.employee_id,
-        label: `${loadman.employee_name} - ${loadman.mobile_no || ''}`,
+        value: loadman.employeeId || loadman.employee_id,
+        label: `${loadman.employeeName || loadman.employee_name} - ${loadman.mobileNo || loadman.mobile_no || ''}`,
         data: loadman
       }));
   }, [employeeData]);
@@ -193,13 +186,14 @@ const LoadmanSalaryManagement = () => {
   // Office center options
   const officeCenterOptions = useMemo(() => {
     return (officeCentersData || [])
-      .filter(center => center.is_active)
+      .filter(center => center.isActive)
       .map(center => ({
-        value: center.office_center_id,
-        label: center.office_center_name,
+        value: center.id,
+        label: center.officeCentersName,
         data: center
       }));
   }, [officeCentersData]);
+
 
   // Payment type options
   const paymentTypeOptions = [
@@ -219,9 +213,18 @@ const LoadmanSalaryManagement = () => {
   const handleSelectChange = (name, option) => {
     setFilters(prev => ({ 
       ...prev, 
-      [name]: option ? option.value : null,
-      page: 1 
+      [name]: option ? option.value : null, 
+      page: 1,
+      loadmanId: option ? option.value : null
     }));
+    
+    if (option && option.value) {
+      setViewMode('single');
+      setSelectedLoadman(option.data);
+    } else {
+      setViewMode('all');
+      setSelectedLoadman(null);
+    }
   };
 
   const clearFilters = () => {
@@ -235,6 +238,7 @@ const LoadmanSalaryManagement = () => {
       limit: 20
     });
     setViewMode('all');
+    setSelectedLoadman(null);
   };
 
   // Handle pagination
@@ -246,31 +250,41 @@ const LoadmanSalaryManagement = () => {
     setFilters(prev => ({ ...prev, limit: parseInt(e.target.value), page: 1 }));
   };
 
-  // Open payment modal for a loadman
-  const openPaymentModal = (loadman) => {
+  // Open payment panel for a loadman
+  const openPaymentPanel = (loadman) => {
+    console.log('Opening payment panel for loadman:', loadman);
+    
+    // Check if totalPending exists and is > 0
+    const pendingAmount = parseFloat(loadman.totalPending || 0);
+    
+    if (pendingAmount <= 0) {
+      showMessage('info', 'No pending amount to pay for this loadman');
+      return;
+    }
+    
     setSelectedLoadman(loadman);
     setPaymentForm({
-      loadmanId: loadman.loadmanId || loadman.employee_id,
-      loadmanName: loadman.loadmanName || loadman.employee_name,
+      loadmanId: loadman.loadmanId || loadman.employeeId || loadman.employee_id,
+      loadmanName: loadman.loadmanName || loadman.employeeName || loadman.employee_name,
       salaryDate: new Date().toISOString().split('T')[0],
       paymentDate: new Date().toISOString().split('T')[0],
-      amount: loadman.totalPending > 0 ? loadman.totalPending : '',
+      amount: pendingAmount.toString(),
       officeCenterId: '',
       paymentType: 'cash',
       notes: ''
     });
-    setShowPaymentModal(true);
+    setShowPaymentPanel(true);
   };
 
-  // Open calculate modal for a loadman
-  const openCalculateModal = (loadman) => {
+  // Open calculate panel for a loadman
+  const openCalculatePanel = (loadman) => {
     setSelectedLoadman(loadman);
     setCalculateForm({
-      loadmanId: loadman.loadmanId || loadman.employee_id,
+      loadmanId: loadman.loadmanId || loadman.employeeId || loadman.employee_id,
       date: new Date().toISOString().split('T')[0],
       includeDetails: true
     });
-    setShowCalculateModal(true);
+    setShowCalculatePanel(true);
   };
 
   // View loadman details
@@ -279,15 +293,14 @@ const LoadmanSalaryManagement = () => {
     setViewMode('single');
     setFilters(prev => ({ 
       ...prev, 
-      loadmanId: loadman.loadmanId || loadman.employee_id,
-      page: 1
+      loadmanId: loadman.loadmanId || loadman.employeeId || loadman.employee_id, 
+      page: 1 
     }));
   };
 
   // View payment details
   const viewPaymentDetails = (payment) => {
     setSelectedPayment(payment);
-    // Navigate to payment detail view or open modal
     showMessage('info', `Payment #${payment.expense_payment_id} details`);
   };
 
@@ -311,6 +324,8 @@ const LoadmanSalaryManagement = () => {
   const handleSubmitPayment = (e) => {
     e.preventDefault();
     
+    console.log('Submitting payment with data:', paymentForm);
+    
     // Validation
     if (!paymentForm.loadmanId) {
       showMessage('error', 'Loadman is required');
@@ -318,6 +333,10 @@ const LoadmanSalaryManagement = () => {
     }
     if (!paymentForm.salaryDate) {
       showMessage('error', 'Salary date is required');
+      return;
+    }
+    if (!paymentForm.paymentDate) {
+      showMessage('error', 'Payment date is required');
       return;
     }
     if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
@@ -329,7 +348,7 @@ const LoadmanSalaryManagement = () => {
       return;
     }
 
-    dispatch(processLoadmanSalaryPayment({
+    const paymentData = {
       loadmanId: paymentForm.loadmanId,
       salaryDate: paymentForm.salaryDate,
       paymentDate: paymentForm.paymentDate,
@@ -338,7 +357,10 @@ const LoadmanSalaryManagement = () => {
       paymentType: paymentForm.paymentType,
       notes: paymentForm.notes,
       createdBy: employeeId
-    }));
+    };
+
+    console.log('Dispatching payment with data:', paymentData);
+    dispatch(processLoadmanSalaryPayment(paymentData));
   };
 
   // Submit calculate daily salary
@@ -511,29 +533,36 @@ const LoadmanSalaryManagement = () => {
       accessor: 'actions',
       Cell: ({ row }) => {
         const loadman = row.original;
+        const pendingAmount = parseFloat(loadman.totalPending || 0);
+        const hasPending = pendingAmount > 0;
+        
         return (
           <div className="flex gap-1">
             <Tippy content="View Details">
               <button
                 onClick={() => viewLoadmanDetails(loadman)}
-                className="btn btn-outline-primary btn-sm p-1.5 rounded-lg"
+                className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
               >
                 <IconEye className="w-4 h-4" />
               </button>
             </Tippy>
             <Tippy content="Calculate Daily Salary">
               <button
-                onClick={() => openCalculateModal(loadman)}
-                className="btn btn-outline-info btn-sm p-1.5 rounded-lg"
+                onClick={() => openCalculatePanel(loadman)}
+                className="btn btn-outline-info btn-sm p-1.5 rounded-lg hover:bg-info hover:text-white transition-colors"
               >
                 <IconCalculator className="w-4 h-4" />
               </button>
             </Tippy>
-            <Tippy content="Make Payment">
+            <Tippy content={hasPending ? "Make Payment" : "No Pending Amount"}>
               <button
-                onClick={() => openPaymentModal(loadman)}
-                className="btn btn-outline-success btn-sm p-1.5 rounded-lg"
-                disabled={parseFloat(loadman.totalPending) <= 0}
+                onClick={() => openPaymentPanel(loadman)}
+                className={`btn btn-sm p-1.5 rounded-lg transition-colors ${
+                  hasPending 
+                    ? 'btn-outline-success hover:bg-success hover:text-white' 
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+                disabled={!hasPending}
               >
                 <IconDollar className="w-4 h-4" />
               </button>
@@ -541,7 +570,7 @@ const LoadmanSalaryManagement = () => {
           </div>
         );
       },
-      width: 120
+      width: 140
     }
   ], []);
 
@@ -602,7 +631,7 @@ const LoadmanSalaryManagement = () => {
         return (
           <button
             onClick={() => viewPaymentDetails(payment)}
-            className="btn btn-outline-primary btn-sm p-1.5 rounded-lg"
+            className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
           >
             <IconEye className="w-4 h-4" />
           </button>
@@ -809,6 +838,7 @@ const LoadmanSalaryManagement = () => {
                 onClick={() => {
                   setViewMode('all');
                   setFilters(prev => ({ ...prev, loadmanId: null, page: 1 }));
+                  setSelectedLoadman(null);
                 }}
                 className="btn btn-outline-primary whitespace-nowrap"
               >
@@ -820,380 +850,410 @@ const LoadmanSalaryManagement = () => {
         </div>
       </div>
 
-      {/* Content based on active tab */}
-      <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-        {activeTab === 'summary' && (
-          <>
-            <div className="p-3 border-b border-gray-200 bg-white">
-              <h2 className="text-lg font-bold text-gray-800">
-                {viewMode === 'single' && selectedLoadman
-                  ? `${selectedLoadman.loadmanName} - Daily Salary Breakdown`
-                  : 'All Loadmen Salary Summary'}
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {filters.startDate} to {filters.endDate}
-              </p>
-            </div>
-            <div className="p-3">
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      {/* Main Content Area with Slide-out Panels */}
+      <div className="relative">
+        {/* Main Content */}
+        <div className={`transition-all duration-300 ${showPaymentPanel || showCalculatePanel ? 'mr-96' : ''}`}>
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
+            {activeTab === 'summary' && (
+              <>
+                <div className="p-3 border-b border-gray-200 bg-white">
+                  <h2 className="text-lg font-bold text-gray-800">
+                    {viewMode === 'single' && filters.loadmanId
+                      ? `${selectedLoadman?.loadmanName || selectedLoadman?.employeeName || selectedLoadman?.employee_name || 'Loadman'} - Daily Salary Breakdown`
+                      : 'All Loadmen Salary Summary'}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {filters.startDate} to {filters.endDate}
+                  </p>
                 </div>
-              ) : viewMode === 'single' && selectedLoadman ? (
-                // Single loadman detailed view
-                <LoadmanSalaryDetail
-                  loadmanId={selectedLoadman.loadmanId || selectedLoadman.employee_id}
-                  startDate={filters.startDate}
-                  endDate={filters.endDate}
-                />
-              ) : (
-                // All loadmen summary
-                <ResponsiveTable
-                  columns={summaryColumns}
-                  data={allLoadmenSalarySummary.loadmen || []}
-                  pageSize={filters.limit}
-                  pageIndex={filters.page - 1}
-                  onPaginationChange={(pageIndex, pageSize) => {
-                    handlePageChange(pageIndex + 1);
-                    if (pageSize !== filters.limit) {
-                      setFilters(prev => ({ ...prev, limit: pageSize }));
-                    }
-                  }}
-                  pagination={true}
-                  isSearchable={false}
-                  showPageSize={true}
-                />
-              )}
-            </div>
-          </>
-        )}
+                <div className="p-3">
+                  {loading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                    </div>
+                  ) : viewMode === 'single' && filters.loadmanId ? (
+                    <LoadmanSalaryDetail
+                      loadmanId={filters.loadmanId}
+                      startDate={filters.startDate}
+                      endDate={filters.endDate}
+                    />
+                  ) : (
+                    <ResponsiveTable
+                      columns={summaryColumns}
+                      data={allLoadmenSalarySummary.loadmen || []}
+                      pageSize={filters.limit}
+                      pageIndex={filters.page - 1}
+                      onPaginationChange={(pageIndex, pageSize) => {
+                        handlePageChange(pageIndex + 1);
+                        if (pageSize !== filters.limit) {
+                          setFilters(prev => ({ ...prev, limit: pageSize }));
+                        }
+                      }}
+                      pagination={true}
+                      isSearchable={false}
+                      showPageSize={true}
+                    />
+                  )}
+                </div>
+              </>
+            )}
 
-        {activeTab === 'payments' && (
-          <>
-            <div className="p-3 border-b border-gray-200 bg-white">
-              <h2 className="text-lg font-bold text-gray-800">Payment History</h2>
-              <p className="text-sm text-gray-600 mt-1">
-                {filters.startDate} to {filters.endDate}
-              </p>
-            </div>
-            <div className="p-3">
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+            {activeTab === 'payments' && (
+              <>
+                <div className="p-3 border-b border-gray-200 bg-white">
+                  <h2 className="text-lg font-bold text-gray-800">Payment History</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {filters.startDate} to {filters.endDate}
+                  </p>
                 </div>
-              ) : (
-                <>
-                  <ResponsiveTable
-                    columns={paymentsColumns}
-                    data={loadmanPayments.data || []}
-                    pageSize={filters.limit}
-                    pageIndex={filters.page - 1}
-                    onPaginationChange={(pageIndex, pageSize) => {
-                      handlePageChange(pageIndex + 1);
-                      if (pageSize !== filters.limit) {
-                        setFilters(prev => ({ ...prev, limit: pageSize }));
-                      }
-                    }}
-                    pagination={true}
-                    isSearchable={false}
-                    showPageSize={true}
+                <div className="p-3">
+                  {loading ? (
+                    <div className="flex justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                    </div>
+                  ) : (
+                    <>
+                      <ResponsiveTable
+                        columns={paymentsColumns}
+                        data={loadmanPayments.data || []}
+                        pageSize={filters.limit}
+                        pageIndex={filters.page - 1}
+                        onPaginationChange={(pageIndex, pageSize) => {
+                          handlePageChange(pageIndex + 1);
+                          if (pageSize !== filters.limit) {
+                            setFilters(prev => ({ ...prev, limit: pageSize }));
+                          }
+                        }}
+                        pagination={true}
+                        isSearchable={false}
+                        showPageSize={true}
+                      />
+                      <div className="mt-3 text-sm text-gray-600 text-right">
+                        Total: {loadmanPayments.total} payments
+                      </div>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeTab === 'details' && (
+              <LoadmanDirectory
+                onSelectLoadman={(loadman) => {
+                  setSelectedLoadman(loadman);
+                  setViewMode('single');
+                  setFilters(prev => ({ 
+                    ...prev, 
+                    loadmanId: loadman.employeeId || loadman.employee_id, 
+                    page: 1 
+                  }));
+                  setActiveTab('summary');
+                }}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Payment Slide-out Panel */}
+        {showPaymentPanel && (
+          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl border-l border-gray-200 z-40 overflow-y-auto transition-transform duration-300">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-gray-800">Process Loadman Salary Payment</h2>
+              <button
+                onClick={() => {
+                  setShowPaymentPanel(false);
+                  resetPaymentForm();
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <IconX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSubmitPayment} className="p-4">
+              <div className="space-y-4">
+                {/* Loadman Info */}
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <div className="font-medium text-gray-800">Loadman: {paymentForm.loadmanName}</div>
+                  {selectedLoadman && (
+                    <div className="text-sm text-gray-600 mt-1">
+                      Total Pending: ₹{selectedLoadman.totalPending || '0.00'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Salary Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Salary Date *
+                  </label>
+                  <input
+                    type="date"
+                    name="salaryDate"
+                    value={paymentForm.salaryDate}
+                    onChange={handlePaymentFormChange}
+                    className="form-input w-full"
+                    required
                   />
-                  <div className="mt-3 text-sm text-gray-600 text-right">
-                    Total: {loadmanPayments.total} payments
+                  <p className="text-xs text-gray-500 mt-1">
+                    Date of earnings being paid (YYYY-MM-DD)
+                  </p>
+                </div>
+
+                {/* Payment Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Date *
+                  </label>
+                  <input
+                    type="date"
+                    name="paymentDate"
+                    value={paymentForm.paymentDate}
+                    onChange={handlePaymentFormChange}
+                    className="form-input w-full"
+                    required
+                  />
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Amount *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={paymentForm.amount}
+                      onChange={handlePaymentFormChange}
+                      placeholder="Enter amount"
+                      className="form-input w-full pl-8"
+                      step="0.01"
+                      min="0.01"
+                      required
+                    />
                   </div>
-                </>
-              )}
-            </div>
-          </>
+                </div>
+
+                {/* Office Center */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Office Center *
+                  </label>
+                  <Select
+                    options={officeCenterOptions}
+                    value={officeCenterOptions.find(opt => opt.value === paymentForm.officeCenterId)}
+                    onChange={(opt) => handlePaymentSelectChange('officeCenterId', opt)}
+                    placeholder="Select office center"
+                    className="react-select"
+                    classNamePrefix="select"
+                    required
+                  />
+                </div>
+
+                {/* Payment Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Type
+                  </label>
+                  <Select
+                    options={paymentTypeOptions}
+                    value={paymentTypeOptions.find(opt => opt.value === paymentForm.paymentType)}
+                    onChange={(opt) => handlePaymentSelectChange('paymentType', opt)}
+                    placeholder="Select payment type"
+                    className="react-select"
+                    classNamePrefix="select"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    name="notes"
+                    value={paymentForm.notes}
+                    onChange={handlePaymentFormChange}
+                    rows="3"
+                    placeholder="Add any notes about this payment..."
+                    className="form-textarea w-full"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPaymentPanel(false);
+                      resetPaymentForm();
+                    }}
+                    className="btn btn-outline-secondary"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? 'Processing...' : 'Process Payment'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
         )}
 
-        {activeTab === 'details' && (
-          <LoadmanDirectory
-            onSelectLoadman={(loadman) => {
-              setSelectedLoadman(loadman);
-              setViewMode('single');
-              setFilters(prev => ({ 
-                ...prev, 
-                loadmanId: loadman.employee_id,
-                page: 1 
-              }));
-              setActiveTab('summary');
+        {/* Calculate Daily Salary Slide-out Panel */}
+        {showCalculatePanel && (
+          <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl border-l border-gray-200 z-40 overflow-y-auto transition-transform duration-300">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex justify-between items-center">
+              <h2 className="text-lg font-bold text-gray-800">Calculate Daily Salary</h2>
+              <button
+                onClick={() => {
+                  setShowCalculatePanel(false);
+                  resetCalculateForm();
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <IconX className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCalculateDailySalary} className="p-4">
+              <div className="space-y-4">
+                {/* Loadman Info */}
+                {selectedLoadman && (
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <div className="font-medium text-gray-800">
+                      Loadman: {selectedLoadman.loadmanName || selectedLoadman.employeeName || selectedLoadman.employee_name}
+                    </div>
+                  </div>
+                )}
+
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={calculateForm.date}
+                    onChange={handleCalculateFormChange}
+                    className="form-input w-full"
+                    required
+                  />
+                </div>
+
+                {/* Include Details Checkbox */}
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="includeDetails"
+                    name="includeDetails"
+                    checked={calculateForm.includeDetails}
+                    onChange={(e) => setCalculateForm(prev => ({ 
+                      ...prev, 
+                      includeDetails: e.target.checked 
+                    }))}
+                    className="form-checkbox h-4 w-4 text-primary"
+                  />
+                  <label htmlFor="includeDetails" className="ml-2 text-sm text-gray-700">
+                    Include detailed breakdown
+                  </label>
+                </div>
+
+                {/* Results */}
+                {loadmanDailySalary && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <h3 className="font-medium text-gray-800 mb-3">Salary Calculation Result</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-gray-500">Loadman</div>
+                        <div className="font-medium">{loadmanDailySalary.loadmanName}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Date</div>
+                        <div className="font-medium">{loadmanDailySalary.date}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Total Earnings</div>
+                        <div className="font-bold text-green-600">₹{loadmanDailySalary.totalEarnings}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Packages Handled</div>
+                        <div className="font-medium">{loadmanDailySalary.totalPackages}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Paid Amount</div>
+                        <div className="font-medium text-blue-600">₹{loadmanDailySalary.paidAmount}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Pending Amount</div>
+                        <div className="font-medium text-red-600">₹{loadmanDailySalary.pendingAmount}</div>
+                      </div>
+                    </div>
+                    {loadmanDailySalary.assignments && loadmanDailySalary.assignments.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-gray-700 mb-2">Assignments:</div>
+                        <div className="max-h-40 overflow-y-auto">
+                          {loadmanDailySalary.assignments.map((ass, idx) => (
+                            <div key={idx} className="text-xs p-2 border-b last:border-b-0">
+                              <div>Trip: {ass.tripNumber} | Booking: {ass.bookingNumber}</div>
+                              <div>Type: {ass.loadmanType} | Amount: ₹{ass.amountEarned}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCalculatePanel(false);
+                      resetCalculateForm();
+                    }}
+                    className="btn btn-outline-secondary"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? 'Calculating...' : 'Calculate'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Overlay when panel is open */}
+        {(showPaymentPanel || showCalculatePanel) && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-30 z-30"
+            onClick={() => {
+              setShowPaymentPanel(false);
+              setShowCalculatePanel(false);
+              resetPaymentForm();
+              resetCalculateForm();
             }}
           />
         )}
       </div>
-
-      {/* Payment Modal */}
-      <Modal
-        isOpen={showPaymentModal}
-        onClose={() => {
-          setShowPaymentModal(false);
-          resetPaymentForm();
-        }}
-        title="Process Loadman Salary Payment"
-        size="lg"
-      >
-        <form onSubmit={handleSubmitPayment}>
-          <div className="space-y-4">
-            {/* Loadman Info */}
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-              <div className="font-medium text-gray-800">Loadman: {paymentForm.loadmanName}</div>
-              {selectedLoadman && (
-                <div className="text-sm text-gray-600 mt-1">
-                  Total Pending: ₹{selectedLoadman.totalPending || '0.00'}
-                </div>
-              )}
-            </div>
-
-            {/* Salary Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Salary Date *
-              </label>
-              <input
-                type="date"
-                name="salaryDate"
-                value={paymentForm.salaryDate}
-                onChange={handlePaymentFormChange}
-                className="form-input w-full"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Date of earnings being paid (YYYY-MM-DD)
-              </p>
-            </div>
-
-            {/* Payment Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Date *
-              </label>
-              <input
-                type="date"
-                name="paymentDate"
-                value={paymentForm.paymentDate}
-                onChange={handlePaymentFormChange}
-                className="form-input w-full"
-                required
-              />
-            </div>
-
-            {/* Amount */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Amount *
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                  ₹
-                </span>
-                <input
-                  type="number"
-                  name="amount"
-                  value={paymentForm.amount}
-                  onChange={handlePaymentFormChange}
-                  placeholder="Enter amount"
-                  className="form-input w-full pl-8"
-                  step="0.01"
-                  min="0.01"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Office Center */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Office Center *
-              </label>
-              <Select
-                options={officeCenterOptions}
-                value={officeCenterOptions.find(opt => opt.value === paymentForm.officeCenterId)}
-                onChange={(opt) => handlePaymentSelectChange('officeCenterId', opt)}
-                placeholder="Select office center"
-                className="react-select"
-                classNamePrefix="select"
-                required
-              />
-            </div>
-
-            {/* Payment Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Type
-              </label>
-              <Select
-                options={paymentTypeOptions}
-                value={paymentTypeOptions.find(opt => opt.value === paymentForm.paymentType)}
-                onChange={(opt) => handlePaymentSelectChange('paymentType', opt)}
-                placeholder="Select payment type"
-                className="react-select"
-                classNamePrefix="select"
-              />
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
-              </label>
-              <textarea
-                name="notes"
-                value={paymentForm.notes}
-                onChange={handlePaymentFormChange}
-                rows="3"
-                placeholder="Add any notes about this payment..."
-                className="form-textarea w-full"
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  resetPaymentForm();
-                }}
-                className="btn btn-outline-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={loading}
-              >
-                {loading ? 'Processing...' : 'Process Payment'}
-              </button>
-            </div>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Calculate Daily Salary Modal */}
-      <Modal
-        isOpen={showCalculateModal}
-        onClose={() => {
-          setShowCalculateModal(false);
-          resetCalculateForm();
-        }}
-        title="Calculate Daily Salary"
-        size="lg"
-      >
-        <form onSubmit={handleCalculateDailySalary}>
-          <div className="space-y-4">
-            {/* Loadman Info */}
-            {selectedLoadman && (
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                <div className="font-medium text-gray-800">
-                  Loadman: {selectedLoadman.loadmanName || selectedLoadman.employee_name}
-                </div>
-              </div>
-            )}
-
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Date *
-              </label>
-              <input
-                type="date"
-                name="date"
-                value={calculateForm.date}
-                onChange={handleCalculateFormChange}
-                className="form-input w-full"
-                required
-              />
-            </div>
-
-            {/* Include Details Checkbox */}
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="includeDetails"
-                name="includeDetails"
-                checked={calculateForm.includeDetails}
-                onChange={(e) => setCalculateForm(prev => ({ 
-                  ...prev, 
-                  includeDetails: e.target.checked 
-                }))}
-                className="form-checkbox h-4 w-4 text-primary"
-              />
-              <label htmlFor="includeDetails" className="ml-2 text-sm text-gray-700">
-                Include detailed breakdown
-              </label>
-            </div>
-
-            {/* Results */}
-            {loadmanDailySalary && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="font-medium text-gray-800 mb-3">Salary Calculation Result</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <div className="text-xs text-gray-500">Loadman</div>
-                    <div className="font-medium">{loadmanDailySalary.loadmanName}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Date</div>
-                    <div className="font-medium">{loadmanDailySalary.date}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Total Earnings</div>
-                    <div className="font-bold text-green-600">₹{loadmanDailySalary.totalEarnings}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Packages Handled</div>
-                    <div className="font-medium">{loadmanDailySalary.totalPackages}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Paid Amount</div>
-                    <div className="font-medium text-blue-600">₹{loadmanDailySalary.paidAmount}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500">Pending Amount</div>
-                    <div className="font-medium text-red-600">₹{loadmanDailySalary.pendingAmount}</div>
-                  </div>
-                </div>
-                {loadmanDailySalary.assignments && loadmanDailySalary.assignments.length > 0 && (
-                  <div className="mt-3">
-                    <div className="text-xs font-medium text-gray-700 mb-2">Assignments:</div>
-                    <div className="max-h-40 overflow-y-auto">
-                      {loadmanDailySalary.assignments.map((ass, idx) => (
-                        <div key={idx} className="text-xs p-2 border-b last:border-b-0">
-                          <div>Trip: {ass.tripNumber} | Booking: {ass.bookingNumber}</div>
-                          <div>Type: {ass.loadmanType} | Amount: ₹{ass.amountEarned}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCalculateModal(false);
-                  resetCalculateForm();
-                }}
-                className="btn btn-outline-secondary"
-              >
-                Close
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={loading}
-              >
-                {loading ? 'Calculating...' : 'Calculate'}
-              </button>
-            </div>
-          </div>
-        </form>
-      </Modal>
     </div>
   );
 };
@@ -1205,7 +1265,9 @@ const LoadmanSalaryDetail = ({ loadmanId, startDate, endDate }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDetail();
+    if (loadmanId) {
+      fetchDetail();
+    }
   }, [loadmanId, startDate, endDate]);
 
   const fetchDetail = async () => {
@@ -1411,7 +1473,7 @@ const LoadmanDirectory = ({ onSelectLoadman }) => {
   );
 };
 
-// Missing Icon component
+// Icon Calculator component
 const IconCalculator = ({ className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
