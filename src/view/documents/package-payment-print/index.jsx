@@ -110,7 +110,7 @@ const PackageReportPrint = () => {
         return num.toFixed(2);
     };
 
-    // Prepare table rows - each package as a separate row
+    // Prepare table rows - each package as a separate row with paid amount
     const prepareTableRows = () => {
         if (!pendingShipments || pendingShipments.length === 0) return [];
 
@@ -127,16 +127,29 @@ const PackageReportPrint = () => {
             // Format date
             const formattedDate = formatDate(shipment.booking_date);
             
+            // Get payment information from payment_progress
+            const totalAmount = parseNumber(shipment.payment_progress?.total || shipment.total_amount);
+            const paidAmount = parseNumber(shipment.payment_progress?.paid || shipment.paid_amount);
+            const dueAmount = parseNumber(shipment.payment_progress?.due || shipment.due_amount);
+            
             // Get packages
             const packages = shipment.packages || [];
             
             if (packages.length > 0) {
-                // Add each package as a separate row
+                // Calculate proportional paid amount based on package quantity if multiple packages
+                const totalPackageQuantity = packages.reduce((sum, pkg) => sum + parseNumber(pkg.quantity), 0);
+                
                 packages.forEach((pkg) => {
                     const packageType = pkg.packageType?.package_type_name || 'Package';
                     const quantity = parseNumber(pkg.quantity);
-                    const amount = parseNumber(pkg.total_package_charge);
-                    const rate = quantity > 0 ? amount / quantity : 0;
+                    const packageAmount = parseNumber(pkg.total_package_charge);
+                    
+                    // Calculate proportional paid amount for this package
+                    const packagePaidAmount = totalPackageQuantity > 0 
+                        ? (paidAmount * (quantity / totalPackageQuantity))
+                        : 0;
+                    
+                    const rate = quantity > 0 ? packageAmount / quantity : 0;
                     
                     rows.push({
                         id: `row-${shipment.booking_id}-${pkg.booking_package_id || Math.random()}`,
@@ -145,20 +158,23 @@ const PackageReportPrint = () => {
                         packageType: packageType,
                         rate: rate,
                         qty: quantity,
-                        amount: amount
+                        amount: packageAmount,
+                        paidAmount: packagePaidAmount,
+                        dueAmount: packageAmount - packagePaidAmount
                     });
                 });
             } else {
                 // If no packages, create a default row
-                const amount = parseNumber(shipment.total_amount);
                 rows.push({
                     id: `row-${shipment.booking_id}`,
                     sno: serialNo++,
                     dateParticular: `${formattedDate} - ${counterpartyName} (${counterpartyNumber})`,
                     packageType: 'General',
-                    rate: amount,
+                    rate: totalAmount,
                     qty: 1,
-                    amount: amount
+                    amount: totalAmount,
+                    paidAmount: paidAmount,
+                    dueAmount: dueAmount
                 });
             }
         });
@@ -168,10 +184,10 @@ const PackageReportPrint = () => {
 
     const tableRows = prepareTableRows();
 
-    // Calculate total amount safely
-    const totalAmount = tableRows.reduce((sum, row) => {
-        return sum + parseNumber(row.amount);
-    }, 0);
+    // Calculate totals
+    const totalAmount = tableRows.reduce((sum, row) => sum + parseNumber(row.amount), 0);
+    const totalPaid = tableRows.reduce((sum, row) => sum + parseNumber(row.paidAmount), 0);
+    const totalDue = tableRows.reduce((sum, row) => sum + parseNumber(row.dueAmount), 0);
 
     if (loading) {
         return (
@@ -211,7 +227,7 @@ const PackageReportPrint = () => {
                 id="ledger-bill-to-print"
                 className="bg-white mx-auto ledger-container"
             >
-                {/* Header with Cash Bill centered - reduced to 10px */}
+                {/* Header with Cash Bill - reduced to 10px */}
                 <div className="header-section">
                     <div className="cash-bill">CASH BILL</div>
                     <div className="phone-numbers">
@@ -245,6 +261,8 @@ const PackageReportPrint = () => {
                             <th className="col-rate">Rate</th>
                             <th className="col-qty">Qty</th>
                             <th className="col-amount">Amount</th>
+                            <th className="col-paid">Paid</th>
+                            <th className="col-due">Due</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -252,24 +270,40 @@ const PackageReportPrint = () => {
                             tableRows.map((row) => (
                                 <tr key={row.id}>
                                     <td className="col-sno">{row.sno}</td>
-                                    <td className="col-particular">{row.dateParticular}</td>
+                                    <td className="col-particular">{row.dateParticular} - {row.packageType}</td>
                                     <td className="col-rate">₹{formatCurrency(row.rate)}</td>
                                     <td className="col-qty">{formatQuantity(row.qty)}</td>
                                     <td className="col-amount">₹{formatCurrency(row.amount)}</td>
+                                    <td className="col-paid">₹{formatCurrency(row.paidAmount)}</td>
+                                    <td className="col-due">₹{formatCurrency(row.dueAmount)}</td>
                                 </tr>
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="5" className="no-data">No pending payments found</td>
+                                <td colSpan="7" className="no-data">No pending payments found</td>
                             </tr>
                         )}
                         
-                        {/* Total Row - aligned right */}
+                        {/* Summary Rows */}
                         {tableRows.length > 0 && (
-                            <tr className="total-row">
-                                <td colSpan="4" className="total-label-cell">Total</td>
-                                <td className="total-value-cell">₹{formatCurrency(totalAmount)}</td>
-                            </tr>
+                            <>
+                                <tr className="summary-row">
+                                    <td colSpan="4" className="summary-label-cell">Total Amount</td>
+                                    <td className="summary-value-cell">₹{formatCurrency(totalAmount)}</td>
+                                    <td className="summary-value-cell">₹{formatCurrency(totalPaid)}</td>
+                                    <td className="summary-value-cell">₹{formatCurrency(totalDue)}</td>
+                                </tr>
+                                
+                                {/* Balance Calculation Row */}
+                                <tr className="balance-row">
+                                    <td colSpan="6" className="balance-label-cell">
+                                        Net Payable (Total - Paid)
+                                    </td>
+                                    <td className="balance-value-cell">
+                                        ₹{formatCurrency(totalDue)}
+                                    </td>
+                                </tr>
+                            </>
                         )}
                     </tbody>
                 </table>
@@ -384,7 +418,7 @@ const PackageReportPrint = () => {
                 .ledger-table {
                     width: 100%;
                     border-collapse: collapse;
-                    font-size: 9pt;
+                    font-size: 8.5pt;
                     table-layout: fixed;
                     flex: 1;
                 }
@@ -395,7 +429,7 @@ const PackageReportPrint = () => {
                     font-weight: bold;
                     text-align: center;
                     background: white;
-                    font-size: 9pt;
+                    font-size: 8.5pt;
                 }
 
                 .ledger-table td {
@@ -403,15 +437,17 @@ const PackageReportPrint = () => {
                     border-right: 1px solid #aaa;
                     padding: 3pt 2pt;
                     vertical-align: middle;
-                    font-size: 9pt;
+                    font-size: 8.5pt;
                 }
 
                 /* Column widths */
-                .col-sno { width: 8%; }
-                .col-particular { width: 52%; }
-                .col-rate { width: 15%; }
-                .col-qty { width: 10%; }
-                .col-amount { width: 15%; }
+                .col-sno { width: 6%; }
+                .col-particular { width: 40%; }
+                .col-rate { width: 10%; }
+                .col-qty { width: 8%; }
+                .col-amount { width: 12%; }
+                .col-paid { width: 12%; }
+                .col-due { width: 12%; }
 
                 /* Alignment */
                 .col-sno { text-align: center; }
@@ -419,24 +455,47 @@ const PackageReportPrint = () => {
                 .col-rate { text-align: right; }
                 .col-qty { text-align: right; }
                 .col-amount { text-align: right; }
+                .col-paid { text-align: right; }
+                .col-due { text-align: right; }
 
-                /* Total Row */
-                .total-row td {
+                /* Summary and Balance Rows */
+                .summary-row td,
+                .balance-row td {
                     border-top: 1px solid #aaa;
                     border-bottom: 1px solid #aaa;
                     font-weight: bold;
                     padding: 4pt 2pt;
                 }
 
-                .total-label-cell {
+                .summary-label-cell {
                     text-align: right;
-                    font-size: 11pt;
+                    font-size: 10pt;
                     padding-right: 10px;
                 }
 
-                .total-value-cell {
+                .summary-value-cell {
+                    text-align: right;
+                    font-size: 10pt;
+                }
+
+                .balance-label-cell {
                     text-align: right;
                     font-size: 11pt;
+                    font-weight: bold;
+                    padding-right: 10px;
+                    color: #000;
+                }
+
+                .balance-value-cell {
+                    text-align: right;
+                    font-size: 11pt;
+                    font-weight: bold;
+                    color: #000;
+                    border-left: 1px solid #aaa;
+                }
+
+                .balance-row {
+                    background-color: #f0f0f0;
                 }
 
                 .no-data {
@@ -521,6 +580,12 @@ const PackageReportPrint = () => {
                     .ledger-table th,
                     .ledger-table td {
                         border-color: #aaa !important;
+                    }
+
+                    .balance-row {
+                        background-color: #f0f0f0 !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
                     }
                 }
             `}</style>

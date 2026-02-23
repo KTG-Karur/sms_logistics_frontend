@@ -37,14 +37,7 @@ const PackageIntake = () => {
 
     // Redux state
     const packageState = useSelector((state) => state.PackageSlice || {});
-    const { 
-        packageData = [], 
-        loading = false, 
-        error = null,
-        createPackageSuccess = false,
-        updatePackageSuccess = false,
-        deletePackageSuccess = false
-    } = packageState;
+    const { packageData = [], loading = false, error = null, createPackageSuccess = false, updatePackageSuccess = false, deletePackageSuccess = false } = packageState;
 
     const packageTypeState = useSelector((state) => state.PackageTypeSlice || {});
     const { packageTypeData = [] } = packageTypeState;
@@ -82,7 +75,7 @@ const PackageIntake = () => {
         fromDate: defaultFromDate,
         toDate: defaultToDate,
         deliveryStatus: '',
-        paymentStatus: ''
+        paymentStatus: '',
     });
 
     // Form states
@@ -99,14 +92,14 @@ const PackageIntake = () => {
         paidAmount: '',
         specialInstructions: '',
         packages: [
-            { 
-                packageTypeId: null, 
-                quantity: '1', 
-                pickupCharge: 0, 
-                dropCharge: 0, 
-                handlingCharge: '' 
-            }
-        ]
+            {
+                packageTypeId: null,
+                quantity: '1',
+                pickupCharge: 0,
+                dropCharge: 0,
+                handlingCharge: '',
+            },
+        ],
     });
 
     const [errors, setErrors] = useState({});
@@ -150,18 +143,18 @@ const PackageIntake = () => {
             dispatch(getCustomers({}));
             setCustomerModal(false);
             setNewCustomer({ name: '', mobileNo: '' });
-            
+
             // Refresh customer list
             setTimeout(() => {
                 if (customerField === 'from' && formData.fromMobile) {
-                    const newCust = customersData.find(c => c.customer_number === formData.fromMobile);
+                    const newCust = customersData.find((c) => c.customer_number === formData.fromMobile);
                     if (newCust) {
-                        setFormData(prev => ({ ...prev, fromCustomerId: newCust.customer_id }));
+                        setFormData((prev) => ({ ...prev, fromCustomerId: newCust.customer_id }));
                     }
                 } else if (customerField === 'to' && formData.toMobile) {
-                    const newCust = customersData.find(c => c.customer_number === formData.toMobile);
+                    const newCust = customersData.find((c) => c.customer_number === formData.toMobile);
                     if (newCust) {
-                        setFormData(prev => ({ ...prev, toCustomerId: newCust.customer_id }));
+                        setFormData((prev) => ({ ...prev, toCustomerId: newCust.customer_id }));
                     }
                 }
             }, 500);
@@ -174,20 +167,20 @@ const PackageIntake = () => {
             dispatch(getOfficeCentersWithLocations());
             setLocationModal(false);
             setNewLocation({ name: '', officeCenterId: null });
-            
+
             // Refresh locations for the selected center
             setTimeout(() => {
                 if (locationField === 'from' && formData.fromCenterId) {
-                    const center = officeCentersWithLocationsData.find(c => c.office_center_id === formData.fromCenterId);
+                    const center = officeCentersWithLocationsData.find((c) => c.office_center_id === formData.fromCenterId);
                     if (center && center.locations && center.locations.length > 0) {
                         const newLoc = center.locations[center.locations.length - 1];
-                        setFormData(prev => ({ ...prev, fromLocationId: newLoc.location_id }));
+                        setFormData((prev) => ({ ...prev, fromLocationId: newLoc.location_id }));
                     }
                 } else if (locationField === 'to' && formData.toCenterId) {
-                    const center = officeCentersWithLocationsData.find(c => c.office_center_id === formData.toCenterId);
+                    const center = officeCentersWithLocationsData.find((c) => c.office_center_id === formData.toCenterId);
                     if (center && center.locations && center.locations.length > 0) {
                         const newLoc = center.locations[center.locations.length - 1];
-                        setFormData(prev => ({ ...prev, toLocationId: newLoc.location_id }));
+                        setFormData((prev) => ({ ...prev, toLocationId: newLoc.location_id }));
                     }
                 }
             }, 500);
@@ -196,12 +189,7 @@ const PackageIntake = () => {
 
     const fetchInitialData = async () => {
         try {
-            await Promise.all([
-                dispatch(getPackage({})).unwrap(),
-                dispatch(getPackageType({})).unwrap(),
-                dispatch(getCustomers({})).unwrap(),
-                dispatch(getOfficeCentersWithLocations()).unwrap()
-            ]);
+            await Promise.all([dispatch(getPackage({})).unwrap(), dispatch(getPackageType({})).unwrap(), dispatch(getCustomers({})).unwrap(), dispatch(getOfficeCentersWithLocations()).unwrap()]);
         } catch (error) {
             showMessage('error', 'Failed to load initial data');
         }
@@ -214,7 +202,7 @@ const PackageIntake = () => {
         if (filters.deliveryStatus) filterParams.deliveryStatus = filters.deliveryStatus;
         if (filters.paymentStatus) filterParams.paymentStatus = filters.paymentStatus;
         if (searchTerm) filterParams.search = searchTerm;
-        
+
         dispatch(getPackage(filterParams));
     };
 
@@ -225,36 +213,36 @@ const PackageIntake = () => {
     // Get office center options (all active centers)
     const getOfficeCenterOptions = () => {
         return (officeCentersWithLocationsData || [])
-            .filter(center => center.is_active)
-            .map(center => ({
+            .filter((center) => center.is_active)
+            .map((center) => ({
                 value: center.office_center_id,
                 label: center.office_center_name,
-                data: center
+                data: center,
             }));
     };
 
     // Get location options based on selected center
     const getLocationOptions = (centerId) => {
         if (!centerId) return [];
-        
-        const center = officeCentersWithLocationsData.find(c => c.office_center_id === centerId);
+
+        const center = officeCentersWithLocationsData.find((c) => c.office_center_id === centerId);
         if (!center || !center.locations) return [];
-        
+
         const options = center.locations
-            .filter(loc => loc.is_active)
-            .map(loc => ({
+            .filter((loc) => loc.is_active)
+            .map((loc) => ({
                 value: loc.location_id,
                 label: loc.location_name,
-                data: loc
+                data: loc,
             }));
-        
+
         // Add "Add New" option
         options.push({
             value: 'new',
             label: '+ Add New Location',
-            data: { id: 'new', name: 'New Location' }
+            data: { id: 'new', name: 'New Location' },
         });
-        
+
         return options;
     };
 
@@ -262,41 +250,51 @@ const PackageIntake = () => {
     const getFilteredCenterOptions = (currentCenterId, excludeCenterId) => {
         const options = getOfficeCenterOptions();
         if (excludeCenterId) {
-            return options.filter(opt => opt.value !== excludeCenterId);
+            return options.filter((opt) => opt.value !== excludeCenterId);
         }
         return options;
     };
 
-    const getPackageTypeOptions = () => {
-        return (packageTypeData || [])
-            .filter(pkg => pkg.is_active)
-            .map(pkg => ({
-                value: pkg.package_type_id,
-                label: pkg.package_type_name,
-                data: pkg,
-                pickupPrice: parseFloat(pkg.package_pickup_price) || 0,
-                dropPrice: parseFloat(pkg.package_drop_price) || 0
-            }));
+    const getPackageTypeOptions = (currentIndex = null) => {
+        const availablePackageTypes = (packageTypeData || []).filter((pkg) => pkg.is_active);
+        const selectedPackageTypeIds = formData.packages
+            .map((pkg, index) => {
+                if (currentIndex !== null && index === currentIndex) {
+                    return null;
+                }
+                return pkg.packageTypeId;
+            })
+            .filter((id) => id !== null && id !== undefined);
+
+        const filteredPackageTypes = availablePackageTypes.filter((pkg) => !selectedPackageTypeIds.includes(pkg.package_type_id));
+
+        return filteredPackageTypes.map((pkg) => ({
+            value: pkg.package_type_id,
+            label: pkg.package_type_name,
+            data: pkg,
+            pickupPrice: parseFloat(pkg.package_pickup_price) || 0,
+            dropPrice: parseFloat(pkg.package_drop_price) || 0,
+        }));
     };
 
     const getCustomerOptions = (mobile) => {
         const options = (customersData || [])
-            .filter(cust => cust.customer_number === mobile)
-            .map(cust => ({
+            .filter((cust) => cust.customer_number === mobile)
+            .map((cust) => ({
                 value: cust.customer_id,
                 label: `${cust.customer_name} (${cust.customer_number})`,
-                data: cust
+                data: cust,
             }));
-        
+
         // Add "Add New" option
         if (mobile && mobile.length === 10) {
             options.push({
                 value: 'new',
                 label: '+ Add New Customer',
-                data: { id: 'new', name: 'New Customer', mobileNo: mobile }
+                data: { id: 'new', name: 'New Customer', mobileNo: mobile },
             });
         }
-        
+
         return options;
     };
 
@@ -310,21 +308,21 @@ const PackageIntake = () => {
 
     // Handle center selection
     const handleFromCenterChange = (selected) => {
-        setFormData(prev => ({ 
-            ...prev, 
+        setFormData((prev) => ({
+            ...prev,
             fromCenterId: selected?.value,
-            fromLocationId: null // Reset location when center changes
+            fromLocationId: null, // Reset location when center changes
         }));
-        setErrors(prev => ({ ...prev, fromCenterId: null }));
+        setErrors((prev) => ({ ...prev, fromCenterId: null }));
     };
 
     const handleToCenterChange = (selected) => {
-        setFormData(prev => ({ 
-            ...prev, 
+        setFormData((prev) => ({
+            ...prev,
             toCenterId: selected?.value,
-            toLocationId: null // Reset location when center changes
+            toLocationId: null, // Reset location when center changes
         }));
-        setErrors(prev => ({ ...prev, toCenterId: null }));
+        setErrors((prev) => ({ ...prev, toCenterId: null }));
     };
 
     // Handle location change with "Add New" option
@@ -340,11 +338,11 @@ const PackageIntake = () => {
             setLocationModal(true);
         } else {
             if (field === 'from') {
-                setFormData(prev => ({ ...prev, fromLocationId: selected?.value }));
-                setErrors(prev => ({ ...prev, fromLocationId: null }));
+                setFormData((prev) => ({ ...prev, fromLocationId: selected?.value }));
+                setErrors((prev) => ({ ...prev, fromLocationId: null }));
             } else if (field === 'to') {
-                setFormData(prev => ({ ...prev, toLocationId: selected?.value }));
-                setErrors(prev => ({ ...prev, toLocationId: null }));
+                setFormData((prev) => ({ ...prev, toLocationId: selected?.value }));
+                setErrors((prev) => ({ ...prev, toLocationId: null }));
             }
         }
     };
@@ -352,22 +350,22 @@ const PackageIntake = () => {
     // Handle mobile number changes
     const handleFromMobileChange = (value) => {
         const cleanValue = value.replace(/\D/g, '').slice(0, 10);
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
             fromMobile: cleanValue,
-            fromCustomerId: null
+            fromCustomerId: null,
         }));
-        setErrors(prev => ({ ...prev, fromMobile: null, fromCustomerId: null }));
+        setErrors((prev) => ({ ...prev, fromMobile: null, fromCustomerId: null }));
     };
 
     const handleToMobileChange = (value) => {
         const cleanValue = value.replace(/\D/g, '').slice(0, 10);
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
             toMobile: cleanValue,
-            toCustomerId: null
+            toCustomerId: null,
         }));
-        setErrors(prev => ({ ...prev, toMobile: null, toCustomerId: null }));
+        setErrors((prev) => ({ ...prev, toMobile: null, toCustomerId: null }));
     };
 
     const handleFromCustomerSelect = (selected) => {
@@ -376,11 +374,11 @@ const PackageIntake = () => {
             setNewCustomer({ name: '', mobileNo: formData.fromMobile });
             setCustomerModal(true);
         } else {
-            setFormData(prev => ({
+            setFormData((prev) => ({
                 ...prev,
-                fromCustomerId: selected ? selected.value : null
+                fromCustomerId: selected ? selected.value : null,
             }));
-            setErrors(prev => ({ ...prev, fromCustomerId: null }));
+            setErrors((prev) => ({ ...prev, fromCustomerId: null }));
         }
     };
 
@@ -390,31 +388,31 @@ const PackageIntake = () => {
             setNewCustomer({ name: '', mobileNo: formData.toMobile });
             setCustomerModal(true);
         } else {
-            setFormData(prev => ({
+            setFormData((prev) => ({
                 ...prev,
-                toCustomerId: selected ? selected.value : null
+                toCustomerId: selected ? selected.value : null,
             }));
-            setErrors(prev => ({ ...prev, toCustomerId: null }));
+            setErrors((prev) => ({ ...prev, toCustomerId: null }));
         }
     };
 
     // Package details handlers
     const handlePackageDetailChange = (index, field, value) => {
         const updatedPackages = [...formData.packages];
-        
+
         if (field === 'packageTypeId') {
-            const selectedPackage = packageTypeData.find(pkg => pkg.package_type_id === value);
+            const selectedPackage = packageTypeData.find((pkg) => pkg.package_type_id === value);
             if (selectedPackage) {
                 updatedPackages[index] = {
                     ...updatedPackages[index],
                     packageTypeId: value,
                     pickupCharge: parseFloat(selectedPackage.package_pickup_price) || 0,
-                    dropCharge: parseFloat(selectedPackage.package_drop_price) || 0
+                    dropCharge: parseFloat(selectedPackage.package_drop_price) || 0,
                 };
             } else {
                 updatedPackages[index] = {
                     ...updatedPackages[index],
-                    packageTypeId: value
+                    packageTypeId: value,
                 };
             }
         } else if (field === 'quantity') {
@@ -422,7 +420,7 @@ const PackageIntake = () => {
             if (value === '' || /^\d*$/.test(value)) {
                 updatedPackages[index] = {
                     ...updatedPackages[index],
-                    quantity: value
+                    quantity: value,
                 };
             }
         } else if (field === 'handlingCharge') {
@@ -430,34 +428,34 @@ const PackageIntake = () => {
             if (value === '' || /^\d*\.?\d*$/.test(value)) {
                 updatedPackages[index] = {
                     ...updatedPackages[index],
-                    handlingCharge: value
+                    handlingCharge: value,
                 };
             }
         }
-        
-        setFormData(prev => ({ ...prev, packages: updatedPackages }));
+
+        setFormData((prev) => ({ ...prev, packages: updatedPackages }));
     };
 
     const addPackageDetail = () => {
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
             packages: [
                 ...prev.packages,
-                { 
-                    packageTypeId: null, 
-                    quantity: '1', 
-                    pickupCharge: 0, 
-                    dropCharge: 0, 
-                    handlingCharge: '' 
-                }
-            ]
+                {
+                    packageTypeId: null,
+                    quantity: '1',
+                    pickupCharge: 0,
+                    dropCharge: 0,
+                    handlingCharge: '',
+                },
+            ],
         }));
     };
 
     const removePackageDetail = (index) => {
         if (formData.packages.length > 1) {
             const updatedPackages = formData.packages.filter((_, i) => i !== index);
-            setFormData(prev => ({ ...prev, packages: updatedPackages }));
+            setFormData((prev) => ({ ...prev, packages: updatedPackages }));
         }
     };
 
@@ -486,7 +484,7 @@ const PackageIntake = () => {
         const pickupCharge = safeParseFloat(pkg.pickupCharge);
         const dropCharge = safeParseFloat(pkg.dropCharge);
         const handlingCharge = safeParseFloat(pkg.handlingCharge);
-        
+
         return (pickupCharge + dropCharge + handlingCharge) * quantity;
     };
 
@@ -501,21 +499,21 @@ const PackageIntake = () => {
         // Allow empty string or decimal numbers
         if (value === '' || /^\d*\.?\d*$/.test(value)) {
             const numValue = value === '' ? '' : parseFloat(value);
-            
+
             // If it's a number and exceeds total amount, don't update
             if (numValue !== '' && !isNaN(numValue) && numValue > totalAmount) {
-                setErrors(prev => ({ 
-                    ...prev, 
-                    paidAmount: `Amount cannot exceed ₹${safeToFixed(totalAmount)}` 
+                setErrors((prev) => ({
+                    ...prev,
+                    paidAmount: `Amount cannot exceed ₹${safeToFixed(totalAmount)}`,
                 }));
                 return;
             }
-            
-            setFormData(prev => ({ ...prev, paidAmount: value }));
-            
+
+            setFormData((prev) => ({ ...prev, paidAmount: value }));
+
             // Clear paid amount error if exists
             if (errors.paidAmount) {
-                setErrors(prev => ({ ...prev, paidAmount: null }));
+                setErrors((prev) => ({ ...prev, paidAmount: null }));
             }
         }
     };
@@ -526,30 +524,30 @@ const PackageIntake = () => {
 
         if (!formData.fromCenterId) newErrors.fromCenterId = 'From center is required';
         if (!formData.toCenterId) newErrors.toCenterId = 'To center is required';
-        
+
         // Check if same center selected
         if (formData.fromCenterId && formData.toCenterId && formData.fromCenterId === formData.toCenterId) {
             newErrors.toCenterId = 'From and To centers cannot be the same';
         }
-        
+
         if (!formData.fromLocationId) newErrors.fromLocationId = 'From location is required';
         if (!formData.toLocationId) newErrors.toLocationId = 'To location is required';
-        
+
         if (!formData.fromMobile || formData.fromMobile.length !== 10) {
             newErrors.fromMobile = 'Valid sender mobile number (10 digits) is required';
         }
         if (!formData.fromCustomerId) newErrors.fromCustomerId = 'Please select a sender';
-        
+
         if (!formData.toMobile || formData.toMobile.length !== 10) {
             newErrors.toMobile = 'Valid receiver mobile number (10 digits) is required';
         }
         if (!formData.toCustomerId) newErrors.toCustomerId = 'Please select a receiver';
-        
+
         // Check if same customer selected
         if (formData.fromCustomerId && formData.toCustomerId && formData.fromCustomerId === formData.toCustomerId) {
             newErrors.toCustomerId = 'Sender and Receiver cannot be the same customer';
         }
-        
+
         // Validate packages
         formData.packages.forEach((pkg, index) => {
             if (!pkg.packageTypeId) {
@@ -592,13 +590,13 @@ const PackageIntake = () => {
             paidAmount: safeParseFloat(formData.paidAmount),
             paymentBy: formData.paymentBy,
             specialInstructions: formData.specialInstructions || '',
-            packages: formData.packages.map(pkg => ({
+            packages: formData.packages.map((pkg) => ({
                 packageTypeId: pkg.packageTypeId,
                 quantity: safeParseInt(pkg.quantity),
                 pickupCharge: safeParseFloat(pkg.pickupCharge),
                 dropCharge: safeParseFloat(pkg.dropCharge),
-                handlingCharge: safeParseFloat(pkg.handlingCharge)
-            }))
+                handlingCharge: safeParseFloat(pkg.handlingCharge),
+            })),
         };
 
         // Add payment mode only if paid amount > 0 and payment is by sender
@@ -632,14 +630,14 @@ const PackageIntake = () => {
             paidAmount: '',
             specialInstructions: '',
             packages: [
-                { 
-                    packageTypeId: null, 
-                    quantity: '1', 
-                    pickupCharge: 0, 
-                    dropCharge: 0, 
-                    handlingCharge: '' 
-                }
-            ]
+                {
+                    packageTypeId: null,
+                    quantity: '1',
+                    pickupCharge: 0,
+                    dropCharge: 0,
+                    handlingCharge: '',
+                },
+            ],
         });
         setPaymentMode('cash');
         setErrors({});
@@ -670,13 +668,13 @@ const PackageIntake = () => {
             paymentBy: pkg.payment_by || 'sender',
             paidAmount: pkg.paid_amount?.toString() || '',
             specialInstructions: pkg.special_instructions || '',
-            packages: (pkg.packages || []).map(p => ({
+            packages: (pkg.packages || []).map((p) => ({
                 packageTypeId: p.package_type_id,
                 quantity: p.quantity?.toString() || '1',
                 pickupCharge: parseFloat(p.pickup_charge) || 0,
                 dropCharge: parseFloat(p.drop_charge) || 0,
-                handlingCharge: p.handling_charge?.toString() || ''
-            }))
+                handlingCharge: p.handling_charge?.toString() || '',
+            })),
         });
     };
 
@@ -693,7 +691,7 @@ const PackageIntake = () => {
             () => {
                 dispatch(deletePackage(pkg.booking_id));
             },
-            'Yes, delete it'
+            'Yes, delete it',
         );
     };
 
@@ -706,7 +704,7 @@ const PackageIntake = () => {
     // Handle filter changes
     const handleFilterChange = (e) => {
         const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
+        setFilters((prev) => ({ ...prev, [name]: value }));
     };
 
     const clearFilters = () => {
@@ -714,7 +712,7 @@ const PackageIntake = () => {
             fromDate: '',
             toDate: '',
             deliveryStatus: '',
-            paymentStatus: ''
+            paymentStatus: '',
         });
         setSearchTerm('');
     };
@@ -733,7 +731,7 @@ const PackageIntake = () => {
 
         const requestData = {
             customerName: newCustomer.name,
-            customerNumber: newCustomer.mobileNo
+            customerNumber: newCustomer.mobileNo,
         };
 
         dispatch(createCustomers(requestData));
@@ -759,7 +757,7 @@ const PackageIntake = () => {
 
         const requestData = {
             locationName: newLocation.name,
-            officeCenterId: newLocation.officeCenterId
+            officeCenterId: newLocation.officeCenterId,
         };
 
         dispatch(createLocations(requestData));
@@ -784,9 +782,7 @@ const PackageIntake = () => {
             accessor: 'index',
             Cell: ({ row }) => (
                 <div className="font-medium text-gray-600 text-center">
-                    <span className="inline-flex items-center justify-center w-8 h-8 bg-primary/10 text-primary rounded-full">
-                        {currentPage * pageSize + row.index + 1}
-                    </span>
+                    <span className="inline-flex items-center justify-center w-8 h-8 bg-primary/10 text-primary rounded-full">{currentPage * pageSize + row.index + 1}</span>
                 </div>
             ),
             width: 80,
@@ -794,9 +790,7 @@ const PackageIntake = () => {
         {
             Header: 'Booking No.',
             accessor: 'booking_number',
-            Cell: ({ value }) => (
-                <div className="font-medium text-gray-800">{value || '-'}</div>
-            ),
+            Cell: ({ value }) => <div className="font-medium text-gray-800">{value || '-'}</div>,
         },
         {
             Header: 'Route',
@@ -839,9 +833,7 @@ const PackageIntake = () => {
                     {row.original.packages?.map((pkg, index) => (
                         <div key={index} className="text-sm">
                             <span className="font-medium">{pkg.packageType?.package_type_name || 'N/A'}</span>
-                            <span className="text-gray-600 ml-2">
-                                (Qty: {pkg.quantity})
-                            </span>
+                            <span className="text-gray-600 ml-2">(Qty: {pkg.quantity})</span>
                         </div>
                     ))}
                 </div>
@@ -852,16 +844,16 @@ const PackageIntake = () => {
             accessor: 'total_amount',
             Cell: ({ row }) => (
                 <div className="space-y-1">
-                    <div className="text-lg font-bold text-primary">
-                        ₹{formatNumber(row.original.total_amount)}
-                    </div>
-                    <div className={`text-xs px-2 py-1 rounded-full inline-block ${
-                        row.original.payment_status === 'completed' 
-                            ? 'bg-green-100 text-green-800' 
-                            : row.original.payment_status === 'partial'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <div className="text-lg font-bold text-primary">₹{formatNumber(row.original.total_amount)}</div>
+                    <div
+                        className={`text-xs px-2 py-1 rounded-full inline-block ${
+                            row.original.payment_status === 'completed'
+                                ? 'bg-green-100 text-green-800'
+                                : row.original.payment_status === 'partial'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-gray-100 text-gray-800'
+                        }`}
+                    >
                         {row.original.payment_status || 'pending'}
                     </div>
                 </div>
@@ -878,15 +870,11 @@ const PackageIntake = () => {
                     in_transit: { color: 'bg-indigo-100 text-indigo-800', label: 'In Transit' },
                     out_for_delivery: { color: 'bg-orange-100 text-orange-800', label: 'Out for Delivery' },
                     delivered: { color: 'bg-green-100 text-green-800', label: 'Delivered' },
-                    cancelled: { color: 'bg-red-100 text-red-800', label: 'Cancelled' }
+                    cancelled: { color: 'bg-red-100 text-red-800', label: 'Cancelled' },
                 };
                 const config = statusConfig[value] || statusConfig.not_started;
 
-                return (
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${config.color}`}>
-                        {config.label}
-                    </span>
-                );
+                return <span className={`px-3 py-1 rounded-full text-xs font-medium ${config.color}`}>{config.label}</span>;
             },
         },
         {
@@ -895,10 +883,7 @@ const PackageIntake = () => {
             Cell: ({ row }) => (
                 <div className="flex space-x-1">
                     <Tippy content="View Details">
-                        <button 
-                            onClick={() => handleView(row.original)} 
-                            className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
-                        >
+                        <button onClick={() => handleView(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors">
                             <IconEye className="w-4 h-4" />
                         </button>
                     </Tippy>
@@ -913,10 +898,7 @@ const PackageIntake = () => {
                                 </button>
                             </Tippy> */}
                             <Tippy content="Delete">
-                                <button 
-                                    onClick={() => handleDelete(row.original)} 
-                                    className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors"
-                                >
+                                <button onClick={() => handleDelete(row.original)} className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors">
                                     <IconTrashLines className="w-4 h-4" />
                                 </button>
                             </Tippy>
@@ -945,10 +927,10 @@ const PackageIntake = () => {
     // Stats
     const stats = {
         total: (packageData || []).length,
-        pending: (packageData || []).filter(p => p.payment_status === 'pending').length,
-        partial: (packageData || []).filter(p => p.payment_status === 'partial').length,
-        completed: (packageData || []).filter(p => p.payment_status === 'completed').length,
-        totalAmount: (packageData || []).reduce((sum, p) => sum + (parseFloat(p.total_amount) || 0), 0)
+        pending: (packageData || []).filter((p) => p.payment_status === 'pending').length,
+        partial: (packageData || []).filter((p) => p.payment_status === 'partial').length,
+        completed: (packageData || []).filter((p) => p.payment_status === 'completed').length,
+        totalAmount: (packageData || []).reduce((sum, p) => sum + (parseFloat(p.total_amount) || 0), 0),
     };
 
     return (
@@ -984,7 +966,12 @@ const PackageIntake = () => {
                             </div>
                             <div className="p-2 bg-yellow-100 rounded-full">
                                 <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                                    />
                                 </svg>
                             </div>
                         </div>
@@ -998,7 +985,12 @@ const PackageIntake = () => {
                             </div>
                             <div className="p-2 bg-orange-100 rounded-full">
                                 <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                                    />
                                 </svg>
                             </div>
                         </div>
@@ -1026,7 +1018,12 @@ const PackageIntake = () => {
                             </div>
                             <div className="p-2 bg-primary/10 rounded-full">
                                 <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
+                                    />
                                 </svg>
                             </div>
                         </div>
@@ -1049,11 +1046,7 @@ const PackageIntake = () => {
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowFilters(!showFilters)}
-                                className="btn btn-outline-primary"
-                            >
+                            <button type="button" onClick={() => setShowFilters(!showFilters)} className="btn btn-outline-primary">
                                 <IconFilter className="w-4 h-4 mr-2" />
                                 Filters
                             </button>
@@ -1088,32 +1081,15 @@ const PackageIntake = () => {
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
                                     <label className="block mb-1 text-sm font-medium">From Date</label>
-                                    <input
-                                        type="date"
-                                        name="fromDate"
-                                        value={filters.fromDate}
-                                        onChange={handleFilterChange}
-                                        className="form-input"
-                                    />
+                                    <input type="date" name="fromDate" value={filters.fromDate} onChange={handleFilterChange} className="form-input" />
                                 </div>
                                 <div>
                                     <label className="block mb-1 text-sm font-medium">To Date</label>
-                                    <input
-                                        type="date"
-                                        name="toDate"
-                                        value={filters.toDate}
-                                        onChange={handleFilterChange}
-                                        className="form-input"
-                                    />
+                                    <input type="date" name="toDate" value={filters.toDate} onChange={handleFilterChange} className="form-input" />
                                 </div>
                                 <div>
                                     <label className="block mb-1 text-sm font-medium">Delivery Status</label>
-                                    <select
-                                        name="deliveryStatus"
-                                        value={filters.deliveryStatus}
-                                        onChange={handleFilterChange}
-                                        className="form-select"
-                                    >
+                                    <select name="deliveryStatus" value={filters.deliveryStatus} onChange={handleFilterChange} className="form-select">
                                         <option value="">All</option>
                                         <option value="not_started">Not Started</option>
                                         <option value="pickup_assigned">Pickup Assigned</option>
@@ -1126,12 +1102,7 @@ const PackageIntake = () => {
                                 </div>
                                 <div>
                                     <label className="block mb-1 text-sm font-medium">Payment Status</label>
-                                    <select
-                                        name="paymentStatus"
-                                        value={filters.paymentStatus}
-                                        onChange={handleFilterChange}
-                                        className="form-select"
-                                    >
+                                    <select name="paymentStatus" value={filters.paymentStatus} onChange={handleFilterChange} className="form-select">
                                         <option value="">All</option>
                                         <option value="pending">Pending</option>
                                         <option value="partial">Partial</option>
@@ -1140,18 +1111,10 @@ const PackageIntake = () => {
                                 </div>
                             </div>
                             <div className="flex justify-end mt-4">
-                                <button
-                                    type="button"
-                                    onClick={clearFilters}
-                                    className="btn btn-outline-secondary mr-2"
-                                >
+                                <button type="button" onClick={clearFilters} className="btn btn-outline-secondary mr-2">
                                     Clear Filters
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowFilters(false)}
-                                    className="btn btn-primary"
-                                >
+                                <button type="button" onClick={() => setShowFilters(false)} className="btn btn-primary">
                                     Apply Filters
                                 </button>
                             </div>
@@ -1185,7 +1148,7 @@ const PackageIntake = () => {
                                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">From Center *</label>
                                         <Select
                                             options={getFilteredCenterOptions(formData.fromCenterId, formData.toCenterId)}
-                                            value={getOfficeCenterOptions().find(opt => opt.value === formData.fromCenterId)}
+                                            value={getOfficeCenterOptions().find((opt) => opt.value === formData.fromCenterId)}
                                             onChange={handleFromCenterChange}
                                             placeholder="Select from center"
                                             className="react-select"
@@ -1208,7 +1171,7 @@ const PackageIntake = () => {
                                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">To Center *</label>
                                         <Select
                                             options={getFilteredCenterOptions(formData.toCenterId, formData.fromCenterId)}
-                                            value={getOfficeCenterOptions().find(opt => opt.value === formData.toCenterId)}
+                                            value={getOfficeCenterOptions().find((opt) => opt.value === formData.toCenterId)}
                                             onChange={handleToCenterChange}
                                             placeholder="Select to center"
                                             className="react-select"
@@ -1242,9 +1205,9 @@ const PackageIntake = () => {
                                         <Select
                                             options={getLocationOptions(formData.fromCenterId)}
                                             filterOption={locationFilterOption}
-                                            value={getLocationOptions(formData.fromCenterId).find(opt => opt.value === formData.fromLocationId)}
+                                            value={getLocationOptions(formData.fromCenterId).find((opt) => opt.value === formData.fromLocationId)}
                                             onChange={(selected) => handleLocationChange(selected, 'from')}
-                                            placeholder={formData.fromCenterId ? "Select or add location" : "Select from center first"}
+                                            placeholder={formData.fromCenterId ? 'Select or add location' : 'Select from center first'}
                                             className="react-select"
                                             classNamePrefix="select"
                                             styles={{
@@ -1266,9 +1229,9 @@ const PackageIntake = () => {
                                         <Select
                                             options={getLocationOptions(formData.toCenterId)}
                                             filterOption={locationFilterOption}
-                                            value={getLocationOptions(formData.toCenterId).find(opt => opt.value === formData.toLocationId)}
+                                            value={getLocationOptions(formData.toCenterId).find((opt) => opt.value === formData.toLocationId)}
                                             onChange={(selected) => handleLocationChange(selected, 'to')}
-                                            placeholder={formData.toCenterId ? "Select or add location" : "Select to center first"}
+                                            placeholder={formData.toCenterId ? 'Select or add location' : 'Select to center first'}
                                             className="react-select"
                                             classNamePrefix="select"
                                             styles={{
@@ -1315,7 +1278,7 @@ const PackageIntake = () => {
                                                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Select Sender *</label>
                                                 <Select
                                                     options={getCustomerOptions(formData.fromMobile)}
-                                                    value={getCustomerOptions(formData.fromMobile).find(opt => opt.value === formData.fromCustomerId)}
+                                                    value={getCustomerOptions(formData.fromMobile).find((opt) => opt.value === formData.fromCustomerId)}
                                                     onChange={handleFromCustomerSelect}
                                                     placeholder="Select or add sender"
                                                     className="react-select"
@@ -1337,9 +1300,7 @@ const PackageIntake = () => {
                                             <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
                                                 <div className="flex items-center text-xs sm:text-sm text-gray-700">
                                                     <IconUser className="w-3 h-3 mr-1 text-blue-500" />
-                                                    <span className="font-medium">
-                                                        {customersData.find(c => c.customer_id === formData.fromCustomerId)?.customer_name}
-                                                    </span>
+                                                    <span className="font-medium">{customersData.find((c) => c.customer_id === formData.fromCustomerId)?.customer_name}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -1366,7 +1327,7 @@ const PackageIntake = () => {
                                                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Select Receiver *</label>
                                                 <Select
                                                     options={getCustomerOptions(formData.toMobile)}
-                                                    value={getCustomerOptions(formData.toMobile).find(opt => opt.value === formData.toCustomerId)}
+                                                    value={getCustomerOptions(formData.toMobile).find((opt) => opt.value === formData.toCustomerId)}
                                                     onChange={handleToCustomerSelect}
                                                     placeholder="Select or add receiver"
                                                     className="react-select"
@@ -1388,9 +1349,7 @@ const PackageIntake = () => {
                                             <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
                                                 <div className="flex items-center text-xs sm:text-sm text-gray-700">
                                                     <IconUser className="w-3 h-3 mr-1 text-green-500" />
-                                                    <span className="font-medium">
-                                                        {customersData.find(c => c.customer_id === formData.toCustomerId)?.customer_name}
-                                                    </span>
+                                                    <span className="font-medium">{customersData.find((c) => c.customer_id === formData.toCustomerId)?.customer_name}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -1405,11 +1364,7 @@ const PackageIntake = () => {
                                         <IconPackage className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-purple-500" />
                                         Package Details *
                                     </h3>
-                                    <button 
-                                        type="button" 
-                                        onClick={addPackageDetail} 
-                                        className="btn btn-outline-primary btn-xs sm:btn-sm flex items-center text-xs"
-                                    >
+                                    <button type="button" onClick={addPackageDetail} className="btn btn-outline-primary btn-xs sm:btn-sm flex items-center text-xs">
                                         <IconPlus className="w-3 h-3 mr-1" />
                                         Add Item
                                     </button>
@@ -1417,16 +1372,12 @@ const PackageIntake = () => {
 
                                 <div className="space-y-3">
                                     {formData.packages.map((pkg, index) => {
-                                        const selectedPkg = packageTypeData.find(pt => pt.package_type_id === pkg.packageTypeId);
-                                        
+                                        const selectedPkg = packageTypeData.find((pt) => pt.package_type_id === pkg.packageTypeId);
+
                                         return (
                                             <div key={index} className="bg-gray-50 rounded p-3 border border-gray-200 relative">
                                                 {formData.packages.length > 1 && (
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => removePackageDetail(index)} 
-                                                        className="absolute top-1 right-1 text-red-500 hover:text-red-700"
-                                                    >
+                                                    <button type="button" onClick={() => removePackageDetail(index)} className="absolute top-1 right-1 text-red-500 hover:text-red-700">
                                                         <IconX className="w-3 h-3" />
                                                     </button>
                                                 )}
@@ -1435,8 +1386,8 @@ const PackageIntake = () => {
                                                     <div className="md:col-span-2">
                                                         <label className="block text-xs font-medium text-gray-700 mb-1">Package Type *</label>
                                                         <Select
-                                                            options={getPackageTypeOptions()}
-                                                            value={getPackageTypeOptions().find(opt => opt.value === pkg.packageTypeId)}
+                                                            options={getPackageTypeOptions(index)}
+                                                            value={getPackageTypeOptions(index).find((opt) => opt.value === pkg.packageTypeId)}
                                                             onChange={(selected) => handlePackageDetailChange(index, 'packageTypeId', selected?.value)}
                                                             placeholder="Select type"
                                                             className="react-select"
@@ -1448,17 +1399,25 @@ const PackageIntake = () => {
                                                                     minHeight: '36px',
                                                                     fontSize: '14px',
                                                                 }),
+                                                                option: (base, state) => ({
+                                                                    ...base,
+                                                                    backgroundColor: state.isDisabled ? '#f3f4f6' : base.backgroundColor,
+                                                                    color: state.isDisabled ? '#9ca3af' : base.color,
+                                                                }),
                                                             }}
                                                             isLoading={packageTypeData.length === 0}
+                                                            isOptionDisabled={(option) => {
+                                                                return formData.packages.some((pkg, idx) => idx !== index && pkg.packageTypeId === option.value);
+                                                            }}
                                                         />
-                                                        {errors[`packageType_${index}`] && (
-                                                            <p className="mt-1 text-xs text-red-600">{errors[`packageType_${index}`]}</p>
-                                                        )}
-                                                        
+                                                        {errors[`packageType_${index}`] && <p className="mt-1 text-xs text-red-600">{errors[`packageType_${index}`]}</p>}
+
                                                         {/* Show pickup and drop prices below package type */}
                                                         {selectedPkg && (
                                                             <div className="mt-1 text-xs text-gray-500">
-                                                                <span>Pickup: ₹{safeToFixed(selectedPkg.package_pickup_price)} | Drop: ₹{safeToFixed(selectedPkg.package_drop_price)}</span>
+                                                                <span>
+                                                                    Pickup: ₹{safeToFixed(selectedPkg.package_pickup_price)} | Drop: ₹{safeToFixed(selectedPkg.package_drop_price)}
+                                                                </span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1473,9 +1432,7 @@ const PackageIntake = () => {
                                                             className={`form-input w-full ${errors[`quantity_${index}`] ? 'border-red-500' : ''}`}
                                                             placeholder="Enter quantity"
                                                         />
-                                                        {errors[`quantity_${index}`] && (
-                                                            <p className="mt-1 text-xs text-red-600">{errors[`quantity_${index}`]}</p>
-                                                        )}
+                                                        {errors[`quantity_${index}`] && <p className="mt-1 text-xs text-red-600">{errors[`quantity_${index}`]}</p>}
                                                     </div>
 
                                                     {/* Handling Charge */}
@@ -1495,9 +1452,7 @@ const PackageIntake = () => {
                                                         <div className="w-full">
                                                             <label className="block text-xs font-medium text-gray-700 mb-1">Package Total</label>
                                                             <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded p-2 text-center">
-                                                                <div className="text-lg font-bold text-primary">
-                                                                    ₹{safeToFixed(calculatePackageTotal(pkg))}
-                                                                </div>
+                                                                <div className="text-lg font-bold text-primary">₹{safeToFixed(calculatePackageTotal(pkg))}</div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1515,7 +1470,7 @@ const PackageIntake = () => {
                                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
                                     <textarea
                                         value={formData.specialInstructions}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, specialInstructions: e.target.value }))}
+                                        onChange={(e) => setFormData((prev) => ({ ...prev, specialInstructions: e.target.value }))}
                                         className="form-textarea"
                                         placeholder="Any special instructions (e.g., Handle with care, Fragile, etc.)"
                                         rows="2"
@@ -1540,8 +1495,8 @@ const PackageIntake = () => {
                                                             value="sender"
                                                             checked={formData.paymentBy === 'sender'}
                                                             onChange={(e) => {
-                                                                setFormData(prev => ({ ...prev, paymentBy: e.target.value, paidAmount: '' }));
-                                                                setErrors(prev => ({ ...prev, paidAmount: null }));
+                                                                setFormData((prev) => ({ ...prev, paymentBy: e.target.value, paidAmount: '' }));
+                                                                setErrors((prev) => ({ ...prev, paidAmount: null }));
                                                             }}
                                                             className="form-radio"
                                                         />
@@ -1554,8 +1509,8 @@ const PackageIntake = () => {
                                                             value="receiver"
                                                             checked={formData.paymentBy === 'receiver'}
                                                             onChange={(e) => {
-                                                                setFormData(prev => ({ ...prev, paymentBy: e.target.value, paidAmount: '' }));
-                                                                setErrors(prev => ({ ...prev, paidAmount: null }));
+                                                                setFormData((prev) => ({ ...prev, paymentBy: e.target.value, paidAmount: '' }));
+                                                                setErrors((prev) => ({ ...prev, paidAmount: null }));
                                                             }}
                                                             className="form-radio"
                                                         />
@@ -1570,11 +1525,7 @@ const PackageIntake = () => {
                                                     {/* Payment Mode */}
                                                     <div>
                                                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
-                                                        <select
-                                                            value={paymentMode}
-                                                            onChange={(e) => setPaymentMode(e.target.value)}
-                                                            className="form-select"
-                                                        >
+                                                        <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="form-select">
                                                             <option value="cash">Cash</option>
                                                             <option value="card">Card</option>
                                                             <option value="upi">UPI</option>
@@ -1597,19 +1548,15 @@ const PackageIntake = () => {
                                                                 placeholder={`Max: ₹${safeToFixed(totalAmount)}`}
                                                             />
                                                         </div>
-                                                        {errors.paidAmount && (
-                                                            <p className="mt-1 text-xs text-red-600">{errors.paidAmount}</p>
-                                                        )}
+                                                        {errors.paidAmount && <p className="mt-1 text-xs text-red-600">{errors.paidAmount}</p>}
                                                         <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
                                                             <span>Leave empty if not paid</span>
-                                                            <span className="font-medium text-gray-700">
-                                                                Due: ₹{safeToFixed(totalAmount - safeParseFloat(formData.paidAmount))}
-                                                            </span>
+                                                            <span className="font-medium text-gray-700">Due: ₹{safeToFixed(totalAmount - safeParseFloat(formData.paidAmount))}</span>
                                                         </div>
                                                     </div>
                                                 </>
                                             )}
-                                            
+
                                             {/* Show message when Receiver Pays */}
                                             {formData.paymentBy === 'receiver' && (
                                                 <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-700">
@@ -1623,28 +1570,22 @@ const PackageIntake = () => {
                                     <div>
                                         <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Total Summary</h3>
                                         <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-3">
-                                            <div className="text-xl sm:text-2xl font-bold text-primary text-center mb-1">
-                                                ₹{safeToFixed(totalAmount)}
-                                            </div>
+                                            <div className="text-xl sm:text-2xl font-bold text-primary text-center mb-1">₹{safeToFixed(totalAmount)}</div>
                                             <div className="text-xs text-gray-600 text-center mb-3">Total Amount</div>
                                             <div className="space-y-1">
                                                 {formData.packages.map((pkg, index) => {
-                                                    const pkgType = packageTypeData.find(pt => pt.package_type_id === pkg.packageTypeId);
+                                                    const pkgType = packageTypeData.find((pt) => pt.package_type_id === pkg.packageTypeId);
                                                     return (
                                                         <div key={index} className="flex justify-between text-xs">
                                                             <span className="text-gray-600 truncate">
                                                                 {pkgType?.package_type_name || 'Item'} {index + 1}:
                                                             </span>
-                                                            <span className="font-medium whitespace-nowrap">
-                                                                ₹{safeToFixed(calculatePackageTotal(pkg))}
-                                                            </span>
+                                                            <span className="font-medium whitespace-nowrap">₹{safeToFixed(calculatePackageTotal(pkg))}</span>
                                                         </div>
                                                     );
                                                 })}
                                             </div>
-                                            <div className="mt-3 pt-2 border-t border-blue-200 text-xs text-gray-500">
-                                                Includes pickup, drop, and handling charges
-                                            </div>
+                                            <div className="mt-3 pt-2 border-t border-blue-200 text-xs text-gray-500">Includes pickup, drop, and handling charges</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1662,19 +1603,11 @@ const PackageIntake = () => {
                                 >
                                     Cancel
                                 </button>
-                                <button 
-                                    type="button" 
-                                    onClick={resetForm} 
-                                    className="btn btn-outline-primary hover:shadow-md transition-all duration-300 text-xs sm:text-sm py-2"
-                                >
+                                <button type="button" onClick={resetForm} className="btn btn-outline-primary hover:shadow-md transition-all duration-300 text-xs sm:text-sm py-2">
                                     Clear Form
                                 </button>
-                                <button 
-                                    type="submit" 
-                                    className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm py-2 px-4"
-                                    disabled={loading}
-                                >
-                                    {loading ? 'Processing...' : (isEdit ? 'Update Package' : 'Record Package')}
+                                <button type="submit" className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm py-2 px-4" disabled={loading}>
+                                    {loading ? 'Processing...' : isEdit ? 'Update Package' : 'Record Package'}
                                 </button>
                             </div>
                         </div>
@@ -1702,13 +1635,9 @@ const PackageIntake = () => {
                             <span className="ml-3">Loading packages...</span>
                         </div>
                     ) : error ? (
-                        <div className="text-center py-8 text-danger">
-                            Error loading packages: {error}
-                        </div>
+                        <div className="text-center py-8 text-danger">Error loading packages: {error}</div>
                     ) : packageData.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                            No packages found. Click "Add New Package" to get started.
-                        </div>
+                        <div className="text-center py-8 text-gray-500">No packages found. Click "Add New Package" to get started.</div>
                     ) : (
                         <Table
                             columns={columns}
@@ -1745,12 +1674,7 @@ const PackageIntake = () => {
                 <div className="space-y-3">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                        <input 
-                            type="text" 
-                            value={newCustomer.mobileNo} 
-                            disabled 
-                            className="form-input w-full bg-gray-100" 
-                        />
+                        <input type="text" value={newCustomer.mobileNo} disabled className="form-input w-full bg-gray-100" />
                         <p className="text-xs text-gray-500 mt-1">This mobile number is pre-filled from the form</p>
                     </div>
                     <div>
@@ -1782,11 +1706,11 @@ const PackageIntake = () => {
                 <div className="space-y-3">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Office Center</label>
-                        <input 
-                            type="text" 
-                            value={officeCentersWithLocationsData.find(c => c.office_center_id === newLocation.officeCenterId)?.office_center_name || ''} 
-                            disabled 
-                            className="form-input w-full bg-gray-100" 
+                        <input
+                            type="text"
+                            value={officeCentersWithLocationsData.find((c) => c.office_center_id === newLocation.officeCenterId)?.office_center_name || ''}
+                            disabled
+                            className="form-input w-full bg-gray-100"
                         />
                         <p className="text-xs text-gray-500 mt-1">Location will be added to this center</p>
                     </div>
@@ -1806,35 +1730,24 @@ const PackageIntake = () => {
             </ModelViewBox>
 
             {/* View Package Modal */}
-            <ModelViewBox
-                modal={viewModal}
-                modelHeader="Package Details"
-                setModel={() => setViewModal(false)}
-                handleSubmit={null}
-                modelSize="lg"
-                saveBtn={false}
-            >
+            <ModelViewBox modal={viewModal} modelHeader="Package Details" setModel={() => setViewModal(false)} handleSubmit={null} modelSize="lg" saveBtn={false}>
                 {selectedViewPackage && (
                     <div className="space-y-4">
                         {/* Package Header */}
                         <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border border-blue-200">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
-                                    <div className="text-base font-bold text-gray-800">
-                                        Booking #{selectedViewPackage.booking_number || selectedViewPackage.booking_id}
-                                    </div>
-                                    <div className="text-xs text-gray-600">
-                                        {new Date(selectedViewPackage.booking_date).toLocaleDateString()}
-                                    </div>
+                                    <div className="text-base font-bold text-gray-800">Booking #{selectedViewPackage.booking_number || selectedViewPackage.booking_id}</div>
+                                    <div className="text-xs text-gray-600">{new Date(selectedViewPackage.booking_date).toLocaleDateString()}</div>
                                 </div>
                                 <div className="flex flex-wrap gap-1">
                                     <div
                                         className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                            selectedViewPackage.payment_status === 'completed' 
-                                                ? 'bg-green-100 text-green-800' 
+                                            selectedViewPackage.payment_status === 'completed'
+                                                ? 'bg-green-100 text-green-800'
                                                 : selectedViewPackage.payment_status === 'partial'
-                                                ? 'bg-yellow-100 text-yellow-800'
-                                                : 'bg-gray-100 text-gray-800'
+                                                  ? 'bg-yellow-100 text-yellow-800'
+                                                  : 'bg-gray-100 text-gray-800'
                                         }`}
                                     >
                                         {selectedViewPackage.payment_status || 'pending'}
@@ -1906,16 +1819,14 @@ const PackageIntake = () => {
                                         <div className="text-xs text-gray-600 mb-0.5">Sender</div>
                                         <div className="font-medium flex items-center text-sm">
                                             <IconUser className="w-3 h-3 mr-1 text-blue-500" />
-                                            {selectedViewPackage.fromCustomer?.customer_name || 'N/A'} 
-                                            ({selectedViewPackage.fromCustomer?.customer_number || 'N/A'})
+                                            {selectedViewPackage.fromCustomer?.customer_name || 'N/A'}({selectedViewPackage.fromCustomer?.customer_number || 'N/A'})
                                         </div>
                                     </div>
                                     <div>
                                         <div className="text-xs text-gray-600 mb-0.5">Receiver</div>
                                         <div className="font-medium flex items-center text-sm">
                                             <IconUser className="w-3 h-3 mr-1 text-green-500" />
-                                            {selectedViewPackage.toCustomer?.customer_name || 'N/A'} 
-                                            ({selectedViewPackage.toCustomer?.customer_number || 'N/A'})
+                                            {selectedViewPackage.toCustomer?.customer_name || 'N/A'}({selectedViewPackage.toCustomer?.customer_number || 'N/A'})
                                         </div>
                                     </div>
                                 </div>
@@ -1926,9 +1837,7 @@ const PackageIntake = () => {
                                 <div className="space-y-2">
                                     <div>
                                         <div className="text-xs text-gray-600 mb-0.5">Payment By</div>
-                                        <div className="text-base font-medium">
-                                            {selectedViewPackage.payment_by === 'sender' ? 'Sender' : 'Receiver'}
-                                        </div>
+                                        <div className="text-base font-medium">{selectedViewPackage.payment_by === 'sender' ? 'Sender' : 'Receiver'}</div>
                                     </div>
                                     <div>
                                         <div className="text-xs text-gray-600 mb-0.5">Paid Amount</div>
@@ -1972,9 +1881,7 @@ const PackageIntake = () => {
                                             <td colSpan="5" className="px-2 py-1 text-xs font-medium text-gray-900 text-right">
                                                 Total Amount:
                                             </td>
-                                            <td className="px-2 py-1 text-base font-bold text-primary">
-                                                ₹{formatNumber(selectedViewPackage.total_amount)}
-                                            </td>
+                                            <td className="px-2 py-1 text-base font-bold text-primary">₹{formatNumber(selectedViewPackage.total_amount)}</td>
                                         </tr>
                                     </tfoot>
                                 </table>
@@ -2004,9 +1911,7 @@ const PackageIntake = () => {
                                 </div>
                                 <div>
                                     <div className="text-xs text-gray-600 mb-0.5">Balance Due</div>
-                                    <div className="text-xl font-bold text-orange-600">
-                                        ₹{formatNumber((selectedViewPackage.total_amount || 0) - (selectedViewPackage.paid_amount || 0))}
-                                    </div>
+                                    <div className="text-xl font-bold text-orange-600">₹{formatNumber((selectedViewPackage.total_amount || 0) - (selectedViewPackage.paid_amount || 0))}</div>
                                 </div>
                             </div>
                         </div>
