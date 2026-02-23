@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Tippy from '@tippyjs/react';
 import { showMessage, findArrObj } from '../../util/AllFunction';
 import Select from 'react-select';
+import ModelViewBox from '../../util/ModelViewBox'; // Import your modal component
 import IconPlus from '../../components/Icon/IconPlus';
 import IconUser from '../../components/Icon/IconUser';
 import IconMapPin from '../../components/Icon/IconMapPin';
@@ -23,6 +25,7 @@ import IconInfoCircle from '../../components/Icon/IconInfoCircle';
 import IconSearch from '../../components/Icon/IconSearch';
 import IconFilter from '../../components/Icon/IconCoffee';
 import IconX from '../../components/Icon/IconX';
+import IconEdit from '../../components/Icon/IconEdit';
 import {
     getTrips,
     getAvailableBookings,
@@ -254,6 +257,7 @@ const ResponsiveTable = ({ columns, data, pageSize = 10, pageIndex = 0, onPagina
 
 const AssignTrip = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
 
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo || '{}');
@@ -312,6 +316,15 @@ const AssignTrip = () => {
         status: ''
     });
 
+    // Status update modal states
+    const [showStatusModal, setShowStatusModal] = useState(false);
+    const [selectedTripForStatus, setSelectedTripForStatus] = useState(null);
+    const [statusForm, setStatusForm] = useState({
+        status: '',
+        actualDeparture: '',
+        actualArrival: ''
+    });
+
     // Form states
     const [selectedBookings, setSelectedBookings] = useState([]);
     const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -339,44 +352,46 @@ const AssignTrip = () => {
     }, [dispatch]);
 
     // Handle API responses
-   // Add this to your useEffect that handles API responses
-useEffect(() => {
-    if (createTripSuccess) {
-        showMessage('success', 'Trip created successfully');
-        resetForm();
-        setShowAssignForm(false);
-        dispatch(resetTripStatus());
-        fetchTrips();
-    }
-    if (updateTripStatusSuccess) {
-        showMessage('success', 'Trip status updated successfully');
-        dispatch(resetTripStatus());
-        fetchTrips();
-    }
-    if (updateTripBookingsSuccess) {
-        showMessage('success', 'Add-on bookings added to trip successfully');
-        resetForm();
-        setShowAssignForm(false);
-        dispatch(resetTripStatus());
-        fetchTrips();
-    }
-    if (deleteTripSuccess) {
-        showMessage('success', 'Trip deleted successfully');
-        dispatch(resetTripStatus());
-        fetchTrips();
-    }
-    if (error) {
-        showMessage('error', error);
-        dispatch(resetTripStatus());
-    }
-}, [
-    createTripSuccess, 
-    updateTripStatusSuccess, 
-    updateTripBookingsSuccess,
-    deleteTripSuccess, 
-    error, 
-    dispatch
-]);
+    useEffect(() => {
+        if (createTripSuccess) {
+            showMessage('success', 'Trip created successfully');
+            resetForm();
+            setShowAssignForm(false);
+            dispatch(resetTripStatus());
+            fetchTrips();
+        }
+        if (updateTripStatusSuccess) {
+            showMessage('success', 'Trip status updated successfully');
+            setShowStatusModal(false);
+            setSelectedTripForStatus(null);
+            dispatch(resetTripStatus());
+            fetchTrips();
+        }
+        if (updateTripBookingsSuccess) {
+            showMessage('success', 'Add-on bookings added to trip successfully');
+            resetForm();
+            setShowAssignForm(false);
+            dispatch(resetTripStatus());
+            fetchTrips();
+        }
+        if (deleteTripSuccess) {
+            showMessage('success', 'Trip deleted successfully');
+            dispatch(resetTripStatus());
+            fetchTrips();
+        }
+        if (error) {
+            showMessage('error', error);
+            dispatch(resetTripStatus());
+        }
+    }, [
+        createTripSuccess, 
+        updateTripStatusSuccess, 
+        updateTripBookingsSuccess,
+        deleteTripSuccess, 
+        error, 
+        dispatch
+    ]);
+
     // Update trips data from Redux
     useEffect(() => {
         setTrips(tripData || []);
@@ -732,68 +747,66 @@ useEffect(() => {
         addonArrival, estimatedArrival
     ]);
 
-  // Replace the handleAssignTrip function in your AssignTrip component with this:
+    // Handle trip assignment
+    const handleAssignTrip = (e) => {
+        e.preventDefault();
+        if (!validateForm()) {
+            showMessage('error', 'Please fix all errors before assigning trip');
+            return;
+        }
 
-// Handle trip assignment
-const handleAssignTrip = (e) => {
-    e.preventDefault();
-    if (!validateForm()) {
-        showMessage('error', 'Please fix all errors before assigning trip');
-        return;
-    }
+        if (tripMode === 'addon' && selectedParentTrip) {
+            // For add-on stage, we need to:
+            // 1. Get existing booking IDs from the parent trip
+            // 2. Add new booking IDs to the trip
+            
+            const existingBookingIds = selectedParentTrip.bookings?.map(b => b.booking_id) || [];
+            const newBookingIds = selectedAddonBookings.map(b => b.value || b.booking_id);
+            
+            // We're only adding new bookings, not removing any
+            const bookingData = {
+                addBookingIds: newBookingIds,
+                removeBookingIds: [] // Empty array since we're not removing any bookings
+            };
+            
+            console.log('Adding add-on bookings to trip:', {
+                tripId: selectedParentTrip.trip_id,
+                existingBookings: existingBookingIds,
+                newBookings: newBookingIds,
+                bookingData
+            });
+            
+            dispatch(updateTripBookings({
+                tripId: selectedParentTrip.trip_id,
+                bookingData: bookingData
+            }));
+            
+        } else {
+            // Create new trip
+            const bookings = selectedBookings;
+            const bookingIds = bookings.map(b => b.value || b.booking_id);
+            const loadmanIds = selectedLoadmen.map(l => l.value || l.employee_id);
 
-    if (tripMode === 'addon' && selectedParentTrip) {
-        // For add-on stage, we need to:
-        // 1. Get existing booking IDs from the parent trip
-        // 2. Add new booking IDs to the trip
-        
-        const existingBookingIds = selectedParentTrip.bookings?.map(b => b.booking_id) || [];
-        const newBookingIds = selectedAddonBookings.map(b => b.value || b.booking_id);
-        
-        // We're only adding new bookings, not removing any
-        const bookingData = {
-            addBookingIds: newBookingIds,
-            removeBookingIds: [] // Empty array since we're not removing any bookings
-        };
-        
-        console.log('Adding add-on bookings to trip:', {
-            tripId: selectedParentTrip.trip_id,
-            existingBookings: existingBookingIds,
-            newBookings: newBookingIds,
-            bookingData
-        });
-        
-        dispatch(updateTripBookings({
-            tripId: selectedParentTrip.trip_id,
-            bookingData: bookingData
-        }));
-        
-    } else {
-        // Create new trip
-        const bookings = selectedBookings;
-        const bookingIds = bookings.map(b => b.value || b.booking_id);
-        const loadmanIds = selectedLoadmen.map(l => l.value || l.employee_id);
+            const firstBooking = bookings[0]?.data || bookings[0];
+            const lastBooking = bookings[bookings.length - 1]?.data || bookings[bookings.length - 1];
 
-        const firstBooking = bookings[0]?.data || bookings[0];
-        const lastBooking = bookings[bookings.length - 1]?.data || bookings[bookings.length - 1];
+            const requestData = {
+                fromCenterId: firstBooking?.from_center_id,
+                toCenterId: lastBooking?.to_center_id,
+                vehicleId: selectedVehicle.value,
+                driverId: selectedDriver.value,
+                bookingIds: bookingIds,
+                loadmanIds: loadmanIds,
+                tripDate: tripDate,
+                estimatedDeparture: estimatedDeparture,
+                estimatedArrival: estimatedArrival,
+                remarks: remarks
+            };
 
-        const requestData = {
-            fromCenterId: firstBooking?.from_center_id,
-            toCenterId: lastBooking?.to_center_id,
-            vehicleId: selectedVehicle.value,
-            driverId: selectedDriver.value,
-            bookingIds: bookingIds,
-            loadmanIds: loadmanIds,
-            tripDate: tripDate,
-            estimatedDeparture: estimatedDeparture,
-            estimatedArrival: estimatedArrival,
-            remarks: remarks
-        };
-
-        console.log('Creating new trip:', requestData);
-        dispatch(createTrip(requestData));
-    }
-};
+            console.log('Creating new trip:', requestData);
+            dispatch(createTrip(requestData));
+        }
+    };
 
     // Handle add-on trip assignment
     const handleAssignAddonTrip = useCallback((parentTrip) => {
@@ -841,22 +854,68 @@ const handleAssignTrip = (e) => {
         setAvailableAddonBookings([]);
     }, []);
 
-    // Update trip status
-    const handleUpdateStatus = (tripId, newStatus) => {
+    // Open status update modal
+    const openStatusModal = (trip) => {
+        setSelectedTripForStatus(trip);
+        
+        // Get current time for default values
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        setStatusForm({
+            status: trip.status,
+            actualDeparture: trip.actual_departure || (trip.status === 'scheduled' ? currentTime : ''),
+            actualArrival: trip.actual_arrival || (trip.status === 'in_progress' ? currentTime : '')
+        });
+        
+        setShowStatusModal(true);
+    };
 
+    // Handle status form change
+    const handleStatusFormChange = (e) => {
+        const { name, value } = e.target;
+        setStatusForm(prev => ({ ...prev, [name]: value }));
+    };
+
+    // Handle status update submission
+    const handleStatusUpdate = () => {
+        if (!selectedTripForStatus) return;
+        
         const statusData = {
-            status: newStatus
+            status: statusForm.status
         };
-
-        if (newStatus === 'in_progress') {
-            statusData.actual_departure = currentTime;
-        } else if (newStatus === 'completed') {
-            statusData.actual_arrival = currentTime;
+        
+        // Add actual times based on status
+        if (statusForm.status === 'in_progress' && statusForm.actualDeparture) {
+            statusData.actual_departure = statusForm.actualDeparture;
+        } else if (statusForm.status === 'completed') {
+            if (statusForm.actualArrival) {
+                statusData.actual_arrival = statusForm.actualArrival;
+            }
+            // If completing, also ensure departure time is set
+            if (!selectedTripForStatus.actual_departure && statusForm.actualDeparture) {
+                statusData.actual_departure = statusForm.actualDeparture;
+            }
+        } else if (statusForm.status === 'cancelled') {
+            // No additional fields needed for cancellation
         }
+        
+        console.log('Updating trip status:', {
+            tripId: selectedTripForStatus.trip_id,
+            statusData
+        });
+        
+        dispatch(updateTripStatus({
+            tripId: selectedTripForStatus.trip_id,
+            statusData
+        }));
+    };
 
-        dispatch(updateTripStatus({ tripId, statusData }));
+    // Handle redirect to loadman assignment page
+    const handleAssignLoadmen = (trip) => {
+        navigate(`/loadman-salary/trip/${trip.trip_id}/assign`, {
+            state: { tripData: trip }
+        });
     };
 
     // Delete trip
@@ -903,352 +962,358 @@ const handleAssignTrip = (e) => {
         setSearchTerm('');
     };
 
-// Trip Details Component - Updated with center name mapping
-// Trip Details Component - Updated to show center names
-const TripDetails = ({ trip }) => {
-    if (!trip.expanded) return null;
+    // Trip Details Component
+    const TripDetails = ({ trip }) => {
+        if (!trip.expanded) return null;
 
-    // Helper function to get center name from ID
-    const getCenterName = (centerId, type) => {
-        if (!centerId) return 'N/A';
-        
-        // Try to get from trip's fromCenter or toCenter based on matching ID
-        if (trip.fromCenter?.office_center_id === centerId) {
-            return trip.fromCenter.office_center_name;
-        }
-        if (trip.toCenter?.office_center_id === centerId) {
-            return trip.toCenter.office_center_name;
-        }
-        
-        // If no match found, return the ID as fallback
-        return centerId;
-    };
+        // Helper function to get center name from ID
+        const getCenterName = (centerId, type) => {
+            if (!centerId) return 'N/A';
+            
+            // Try to get from trip's fromCenter or toCenter based on matching ID
+            if (trip.fromCenter?.office_center_id === centerId) {
+                return trip.fromCenter.office_center_name;
+            }
+            if (trip.toCenter?.office_center_id === centerId) {
+                return trip.toCenter.office_center_name;
+            }
+            
+            // If no match found, return the ID as fallback
+            return centerId;
+        };
 
-    return (
-        <div className="bg-gray-50 rounded-lg mt-4 p-6 border border-gray-200 animate-fadeIn">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
-                        <IconInfoCircle className="w-5 h-5 mr-2 text-blue-500" />
-                        Trip Information
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Trip No:</span>
-                            <span className="font-medium text-blue-600">{trip.trip_number}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">From Center:</span>
-                            <span className="font-medium">{trip.fromCenter?.office_center_name || trip.from_center_id}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">To Center:</span>
-                            <span className="font-medium">{trip.toCenter?.office_center_name || trip.to_center_id}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Date:</span>
-                            <span className="font-medium">{trip.trip_date}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Schedule:</span>
-                            <span className="font-medium">{trip.estimated_departure} - {trip.estimated_arrival}</span>
-                        </div>
-                        {trip.actual_arrival && (
+        return (
+            <div className="bg-gray-50 rounded-lg mt-4 p-6 border border-gray-200 animate-fadeIn">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
+                            <IconInfoCircle className="w-5 h-5 mr-2 text-blue-500" />
+                            Trip Information
+                        </h4>
+                        <div className="space-y-2 text-sm">
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Actual Arrival:</span>
-                                <span className="font-medium text-green-600">{trip.actual_arrival}</span>
+                                <span className="text-gray-600">Trip No:</span>
+                                <span className="font-medium text-blue-600">{trip.trip_number}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">From Center:</span>
+                                <span className="font-medium">{trip.fromCenter?.office_center_name || trip.from_center_id}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">To Center:</span>
+                                <span className="font-medium">{trip.toCenter?.office_center_name || trip.to_center_id}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Date:</span>
+                                <span className="font-medium">{trip.trip_date}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Schedule:</span>
+                                <span className="font-medium">{trip.estimated_departure} - {trip.estimated_arrival}</span>
+                            </div>
+                            {trip.actual_arrival && (
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Actual Arrival:</span>
+                                    <span className="font-medium text-green-600">{trip.actual_arrival}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
+                            <IconTruck className="w-5 h-5 mr-2 text-blue-500" />
+                            Vehicle & Team
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Vehicle:</span>
+                                <span className="font-medium">{trip.vehicle?.vehicle_number_plate}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Driver:</span>
+                                <span className="font-medium">{trip.driver?.employee_name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Loadmen:</span>
+                                <span className="font-medium">
+                                    {trip.loadmen?.map(l => l.employee_name).join(', ') || 'None'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                        <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
+                            <IconPackage className="w-5 h-5 mr-2 text-blue-500" />
+                            Load Summary
+                        </h4>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Total Bookings:</span>
+                                <span className="font-medium">{trip.total_packages}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Total Weight:</span>
+                                <span className="font-medium">{trip.total_weight}kg</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-600">Total Amount:</span>
+                                <span className="font-medium text-green-600">₹{trip.total_amount}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mb-6">
+                    <h4 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-2">Bookings</h4>
+                    <div className="space-y-3">
+                        {trip.bookings?.map((booking, index) => {
+                            // Get from center name - try to match with trip's fromCenter or toCenter
+                            const fromCenterName = 
+                                // First check if booking has fromCenter object
+                                booking.fromCenter?.office_center_name ||
+                                // Then try to match with trip's fromCenter
+                                (booking.from_center_id === trip.fromCenter?.office_center_id ? trip.fromCenter?.office_center_name :
+                                // Then try to match with trip's toCenter
+                                booking.from_center_id === trip.toCenter?.office_center_id ? trip.toCenter?.office_center_name :
+                                // If no match, return the ID
+                                booking.from_center_id);
+                            
+                            // Get to center name - try to match with trip's fromCenter or toCenter
+                            const toCenterName = 
+                                // First check if booking has toCenter object
+                                booking.toCenter?.office_center_name ||
+                                // Then try to match with trip's fromCenter
+                                (booking.to_center_id === trip.fromCenter?.office_center_id ? trip.fromCenter?.office_center_name :
+                                // Then try to match with trip's toCenter
+                                booking.to_center_id === trip.toCenter?.office_center_id ? trip.toCenter?.office_center_name :
+                                // If no match, return the ID
+                                booking.to_center_id);
+                            
+                            // Get delivery status - check multiple possible locations
+                            const deliveryStatus = booking.TripBooking?.delivery_status || 
+                                                  booking.delivery_status || 
+                                                  'pending';
+                            
+                            // Determine status color
+                            const statusColor = deliveryStatus === 'delivered' ? 'bg-green-100 text-green-800' :
+                                               deliveryStatus === 'in_transit' ? 'bg-yellow-100 text-yellow-800' :
+                                               deliveryStatus === 'pending' ? 'bg-blue-100 text-blue-800' :
+                                               'bg-gray-100 text-gray-800';
+                            
+                            return (
+                                <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3">
+                                        <div>
+                                            <div className="font-medium text-gray-800 text-base">
+                                                Booking #{booking.booking_number}: {fromCenterName} → {toCenterName}
+                                            </div>
+                                            <div className="text-sm text-gray-600 mt-1">
+                                                Amount: <span className="font-medium">₹{booking.total_amount}</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+                                                {deliveryStatus}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        
+                        {/* Show message if no bookings */}
+                        {(!trip.bookings || trip.bookings.length === 0) && (
+                            <div className="text-center py-4 text-gray-500">
+                                No bookings found for this trip
                             </div>
                         )}
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
-                        <IconTruck className="w-5 h-5 mr-2 text-blue-500" />
-                        Vehicle & Team
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Vehicle:</span>
-                            <span className="font-medium">{trip.vehicle?.vehicle_number_plate}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Driver:</span>
-                            <span className="font-medium">{trip.driver?.employee_name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Loadmen:</span>
-                            <span className="font-medium">
-                                {trip.loadmen?.map(l => l.employee_name).join(', ') || 'None'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-                    <h4 className="font-semibold text-gray-800 mb-3 flex items-center text-lg">
-                        <IconPackage className="w-5 h-5 mr-2 text-blue-500" />
-                        Load Summary
-                    </h4>
-                    <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Total Bookings:</span>
-                            <span className="font-medium">{trip.total_packages}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Total Weight:</span>
-                            <span className="font-medium">{trip.total_weight}kg</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Total Amount:</span>
-                            <span className="font-medium text-green-600">₹{trip.total_amount}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <div className="mb-6">
-                <h4 className="font-semibold text-gray-800 mb-4 text-lg border-b pb-2">Bookings</h4>
-                <div className="space-y-3">
-                    {trip.bookings?.map((booking, index) => {
-                        // Get from center name - try to match with trip's fromCenter or toCenter
-                        const fromCenterName = 
-                            // First check if booking has fromCenter object
-                            booking.fromCenter?.office_center_name ||
-                            // Then try to match with trip's fromCenter
-                            (booking.from_center_id === trip.fromCenter?.office_center_id ? trip.fromCenter?.office_center_name :
-                            // Then try to match with trip's toCenter
-                            booking.from_center_id === trip.toCenter?.office_center_id ? trip.toCenter?.office_center_name :
-                            // If no match, return the ID
-                            booking.from_center_id);
-                        
-                        // Get to center name - try to match with trip's fromCenter or toCenter
-                        const toCenterName = 
-                            // First check if booking has toCenter object
-                            booking.toCenter?.office_center_name ||
-                            // Then try to match with trip's fromCenter
-                            (booking.to_center_id === trip.fromCenter?.office_center_id ? trip.fromCenter?.office_center_name :
-                            // Then try to match with trip's toCenter
-                            booking.to_center_id === trip.toCenter?.office_center_id ? trip.toCenter?.office_center_name :
-                            // If no match, return the ID
-                            booking.to_center_id);
-                        
-                        // Get delivery status - check multiple possible locations
-                        const deliveryStatus = booking.TripBooking?.delivery_status || 
-                                              booking.delivery_status || 
-                                              'pending';
-                        
-                        // Determine status color
-                        const statusColor = deliveryStatus === 'delivered' ? 'bg-green-100 text-green-800' :
-                                           deliveryStatus === 'in_transit' ? 'bg-yellow-100 text-yellow-800' :
-                                           deliveryStatus === 'pending' ? 'bg-blue-100 text-blue-800' :
-                                           'bg-gray-100 text-gray-800';
-                        
-                        return (
-                            <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3">
-                                    <div>
-                                        <div className="font-medium text-gray-800 text-base">
-                                            Booking #{booking.booking_number}: {fromCenterName} → {toCenterName}
-                                        </div>
-                                        <div className="text-sm text-gray-600 mt-1">
-                                            Amount: <span className="font-medium">₹{booking.total_amount}</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor}`}>
-                                            {deliveryStatus}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    
-                    {/* Show message if no bookings */}
-                    {(!trip.bookings || trip.bookings.length === 0) && (
-                        <div className="text-center py-4 text-gray-500">
-                            No bookings found for this trip
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {trip.remarks && (
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <h4 className="font-semibold text-gray-800 mb-2">Remarks</h4>
-                    <p className="text-sm text-gray-600">{trip.remarks}</p>
-                </div>
-            )}
-        </div>
-    );
-};
-    // Table columns
- // Table columns - Updated version
-const columns = useMemo(() => [
-    {
-        Header: '#',
-        accessor: 'trip_number',
-        Cell: ({ row }) => {
-            const trip = row.original;
-            return (
-                <div className="font-medium text-gray-600">
-                    <div className="inline-flex flex-col items-center">
-                        <span className="text-xs text-gray-500 hidden sm:block">Trip No</span>
-                        <span className="font-bold text-primary text-sm sm:text-base">{trip.trip_number}</span>
+                {trip.remarks && (
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <h4 className="font-semibold text-gray-800 mb-2">Remarks</h4>
+                        <p className="text-sm text-gray-600">{trip.remarks}</p>
                     </div>
-                </div>
-            );
-        },
-        width: 100,
-        mobileFull: false,
-    },
- {
-    Header: 'Route',
-    accessor: 'route',
-    Cell: ({ row }) => {
-        const trip = row.original;
-        const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
-        const { officeCentersData = [] } = officeCenterState;
-        
-        const getCenterName = (centerId) => {
-            if (!centerId) return 'N/A';
-            if (typeof centerId === 'string' && !centerId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                return centerId;
-            }
-            const center = officeCentersData.find(c => c.office_center_id === centerId);
-            return center?.office_center_name || centerId;
-        };
-        
-        const fromCenterName = trip.fromCenter?.office_center_name || 
-                               getCenterName(trip.from_center_id);
-        const toCenterName = trip.toCenter?.office_center_name || 
-                             getCenterName(trip.to_center_id);
-        
-        return (
-            <div className="space-y-1">
-                <div className="flex items-center text-sm">
-                    <IconMapPin className="w-3 h-3 mr-1 text-blue-500 flex-shrink-0" />
-                    <span className="font-medium truncate">
-                        {fromCenterName} → {toCenterName}
-                    </span>
-                </div>
-                <div className="text-xs text-gray-600">
-                    {trip.bookings?.length || 0} bookings • {trip.total_packages} packages
-                </div>
+                )}
             </div>
         );
-    },
-    width: 200,
-    mobileFull: true,
-},
-    {
-        Header: 'Vehicle & Team',
-        accessor: 'team',
-        Cell: ({ row }) => {
-            const trip = row.original;
-            return (
-                <div className="space-y-1">
-                    <div className="flex items-center text-sm">
-                        <IconTruck className="w-3 h-3 mr-1 text-primary flex-shrink-0" />
-                        <span className="font-medium truncate">{trip.vehicle?.vehicle_number_plate}</span>
+    };
+
+    // Table columns
+    const columns = useMemo(() => [
+        {
+            Header: '#',
+            accessor: 'trip_number',
+            Cell: ({ row }) => {
+                const trip = row.original;
+                return (
+                    <div className="font-medium text-gray-600">
+                        <div className="inline-flex flex-col items-center">
+                            <span className="text-xs text-gray-500 hidden sm:block">Trip No</span>
+                            <span className="font-bold text-primary text-sm sm:text-base">{trip.trip_number}</span>
+                        </div>
                     </div>
-                    <div className="flex items-center text-xs text-gray-600">
-                        <IconDriver className="w-3 h-3 mr-1 flex-shrink-0" />
-                        <span className="truncate">{trip.driver?.employee_name}</span>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                        {trip.loadmen?.length || 0} loadmen
-                    </div>
-                </div>
-            );
+                );
+            },
+            width: 100,
+            mobileFull: false,
         },
-        width: 150,
-        mobileFull: false,
-    },
-    {
-        Header: 'Load Summary',
-        accessor: 'load',
-        Cell: ({ row }) => {
-            const trip = row.original;
-            return (
-                <div className="space-y-1">
-                    <div className="text-sm">
-                        <span className="font-medium">{trip.total_packages}</span> Items
+        {
+            Header: 'Route',
+            accessor: 'route',
+            Cell: ({ row }) => {
+                const trip = row.original;
+                const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
+                const { officeCentersData = [] } = officeCenterState;
+                
+                const getCenterName = (centerId) => {
+                    if (!centerId) return 'N/A';
+                    if (typeof centerId === 'string' && !centerId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                        return centerId;
+                    }
+                    const center = officeCentersData.find(c => c.office_center_id === centerId);
+                    return center?.office_center_name || centerId;
+                };
+                
+                const fromCenterName = trip.fromCenter?.office_center_name || 
+                                       getCenterName(trip.from_center_id);
+                const toCenterName = trip.toCenter?.office_center_name || 
+                                     getCenterName(trip.to_center_id);
+                
+                return (
+                    <div className="space-y-1">
+                        <div className="flex items-center text-sm">
+                            <IconMapPin className="w-3 h-3 mr-1 text-blue-500 flex-shrink-0" />
+                            <span className="font-medium truncate">
+                                {fromCenterName} → {toCenterName}
+                            </span>
+                        </div>
+                        <div className="text-xs text-gray-600">
+                            {trip.bookings?.length || 0} bookings • {trip.total_packages} packages
+                        </div>
                     </div>
-                    <div className="text-xs text-gray-600">
-                        Weight: {trip.total_weight}kg
-                    </div>
-                    <div className="text-xs text-gray-500">
-                        Amount: ₹{trip.total_amount}
-                    </div>
-                </div>
-            );
+                );
+            },
+            width: 200,
+            mobileFull: true,
         },
-        width: 120,
-        mobileFull: false,
-    },
-    {
-        Header: 'Status',
-        accessor: 'status',
-        Cell: ({ value }) => {
-            const statusConfig = {
-                scheduled: { color: 'bg-blue-100 text-blue-800', icon: '⏰', label: 'Scheduled' },
-                in_progress: { color: 'bg-yellow-100 text-yellow-800', icon: '🚚', label: 'In Progress' },
-                completed: { color: 'bg-green-100 text-green-800', icon: '✓', label: 'Completed' },
-                cancelled: { color: 'bg-red-100 text-red-800', icon: '✗', label: 'Cancelled' },
-            };
-            const config = statusConfig[value] || statusConfig.scheduled;
-            return (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-                    {config.icon} {config.label}
-                </span>
-            );
+        {
+            Header: 'Vehicle & Team',
+            accessor: 'team',
+            Cell: ({ row }) => {
+                const trip = row.original;
+                return (
+                    <div className="space-y-1">
+                        <div className="flex items-center text-sm">
+                            <IconTruck className="w-3 h-3 mr-1 text-primary flex-shrink-0" />
+                            <span className="font-medium truncate">{trip.vehicle?.vehicle_number_plate}</span>
+                        </div>
+                        <div className="flex items-center text-xs text-gray-600">
+                            <IconDriver className="w-3 h-3 mr-1 flex-shrink-0" />
+                            <span className="truncate">{trip.driver?.employee_name}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            {trip.loadmen?.length || 0} loadmen
+                        </div>
+                    </div>
+                );
+            },
+            width: 150,
+            mobileFull: false,
         },
-        width: 120,
-        mobileFull: false,
-    },
-    {
-        Header: 'Actions',
-        accessor: 'actions',
-        Cell: ({ row }) => {
-            const trip = row.original;
-            return (
-                <div className="flex flex-wrap gap-1">
-                    <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
-                        <button
-                            onClick={() => toggleTripDetails(trip.trip_id)}
-                            className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
-                        >
-                            {trip.expanded ? <IconChevronUp className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
-                        </button>
-                    </Tippy>
-                    {(trip.status === 'in_progress' || trip.status === 'scheduled') && (
-                        <Tippy content="Add Another Stage">
+        {
+            Header: 'Load Summary',
+            accessor: 'load',
+            Cell: ({ row }) => {
+                const trip = row.original;
+                return (
+                    <div className="space-y-1">
+                        <div className="text-sm">
+                            <span className="font-medium">{trip.total_packages}</span> Items
+                        </div>
+                        <div className="text-xs text-gray-600">
+                            Weight: {trip.total_weight}kg
+                        </div>
+                        <div className="text-xs text-gray-500">
+                            Amount: ₹{trip.total_amount}
+                        </div>
+                    </div>
+                );
+            },
+            width: 120,
+            mobileFull: false,
+        },
+        {
+            Header: 'Status',
+            accessor: 'status',
+            Cell: ({ value }) => {
+                const statusConfig = {
+                    scheduled: { color: 'bg-blue-100 text-blue-800', icon: '⏰', label: 'Scheduled' },
+                    in_progress: { color: 'bg-yellow-100 text-yellow-800', icon: '🚚', label: 'In Progress' },
+                    completed: { color: 'bg-green-100 text-green-800', icon: '✓', label: 'Completed' },
+                    cancelled: { color: 'bg-red-100 text-red-800', icon: '✗', label: 'Cancelled' },
+                };
+                const config = statusConfig[value] || statusConfig.scheduled;
+                return (
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+                        {config.icon} {config.label}
+                    </span>
+                );
+            },
+            width: 120,
+            mobileFull: false,
+        },
+        {
+            Header: 'Actions',
+            accessor: 'actions',
+            Cell: ({ row }) => {
+                const trip = row.original;
+                return (
+                    <div className="flex flex-wrap gap-1">
+                        <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
                             <button
-                                onClick={() => handleAssignAddonTrip(trip)}
-                                className="btn btn-outline-purple btn-sm p-1.5 rounded-lg hover:bg-purple-500 hover:text-white transition-colors"
+                                onClick={() => toggleTripDetails(trip.trip_id)}
+                                className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
                             >
-                                <IconPlus className="w-4 h-4" />
+                                {trip.expanded ? <IconChevronUp className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
                             </button>
                         </Tippy>
-                    )}
-                    {trip.status === 'scheduled' && (
-                        <>
-                            <Tippy content="Start Trip">
+                        
+                        {/* Loadman Assignment Button */}
+                        <Tippy content="Assign Loadmen & Calculate Salary">
+                            <button
+                                onClick={() => handleAssignLoadmen(trip)}
+                                className="btn btn-outline-purple btn-sm p-1.5 rounded-lg hover:bg-purple-500 hover:text-white transition-colors"
+                            >
+                                <IconUsers className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                        
+                        {/* Status Update Button - Always visible */}
+                        <Tippy content="Update Status">
+                            <button
+                                onClick={() => openStatusModal(trip)}
+                                className="btn btn-outline-info btn-sm p-1.5 rounded-lg hover:bg-info hover:text-white transition-colors"
+                            >
+                                <IconEdit className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                        
+                        {/* Add Stage Button - Only for in_progress or scheduled */}
+                        {(trip.status === 'in_progress' || trip.status === 'scheduled') && (
+                            <Tippy content="Add Another Stage">
                                 <button
-                                    onClick={() => handleUpdateStatus(trip.trip_id, 'in_progress')}
+                                    onClick={() => handleAssignAddonTrip(trip)}
                                     className="btn btn-outline-success btn-sm p-1.5 rounded-lg hover:bg-success hover:text-white transition-colors"
                                 >
-                                    <IconClock className="w-4 h-4" />
+                                    <IconPlus className="w-4 h-4" />
                                 </button>
                             </Tippy>
-                            <Tippy content="Cancel Trip">
-                                <button
-                                    onClick={() => handleUpdateStatus(trip.trip_id, 'cancelled')}
-                                    className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors"
-                                >
-                                    <IconXCircle className="w-4 h-4" />
-                                </button>
-                            </Tippy>
+                        )}
+                        
+                        {/* Delete Button - Only for scheduled */}
+                        {trip.status === 'scheduled' && (
                             <Tippy content="Delete Trip">
                                 <button
                                     onClick={() => handleDeleteTrip(trip.trip_id)}
@@ -1257,15 +1322,15 @@ const columns = useMemo(() => [
                                     <IconX className="w-4 h-4" />
                                 </button>
                             </Tippy>
-                        </>
-                    )}
-                </div>
-            );
+                        )}
+                    </div>
+                );
+            },
+            width: 200,
+            mobileFull: false,
         },
-        width: 140,
-        mobileFull: false,
-    },
-], [handleAssignAddonTrip, toggleTripDetails]);
+    ], [handleAssignAddonTrip, toggleTripDetails, handleAssignLoadmen, openStatusModal, handleDeleteTrip]);
+
     // Stats
     const stats = {
         total: trips.length,
@@ -1951,6 +2016,112 @@ const columns = useMemo(() => [
                     )}
                 </div>
             </div>
+
+            {/* Status Update Modal using ModelViewBox */}
+            <ModelViewBox
+                modal={showStatusModal}
+                setModel={setShowStatusModal}
+                modelHeader={`Update Trip Status - ${selectedTripForStatus?.trip_number || ''}`}
+                modelSize="md"
+                saveBtn={true}
+                cancelBtn={true}
+                handleSubmit={handleStatusUpdate}
+                btnName="Update Status"
+                isEdit={true}
+                isLoading={loading}
+                backgroundColor="bg-white"
+            >
+                <div className="space-y-4">
+                    {/* Current Status Info */}
+                    {selectedTripForStatus && (
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                            <div className="text-sm">
+                                <span className="font-medium">Current Status:</span>{' '}
+                                <span className="capitalize">{selectedTripForStatus.status}</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Status Selection */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            New Status *
+                        </label>
+                        <select
+                            name="status"
+                            value={statusForm.status}
+                            onChange={handleStatusFormChange}
+                            className="form-select w-full"
+                            required
+                        >
+                            <option value="">Select Status</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    {/* Actual Departure Time - Show when starting trip */}
+                    {(statusForm.status === 'in_progress' || (statusForm.status === 'completed' && !selectedTripForStatus?.actual_departure)) && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Actual Departure Time
+                            </label>
+                            <input
+                                type="time"
+                                name="actualDeparture"
+                                value={statusForm.actualDeparture}
+                                onChange={handleStatusFormChange}
+                                className="form-input w-full"
+                                placeholder="HH:MM"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Leave empty to use current time
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Actual Arrival Time - Show when completing trip */}
+                    {statusForm.status === 'completed' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Actual Arrival Time
+                            </label>
+                            <input
+                                type="time"
+                                name="actualArrival"
+                                value={statusForm.actualArrival}
+                                onChange={handleStatusFormChange}
+                                className="form-input w-full"
+                                placeholder="HH:MM"
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                                Leave empty to use current time
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Warning for status changes */}
+                    {statusForm.status === 'completed' && selectedTripForStatus?.status !== 'in_progress' && (
+                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                            <p className="text-xs text-yellow-700">
+                                Warning: Marking trip as completed without starting it first. 
+                                Please ensure all bookings are delivered.
+                            </p>
+                        </div>
+                    )}
+
+                    {statusForm.status === 'cancelled' && (
+                        <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                            <p className="text-xs text-red-700">
+                                Warning: Cancelling this trip will affect all associated bookings.
+                                This action cannot be undone.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </ModelViewBox>
         </div>
     );
 };
