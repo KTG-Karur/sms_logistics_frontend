@@ -528,11 +528,10 @@ const AssignTrip = () => {
             const totalPackages = bookingPackages.reduce((sum, pkg) => sum + (pkg.quantity || 1), 0);
             
             return {
-                totalWeight: totals.totalWeight + (parseFloat(bookingData.total_weight) || 0),
                 totalPackages: totals.totalPackages + totalPackages,
                 totalAmount: totals.totalAmount + (parseFloat(bookingData.total_amount) || 0),
             };
-        }, { totalWeight: 0, totalPackages: 0, totalAmount: 0 });
+        }, {  totalPackages: 0, totalAmount: 0 });
     }, [tripMode, selectedAddonBookings, selectedBookings]);
 
     // Initialize add-on trip data
@@ -1052,10 +1051,6 @@ const AssignTrip = () => {
                                 <span className="font-medium">{trip.total_packages}</span>
                             </div>
                             <div className="flex justify-between">
-                                <span className="text-gray-600">Total Weight:</span>
-                                <span className="font-medium">{trip.total_weight}kg</span>
-                            </div>
-                            <div className="flex justify-between">
                                 <span className="text-gray-600">Total Amount:</span>
                                 <span className="font-medium text-green-600">₹{trip.total_amount}</span>
                             </div>
@@ -1231,9 +1226,6 @@ const AssignTrip = () => {
                     <div className="space-y-1">
                         <div className="text-sm">
                             <span className="font-medium">{trip.total_packages}</span> Items
-                        </div>
-                        <div className="text-xs text-gray-600">
-                            Weight: {trip.total_weight}kg
                         </div>
                         <div className="text-xs text-gray-500">
                             Amount: ₹{trip.total_amount}
@@ -1696,9 +1688,6 @@ const AssignTrip = () => {
                                                         <span className="font-medium">Total Items:</span> {selectedTotals.totalPackages}
                                                     </div>
                                                     <div>
-                                                        <span className="font-medium">Total Weight:</span> {selectedTotals.totalWeight}kg
-                                                    </div>
-                                                    <div>
                                                         <span className="font-medium">Total Amount:</span> ₹{selectedTotals.totalAmount}
                                                     </div>
                                                 </div>
@@ -1903,10 +1892,6 @@ const AssignTrip = () => {
                                     <div className="text-center">
                                         <div className="text-xs sm:text-sm text-gray-600">Total Items</div>
                                         <div className="text-lg sm:text-xl lg:text-2xl font-bold text-primary">{selectedTotals.totalPackages}</div>
-                                    </div>
-                                    <div className="text-center">
-                                        <div className="text-xs sm:text-sm text-gray-600">Total Weight</div>
-                                        <div className="text-lg sm:text-xl lg:text-2xl font-bold text-primary">{selectedTotals.totalWeight}kg</div>
                                     </div>
                                     <div className="text-center">
                                         <div className="text-xs sm:text-sm text-gray-600">Total Loadmen</div>
