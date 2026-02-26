@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
-import { showMessage , getAccessIdsByLabel } from '../../util/AllFunction';
+import { showMessage, getAccessIdsByLabel } from '../../util/AllFunction';
 import _ from 'lodash';
 import IconReceipt from '../../components/Icon/IconReceipt';
 import IconCalendar from '../../components/Icon/IconCalendar';
@@ -54,7 +54,7 @@ const ExpenseSettlement = () => {
     const { createPaymentSuccess, createPaymentFailed, loading: paymentLoading } = useSelector((state) => state.ExpensePaymentSlice);
 
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
-    
+
     // Local filter state for UI
     const [localFilters, setLocalFilters] = useState({
         search: '',
@@ -66,9 +66,9 @@ const ExpenseSettlement = () => {
         isPaid: '',
         officeCenterId: '',
         startDate: '',
-        endDate: ''
+        endDate: '',
     });
-    
+
     const [showFilter, setShowFilter] = useState(false);
 
     // Payment form state - shown above table
@@ -92,10 +92,10 @@ const ExpenseSettlement = () => {
     useEffect(() => {
         dispatch(setPageTitle('Expense Settlement'));
         // Set default date filter to today
-        setFilterState(prev => ({
+        setFilterState((prev) => ({
             ...prev,
             startDate: formatInputDate(getTodayDate()),
-            endDate: formatInputDate(getTodayDate())
+            endDate: formatInputDate(getTodayDate()),
         }));
     }, []);
 
@@ -156,15 +156,15 @@ const ExpenseSettlement = () => {
         try {
             // Prepare filter params for backend
             const params = {};
-            
+
             if (filterState.officeCenterId) {
                 params.officeCenterId = filterState.officeCenterId;
             }
-            
+
             if (filterState.expenseTypeId) {
                 params.expenseTypeId = filterState.expenseTypeId;
             }
-            
+
             if (filterState.isPaid) {
                 // Convert status to isPaid boolean
                 if (filterState.isPaid === 'unpaid') {
@@ -175,15 +175,15 @@ const ExpenseSettlement = () => {
                     params.isPaid = false; // For now, show unpaid and partially paid
                 }
             }
-            
+
             if (filterState.startDate) {
                 params.startDate = filterState.startDate;
             }
-            
+
             if (filterState.endDate) {
                 params.endDate = filterState.endDate;
             }
-            
+
             // Search by description or invoice number
             if (localFilters.search) {
                 params.search = localFilters.search;
@@ -236,7 +236,7 @@ const ExpenseSettlement = () => {
                     originalData: expense,
                 };
             })
-            .filter(item => !item.is_paid && item.balance > 0); // Only show pending expenses
+            .filter((item) => !item.is_paid && item.balance > 0); // Only show pending expenses
     };
 
     // Calculate totals for pending expenses
@@ -283,7 +283,7 @@ const ExpenseSettlement = () => {
             isPaid: '',
             officeCenterId: '',
             startDate: formatInputDate(getTodayDate()),
-            endDate: formatInputDate(getTodayDate())
+            endDate: formatInputDate(getTodayDate()),
         });
         setLocalFilters({ search: '' });
         setShowFilter(false);
@@ -293,12 +293,12 @@ const ExpenseSettlement = () => {
     const handleSearchChange = (e) => {
         const value = e.target.value;
         setLocalFilters({ search: value });
-        
+
         // Debounce search to avoid too many API calls
         const timeoutId = setTimeout(() => {
             fetchExpenses();
         }, 500);
-        
+
         return () => clearTimeout(timeoutId);
     };
 
@@ -507,10 +507,21 @@ const ExpenseSettlement = () => {
             accessor: 'actions',
             Cell: ({ row }) => {
                 const expense = row.original;
+                const canProcessPayment = _.includes(accessIds, '10');
+
+                // Only show the button if user has permission
+                if (!canProcessPayment) {
+                    return (
+                        <Tippy content="No payment permission">
+                            <span className="text-xs text-gray-400 italic">No access</span>
+                        </Tippy>
+                    );
+                }
+
                 return (
                     <Tippy content="Process Payment">
                         <button type="button" className="btn btn-sm btn-primary" onClick={() => openPaymentForm(expense)}>
-                            Settle
+                            Pay
                             <IconArrowRight className="w-3 h-3 ml-1" />
                         </button>
                     </Tippy>
@@ -615,24 +626,12 @@ const ExpenseSettlement = () => {
                         {/* Date Range Filters */}
                         <div>
                             <label>Start Date</label>
-                            <input
-                                type="date"
-                                name="startDate"
-                                className="form-input w-full"
-                                value={filterState.startDate}
-                                onChange={handleDateFilterChange}
-                            />
+                            <input type="date" name="startDate" className="form-input w-full" value={filterState.startDate} onChange={handleDateFilterChange} />
                         </div>
-                        
+
                         <div>
                             <label>End Date</label>
-                            <input
-                                type="date"
-                                name="endDate"
-                                className="form-input w-full"
-                                value={filterState.endDate}
-                                onChange={handleDateFilterChange}
-                            />
+                            <input type="date" name="endDate" className="form-input w-full" value={filterState.endDate} onChange={handleDateFilterChange} />
                         </div>
 
                         {/* Office Center Filter */}
@@ -696,13 +695,7 @@ const ExpenseSettlement = () => {
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6 shadow-sm">
                 <div className="flex items-center gap-4">
                     <div className="flex-1 relative">
-                        <input 
-                            type="text" 
-                            className="form-input pl-10 w-full" 
-                            placeholder="Search by description, invoice number..." 
-                            value={localFilters.search} 
-                            onChange={handleSearchChange} 
-                        />
+                        <input type="text" className="form-input pl-10 w-full" placeholder="Search by description, invoice number..." value={localFilters.search} onChange={handleSearchChange} />
                         <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     </div>
                     <button type="button" onClick={() => setShowFilter(!showFilter)} className="btn btn-outline-primary">
@@ -817,8 +810,7 @@ const ExpenseSettlement = () => {
                         <h3 className="font-semibold text-lg text-gray-800 dark:text-white">Pending Expense Settlement List</h3>
                         <div className="text-sm text-gray-500">
                             Showing {getPendingExpenses().length} pending expenses
-                            {filterState.startDate && filterState.endDate && 
-                                ` for ${formatDisplayDate(new Date(filterState.startDate))} - ${formatDisplayDate(new Date(filterState.endDate))}`}
+                            {filterState.startDate && filterState.endDate && ` for ${formatDisplayDate(new Date(filterState.startDate))} - ${formatDisplayDate(new Date(filterState.endDate))}`}
                         </div>
                     </div>
                 </div>
@@ -835,11 +827,7 @@ const ExpenseSettlement = () => {
                                 {filterState.expenseTypeId && (
                                     <span className="badge bg-primary">Type: {expenseTypes.find((t) => t.id === filterState.expenseTypeId)?.name || filterState.expenseTypeId}</span>
                                 )}
-                                {filterState.isPaid && (
-                                    <span className="badge bg-primary">
-                                        Status: {filterState.isPaid === 'unpaid' ? 'Unpaid' : 'Partially Paid'}
-                                    </span>
-                                )}
+                                {filterState.isPaid && <span className="badge bg-primary">Status: {filterState.isPaid === 'unpaid' ? 'Unpaid' : 'Partially Paid'}</span>}
                                 <button type="button" onClick={handleFilterClear} className="text-danger text-sm hover:underline ml-2">
                                     Clear All
                                 </button>
@@ -870,11 +858,7 @@ const ExpenseSettlement = () => {
                     {getPendingExpenses().length === 0 && !expenseLoading && (
                         <div className="text-center py-8">
                             <div className="text-gray-400 mb-2">No pending expenses found</div>
-                            <div className="text-sm text-gray-500">
-                                {filterState.startDate && filterState.endDate 
-                                    ? `No pending expenses for selected date range`
-                                    : 'All expenses are fully paid'}
-                            </div>
+                            <div className="text-sm text-gray-500">{filterState.startDate && filterState.endDate ? `No pending expenses for selected date range` : 'All expenses are fully paid'}</div>
                         </div>
                     )}
                 </div>

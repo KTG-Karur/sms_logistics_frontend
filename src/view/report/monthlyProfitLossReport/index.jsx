@@ -931,6 +931,7 @@ const ProfitLossReport = () => {
             {/* Export Button */}
             <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    {_.includes(accessIds, '5') && (
                     <button
                         onClick={onDownloadExcel}
                         className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
@@ -938,6 +939,7 @@ const ProfitLossReport = () => {
                         <IconDownload className="mr-2 w-4 h-4" />
                         Export Excel Report
                     </button>
+                    )}
                     
                     <div className="text-sm text-gray-600">
                         Showing {reportData.summary.totalDays} days of data

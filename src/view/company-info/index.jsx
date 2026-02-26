@@ -3,19 +3,20 @@ import { Badge, Button, Card, Spinner } from 'react-bootstrap';
 import FormLayout from '../../util/formLayout';
 import { useDispatch, useSelector } from 'react-redux';
 import { employeeFormContainer } from './formFieldData';
-import { findArrObj, showMessage } from '../../util/AllFunction';
+import { findArrObj, showMessage , getAccessIdsByLabel } from '../../util/AllFunction';
 import { getCompany, resetCompanyStatus, updateCompany } from '../../redux/companySlice';
 import moment from 'moment';
 import { baseURL } from '../../api/ApiConfig';
 import { createUplode, resetUplodeStatus } from '../../redux/uplodeSlice';
+import _ from 'lodash';
 
 let isEdit = false;
 
 function Index() {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Company Info');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Company Info');
+    const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
     const { getCompanySuccess, companyData, getCompanyFailed, updateCompanySuccess, updateCompanyFailed, errorMessage } = useSelector((state) => ({
@@ -55,8 +56,13 @@ function Index() {
     });
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState([]);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showUserName, setShowUserName] = useState(false);
 
     const errorHandle = useRef();
+
+    // Check if user has update permission (Super Admin or has edit access)
+    const canUpdate = roleIdforRole === 'Super Admin';
 
     useEffect(() => {
         setIsLoading(true);
@@ -150,10 +156,19 @@ function Index() {
     };
 
     const handleValidation = () => {
+        if (!canUpdate) {
+            showMessage('warning', 'You do not have permission to update company information');
+            return;
+        }
         errorHandle.current.validateFormFields();
     };
 
     const onFormSubmit = async () => {
+        if (!canUpdate) {
+            showMessage('warning', 'You do not have permission to update company information');
+            return;
+        }
+
         const submitRequest = {
             companyName: state?.companyName || '',
             companyMobile: state?.companyMobile || '',
@@ -176,6 +191,11 @@ function Index() {
     };
 
     const formImage = async (e, formName, formField) => {
+        if (!canUpdate) {
+            showMessage('warning', 'You do not have permission to update company logo');
+            return;
+        }
+
         if (Array.isArray(e) && e.length > 0) {
             const file = e[0].file;
             const imageURL = e[0].dataURL;
@@ -199,6 +219,24 @@ function Index() {
         }
     };
 
+    const togglePasswordVisibility = () => {
+        setShowPassword(!showPassword);
+    };
+
+    const toggleUserNameVisibility = () => {
+        setShowUserName(!showUserName);
+    };
+
+    // Mask sensitive data for non-Super Admin users
+    const maskSensitiveData = (value) => {
+        if (!value) return '';
+        if (roleIdforRole === 'Super Admin') return value;
+        
+        // Mask the value (show only first and last character if length > 2)
+        if (value.length <= 2) return '*'.repeat(value.length);
+        return value.charAt(0) + '*'.repeat(value.length - 2) + value.charAt(value.length - 1);
+    };
+
     return (
         <React.Fragment>
             {isLoading ? (
@@ -210,6 +248,14 @@ function Index() {
             ) : (
                 <Card>
                     <Card.Body>
+                        {/* Display role information */}
+                        {roleIdforRole !== 'Super Admin' && (
+                            <div className="alert alert-info mb-3">
+                                <i className="fas fa-info-circle mr-2"></i>
+                                You are viewing company information in read-only mode. Contact Super Admin for updates.
+                            </div>
+                        )}
+
                         <FormLayout
                             dynamicForm={employeeFormContainer}
                             handleSubmit={onFormSubmit}
@@ -224,9 +270,8 @@ function Index() {
                             noOfColumns={1}
                             errors={errors}
                             setErrors={setErrors}
+                            readOnly={!canUpdate} // Make form read-only if user cannot update
                         />
-
-                        <div>{`Last Update on ${moment(state?.updatedAt || null).format('DD-MM-YYYY')}`}</div>
                     </Card.Body>
                 </Card>
             )}

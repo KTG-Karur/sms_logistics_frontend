@@ -13,12 +13,12 @@ import IconSearch from '../../../components/Icon/IconSearch';
 import Select from 'react-select';
 import { getLocations, createLocations, updateLocations, deleteLocations } from '../../../redux/locationSlice';
 import { getOfficeCenters } from '../../../redux/officeCenterSlice';
+import _ from 'lodash';
 
 const Locations = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Location');
-    const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
     // Get locations state from Redux
@@ -309,34 +309,38 @@ const Locations = () => {
                 </span>
             ),
         },
-        ...(roleIdforRole === 'Super Admin' ? [{
+        {
             Header: 'Actions',
             accessor: 'actions',
             Cell: ({ row }) => (
                 <div className="flex space-x-2">
-                    <Tippy content="Edit">
-                        <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => onEditForm(row.original)}
-                        >
-                            <IconPencil className="w-4 h-4" />
-                        </button>
-                    </Tippy>
-                    <Tippy content="Delete">
-                        <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDeleteLocation(row.original)}
-                        >
-                            <IconTrashLines className="w-4 h-4" />
-                        </button>
-                    </Tippy>
+                    {_.includes(accessIds, '3') && (
+                        <Tippy content="Edit">
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => onEditForm(row.original)}
+                            >
+                                <IconPencil className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {_.includes(accessIds, '4') && (
+                        <Tippy content="Delete">
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeleteLocation(row.original)}
+                            >
+                                <IconTrashLines className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
                 </div>
             ),
             width: 120,
-        }] : [])
-    ].filter(Boolean);
+        }
+    ];
 
     // Helper function
     function findArrObj(arr, key, value) {
@@ -385,7 +389,7 @@ const Locations = () => {
                             <IconFilter className="w-4 h-4 mr-2" />
                             Filters
                         </button>
-                        {roleIdforRole === 'Super Admin' && (
+                        {_.includes(accessIds, '2') && (
                             <button
                                 type="button"
                                 onClick={openAddForm}
@@ -574,7 +578,7 @@ const Locations = () => {
                     </div>
                 ) : locationsData.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
-                        No locations found. {roleIdforRole === 'Super Admin' && 'Click "Add Location" to get started.'}
+                        No locations found. {_.includes(accessIds, '2') && 'Click "Add Location" to get started.'}
                     </div>
                 ) : (
                     <Table

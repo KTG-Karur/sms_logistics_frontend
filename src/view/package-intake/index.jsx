@@ -24,6 +24,7 @@ import { getCustomers, createCustomers } from '../../redux/customerSlice';
 import { getOfficeCentersWithLocations } from '../../redux/officeCenterSlice';
 import { createLocations } from '../../redux/locationSlice';
 import moment from 'moment';
+import _ from 'lodash';
 
 const Booking = () => {
     const dispatch = useDispatch();
@@ -890,11 +891,13 @@ const Booking = () => {
             accessor: 'actions',
             Cell: ({ row }) => (
                 <div className="flex space-x-1">
-                    <Tippy content="View Details">
-                        <button onClick={() => handleView(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors">
-                            <IconEye className="w-4 h-4" />
-                        </button>
-                    </Tippy>
+                    {_.includes(accessIds, '1') && (
+                        <Tippy content="View Details">
+                            <button onClick={() => handleView(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors">
+                                <IconEye className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
                     {row.original.delivery_status === 'not_started' && (
                         <>
                             {/* <Tippy content="Edit">
@@ -905,11 +908,13 @@ const Booking = () => {
                                     <IconPencil className="w-4 h-4" />
                                 </button>
                             </Tippy> */}
-                            <Tippy content="Delete">
-                                <button onClick={() => handleDelete(row.original)} className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors">
-                                    <IconTrashLines className="w-4 h-4" />
-                                </button>
-                            </Tippy>
+                            {_.includes(accessIds, '4') && (
+                                <Tippy content="Delete">
+                                    <button onClick={() => handleDelete(row.original)} className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors">
+                                        <IconTrashLines className="w-4 h-4" />
+                                    </button>
+                                </Tippy>
+                            )}
                         </>
                     )}
                 </div>
@@ -1058,28 +1063,30 @@ const Booking = () => {
                                 <IconFilter className="w-4 h-4 mr-2" />
                                 Filters
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    resetForm();
-                                    setShowForm(!showForm);
-                                }}
-                                className={`btn ${showForm ? 'btn-outline-primary' : 'btn-primary'} shadow-md hover:shadow-lg transition-all duration-300 flex items-center text-xs sm:text-sm py-2 px-4`}
-                            >
-                                {showForm ? (
-                                    <>
-                                        <IconX className="w-3 h-3 mr-1" />
-                                        Close Form
-                                        <IconChevronUp className="w-3 h-3 ml-1" />
-                                    </>
-                                ) : (
-                                    <>
-                                        <IconPlus className="w-3 h-3 mr-1" />
-                                        New Booking
-                                        <IconChevronDown className="w-3 h-3 ml-1" />
-                                    </>
-                                )}
-                            </button>
+                            {_.includes(accessIds, '2') && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        resetForm();
+                                        setShowForm(!showForm);
+                                    }}
+                                    className={`btn ${showForm ? 'btn-outline-primary' : 'btn-primary'} shadow-md hover:shadow-lg transition-all duration-300 flex items-center text-xs sm:text-sm py-2 px-4`}
+                                >
+                                    {showForm ? (
+                                        <>
+                                            <IconX className="w-3 h-3 mr-1" />
+                                            Close Form
+                                            <IconChevronUp className="w-3 h-3 ml-1" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IconPlus className="w-3 h-3 mr-1" />
+                                            New Booking
+                                            <IconChevronDown className="w-3 h-3 ml-1" />
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                     </div>
 

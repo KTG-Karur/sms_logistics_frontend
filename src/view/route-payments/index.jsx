@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import { useNavigate } from 'react-router-dom';
-import { showMessage } from '../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../util/AllFunction';
 import Table from '../../util/Table';
 import ModelViewBox from '../../util/ModelViewBox';
 import Select from 'react-select';
 import moment from 'moment';
 import * as XLSX from 'xlsx';
+import _ from 'lodash';
 
 // Icons
 import IconSearch from '../../components/Icon/IconSearch';
@@ -33,6 +34,7 @@ import { addPackagePayment } from '../../redux/packageSlice'; // Import the paym
 // Get login info for employee details
 const loginInfo = localStorage.getItem('loginInfo');
 const localData = loginInfo ? JSON.parse(loginInfo) : null;
+const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Booking Payments');
 const currentEmployee = localData?.employeeDetails || null;
 const currentUser = localData?.userDetails || null;
 
@@ -667,7 +669,7 @@ const RoutePayments = () => {
                     >
                         <IconEye className="w-4 h-4" />
                     </button>
-                    {parseFloat(row.original.due_amount) > 0 && (
+                    {parseFloat(row.original.due_amount) > 0 && _.includes(accessIds, '10') && (
                         <button
                             onClick={() => handleOpenPaymentModal(row.original)}
                             className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
@@ -863,7 +865,7 @@ const RoutePayments = () => {
                                     'Search'
                                 )}
                             </button>
-                            {appliedFilters && filteredBookings.length > 0 && (
+                            {appliedFilters && filteredBookings.length > 0 && _.includes(accessIds, '5') && (
                                 <button
                                     type="button"
                                     onClick={handleExportExcel}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Table from '../../util/Table';
-import { showMessage } from '../../util/AllFunction';
+import { showMessage, getAccessIdsByLabel } from '../../util/AllFunction';
 import IconPlus from '../../components/Icon/IconPlus';
 import IconTrashLines from '../../components/Icon/IconTrashLines';
 import IconCheck from '../../components/Icon/IconCheck';
@@ -16,6 +16,7 @@ import IconFilter from '../../components/Icon/IconSearch';
 import IconX from '../../components/Icon/IconX';
 import Tippy from '@tippyjs/react';
 import Select from 'react-select';
+import _ from 'lodash';
 
 // Import Redux actions
 import { getOfficeCenters } from '../../redux/officeCenterSlice';
@@ -44,6 +45,17 @@ import {
 
 const ExpenseCalculation = () => {
     const dispatch = useDispatch();
+    
+    // Get access permissions
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Daily Expense Entry');
+    
+    // Permission checks
+    const canCreate = _.includes(accessIds, '2');
+    const canEdit = _.includes(accessIds, '3');
+    const canDelete = _.includes(accessIds, '4');
+    const canPay = _.includes(accessIds, '10');
     
     // Format date functions
     const formatDisplayDate = (date) => {
@@ -498,6 +510,10 @@ const ExpenseCalculation = () => {
     };
 
     const openAddOpeningBalanceForm = (type = 'IN') => {
+        if (!canCreate) {
+            showMessage('warning', 'You do not have permission to create opening balance');
+            return;
+        }
         setOpeningBalanceType(type);
         setOpeningBalanceForm({
             date: formatInputDate(selectedDate),
@@ -512,6 +528,10 @@ const ExpenseCalculation = () => {
     };
 
     const openEditOpeningBalanceForm = (item) => {
+        if (!canEdit) {
+            showMessage('warning', 'You do not have permission to edit opening balance');
+            return;
+        }
         setOpeningBalanceType(item?.in_out || 'IN');
         setOpeningBalanceForm({
             date: item?.date || '',
@@ -569,6 +589,10 @@ const ExpenseCalculation = () => {
     };
 
     const handleDeleteOpeningBalance = (item) => {
+        if (!canDelete) {
+            showMessage('warning', 'You do not have permission to delete opening balance');
+            return;
+        }
         if (!item?.opening_balance_id) return;
         
         showMessage(
@@ -600,6 +624,10 @@ const ExpenseCalculation = () => {
     };
 
     const openAddExpenseForm = () => {
+        if (!canCreate) {
+            showMessage('warning', 'You do not have permission to create expenses');
+            return;
+        }
         setExpenseForm({
             expenseTypeId: '',
             amount: '',
@@ -683,6 +711,10 @@ const ExpenseCalculation = () => {
     };
 
     const handleDeleteExpense = (expenseId) => {
+        if (!canDelete) {
+            showMessage('warning', 'You do not have permission to delete expenses');
+            return;
+        }
         if (!expenseId) return;
         
         showMessage(
@@ -710,6 +742,10 @@ const ExpenseCalculation = () => {
     };
 
     const openAddPaymentForm = (expense) => {
+        if (!canPay) {
+            showMessage('warning', 'You do not have permission to add payments');
+            return;
+        }
         if (!expense) return;
         
         setSelectedExpenseForPayment(expense);
@@ -826,24 +862,31 @@ const ExpenseCalculation = () => {
             accessor: 'actions',
             Cell: ({ row }) => (
                 <div className="flex items-center space-x-2">
-                    <Tippy content="Edit">
-                        <button
-                            type="button"
-                            className="btn btn-outline-primary btn-sm"
-                            onClick={() => openEditOpeningBalanceForm(row.original)}
-                        >
-                            <IconEdit className="w-4 h-4" />
-                        </button>
-                    </Tippy>
-                    <Tippy content="Delete">
-                        <button
-                            type="button"
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => handleDeleteOpeningBalance(row.original)}
-                        >
-                            <IconTrashLines className="w-4 h-4" />
-                        </button>
-                    </Tippy>
+                    {canEdit && (
+                        <Tippy content="Edit">
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                onClick={() => openEditOpeningBalanceForm(row.original)}
+                            >
+                                <IconEdit className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {canDelete && (
+                        <Tippy content="Delete">
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm"
+                                onClick={() => handleDeleteOpeningBalance(row.original)}
+                            >
+                                <IconTrashLines className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {!canEdit && !canDelete && (
+                        <span className="text-xs text-gray-400 italic">No actions</span>
+                    )}
                 </div>
             ),
             width: 120,
@@ -927,7 +970,7 @@ const ExpenseCalculation = () => {
                 
                 return (
                     <div className="flex items-center space-x-2">
-                        {balance > 0 && (
+                        {balance > 0 && canPay && (
                             <Tippy content="Add Payment">
                                 <button
                                     type="button"
@@ -940,15 +983,21 @@ const ExpenseCalculation = () => {
                             </Tippy>
                         )}
                         
-                        <Tippy content="Delete">
-                            <button
-                                type="button"
-                                className="btn btn-outline-danger btn-sm"
-                                onClick={() => handleDeleteExpense(expense.expense_id)}
-                            >
-                                <IconTrashLines className="w-4 h-4" />
-                            </button>
-                        </Tippy>
+                        {canDelete && (
+                            <Tippy content="Delete">
+                                <button
+                                    type="button"
+                                    className="btn btn-outline-danger btn-sm"
+                                    onClick={() => handleDeleteExpense(expense.expense_id)}
+                                >
+                                    <IconTrashLines className="w-4 h-4" />
+                                </button>
+                            </Tippy>
+                        )}
+                        
+                        {!canPay && !canDelete && (
+                            <span className="text-xs text-gray-400 italic">No actions</span>
+                        )}
                     </div>
                 );
             },
@@ -968,7 +1017,6 @@ const ExpenseCalculation = () => {
         const endIndex = startIndex + pageSize;
         return data.slice(startIndex, endIndex);
     };
-
     return (
         <div className="space-y-6">
             {/* Header with Office Center and Date Selector */}
@@ -1218,32 +1266,34 @@ const ExpenseCalculation = () => {
                             <IconDollarSign className="w-5 h-5 mr-2 text-primary" />
                             Opening Balances - {selectedOfficeCenter?.label || 'Select Center'} ({selectedDate ? new Date(selectedDate).toLocaleDateString('en-IN') : ''})
                         </h5>
-                        <div className="flex space-x-2">
-                            {/* Add Cash In Button - Show only if no IN record exists */}
-                            {!hasOpeningBalance('IN') && (
-                                <button
-                                    type="button"
-                                    className="btn btn-success btn-sm"
-                                    onClick={() => openAddOpeningBalanceForm('IN')}
-                                    disabled={!selectedOfficeCenter}
-                                >
-                                    <IconPlus className="w-4 h-4 mr-1" />
-                                    Add Cash In
-                                </button>
-                            )}
-                            {/* Add Cash Out Button - Show only if no OUT record exists */}
-                            {!hasOpeningBalance('OUT') && (
-                                <button
-                                    type="button"
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() => openAddOpeningBalanceForm('OUT')}
-                                    disabled={!selectedOfficeCenter}
-                                >
-                                    <IconPlus className="w-4 h-4 mr-1" />
-                                    Add Cash Out
-                                </button>
-                            )}
-                        </div>
+                        {canCreate && (
+                            <div className="flex space-x-2">
+                                {/* Add Cash In Button - Show only if no IN record exists */}
+                                {!hasOpeningBalance('IN') && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-success btn-sm"
+                                        onClick={() => openAddOpeningBalanceForm('IN')}
+                                        disabled={!selectedOfficeCenter}
+                                    >
+                                        <IconPlus className="w-4 h-4 mr-1" />
+                                        Add Cash In
+                                    </button>
+                                )}
+                                {/* Add Cash Out Button - Show only if no OUT record exists */}
+                                {!hasOpeningBalance('OUT') && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-danger btn-sm"
+                                        onClick={() => openAddOpeningBalanceForm('OUT')}
+                                        disabled={!selectedOfficeCenter}
+                                    >
+                                        <IconPlus className="w-4 h-4 mr-1" />
+                                        Add Cash Out
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                     
                     {/* Quick Summary of IN/OUT */}
@@ -1277,20 +1327,22 @@ const ExpenseCalculation = () => {
                             {selectedOfficeCenter ? (
                                 <>
                                     No opening balances found for {new Date(selectedDate).toLocaleDateString('en-IN')}.
-                                    <div className="mt-2 space-x-2">
-                                        <button
-                                            className="text-success ml-2 underline"
-                                            onClick={() => openAddOpeningBalanceForm('IN')}
-                                        >
-                                            Add Cash In
-                                        </button>
-                                        <button
-                                            className="text-danger ml-2 underline"
-                                            onClick={() => openAddOpeningBalanceForm('OUT')}
-                                        >
-                                            Add Cash Out
-                                        </button>
-                                    </div>
+                                    {canCreate && (
+                                        <div className="mt-2 space-x-2">
+                                            <button
+                                                className="text-success ml-2 underline"
+                                                onClick={() => openAddOpeningBalanceForm('IN')}
+                                            >
+                                                Add Cash In
+                                            </button>
+                                            <button
+                                                className="text-danger ml-2 underline"
+                                                onClick={() => openAddOpeningBalanceForm('OUT')}
+                                            >
+                                                Add Cash Out
+                                            </button>
+                                        </div>
+                                    )}
                                 </>
                             ) : (
                                 'Please select an office center to view opening balances.'
@@ -1426,84 +1478,88 @@ const ExpenseCalculation = () => {
                             </div>
                         </div>
                         
-                        {/* Payment Toggle */}
-                        <div className="flex items-center mt-4">
-                            <input
-                                type="checkbox"
-                                id="hasPayment"
-                                className="form-checkbox h-4 w-4 text-primary"
-                                checked={expenseForm.hasPayment}
-                                onChange={(e) => setExpenseForm(prev => ({ 
-                                    ...prev, 
-                                    hasPayment: e.target.checked,
-                                    payment: {
-                                        ...prev.payment,
-                                        paymentDate: formatInputDate(selectedDate),
-                                    }
-                                }))}
-                            />
-                            <label htmlFor="hasPayment" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                Add payment for this expense
-                            </label>
-                        </div>
-
-                        {/* Payment Fields */}
-                        {expenseForm.hasPayment && (
-                            <div className="border-t pt-4 mt-4">
-                                <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Payment Details</h6>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label>Payment Date</label>
-                                        <input
-                                            type="date"
-                                            name="payment.paymentDate"
-                                            className="form-input"
-                                            value={expenseForm.payment.paymentDate}
-                                            onChange={handleExpenseInputChange}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label>Payment Amount</label>
-                                        <input
-                                            type="number"
-                                            name="payment.amount"
-                                            className="form-input"
-                                            placeholder="Enter amount"
-                                            value={expenseForm.payment.amount}
-                                            onChange={handleExpenseInputChange}
-                                            min="0"
-                                            step="0.01"
-                                            max={expenseForm.amount || 0}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label>Payment Type</label>
-                                        <select
-                                            name="payment.paymentType"
-                                            className="form-select"
-                                            value={expenseForm.payment.paymentType}
-                                            onChange={handleExpenseInputChange}
-                                        >
-                                            <option value="cash">Cash</option>
-                                            <option value="gpay">GPay</option>
-                                            <option value="bank_transfer">Bank Transfer</option>
-                                            <option value="cheque">Cheque</option>
-                                            <option value="other">Other</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label>Payment Notes</label>
-                                        <input
-                                            type="text"
-                                            name="payment.notes"
-                                            className="form-input"
-                                            placeholder="Enter notes"
-                                            value={expenseForm.payment.notes}
-                                            onChange={handleExpenseInputChange}
-                                        />
-                                    </div>
+                        {/* Payment Toggle - Only show if user has pay permission */}
+                        {canPay && (
+                            <>
+                                <div className="flex items-center mt-4">
+                                    <input
+                                        type="checkbox"
+                                        id="hasPayment"
+                                        className="form-checkbox h-4 w-4 text-primary"
+                                        checked={expenseForm.hasPayment}
+                                        onChange={(e) => setExpenseForm(prev => ({ 
+                                            ...prev, 
+                                            hasPayment: e.target.checked,
+                                            payment: {
+                                                ...prev.payment,
+                                                paymentDate: formatInputDate(selectedDate),
+                                            }
+                                        }))}
+                                    />
+                                    <label htmlFor="hasPayment" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                        Add payment for this expense
+                                    </label>
                                 </div>
-                            </div>
+
+                                {/* Payment Fields */}
+                                {expenseForm.hasPayment && (
+                                    <div className="border-t pt-4 mt-4">
+                                        <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Payment Details</h6>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label>Payment Date</label>
+                                                <input
+                                                    type="date"
+                                                    name="payment.paymentDate"
+                                                    className="form-input"
+                                                    value={expenseForm.payment.paymentDate}
+                                                    onChange={handleExpenseInputChange}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Payment Amount</label>
+                                                <input
+                                                    type="number"
+                                                    name="payment.amount"
+                                                    className="form-input"
+                                                    placeholder="Enter amount"
+                                                    value={expenseForm.payment.amount}
+                                                    onChange={handleExpenseInputChange}
+                                                    min="0"
+                                                    step="0.01"
+                                                    max={expenseForm.amount || 0}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Payment Type</label>
+                                                <select
+                                                    name="payment.paymentType"
+                                                    className="form-select"
+                                                    value={expenseForm.payment.paymentType}
+                                                    onChange={handleExpenseInputChange}
+                                                >
+                                                    <option value="cash">Cash</option>
+                                                    <option value="gpay">GPay</option>
+                                                    <option value="bank_transfer">Bank Transfer</option>
+                                                    <option value="cheque">Cheque</option>
+                                                    <option value="other">Other</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label>Payment Notes</label>
+                                                <input
+                                                    type="text"
+                                                    name="payment.notes"
+                                                    className="form-input"
+                                                    placeholder="Enter notes"
+                                                    value={expenseForm.payment.notes}
+                                                    onChange={handleExpenseInputChange}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                         
                         <div className="flex justify-end space-x-2 mt-6">
@@ -1663,16 +1719,18 @@ const ExpenseCalculation = () => {
                             Filter
                         </button>
                         
-                        {/* Add Expense Button */}
-                        <button
-                            type="button"
-                            className="btn btn-success btn-sm"
-                            onClick={openAddExpenseForm}
-                            disabled={!selectedOfficeCenter}
-                        >
-                            <IconPlus className="w-4 h-4 mr-1" />
-                            Add Expense
-                        </button>
+                        {/* Add Expense Button - Only show if user has create permission */}
+                        {canCreate && (
+                            <button
+                                type="button"
+                                className="btn btn-success btn-sm"
+                                onClick={openAddExpenseForm}
+                                disabled={!selectedOfficeCenter}
+                            >
+                                <IconPlus className="w-4 h-4 mr-1" />
+                                Add Expense
+                            </button>
+                        )}
                     </div>
                 </div>
                 

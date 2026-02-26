@@ -26,6 +26,7 @@ import IconPrinter from '../../../components/Icon/IconPrinter';
 import IconFileText from '../../../components/Icon/IconTxtFile';
 import noProfile from '../../../../public/assets/images/no-profile.jpg';
 import { baseURL } from '../../../api/ApiConfig';
+import _ from 'lodash';
 
 const AttendanceReport = () => {
   const dispatch = useDispatch();
@@ -554,11 +555,13 @@ const AttendanceReport = () => {
 
           {/* Action Buttons - Responsive */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-end space-y-2 sm:space-y-0 sm:space-x-2">
+            {_.includes(accessIds, '5') && (
             <button onClick={exportToExcel} className="btn btn-success w-full sm:flex-1 text-sm">
               <IconDownload className="w-4 h-4 mr-2 inline" />
               <span className="hidden sm:inline">Export Excel</span>
               <span className="sm:hidden">Export</span>
             </button>
+            )}
             {/* <div className="flex space-x-2">
               <button onClick={() => setShowHolidayForm(true)} className="btn btn-info flex-1 sm:flex-none">
                 <IconPlus className="w-4 h-4 sm:mr-2" />

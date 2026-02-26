@@ -44,6 +44,9 @@ const Index = () => {
     const [pageSize, setPageSize] = useState(10);
     const [transformedExpenceTypes, setTransformedExpenceTypes] = useState([]);
 
+    // List of protected expense type names that cannot be edited or deleted
+    const PROTECTED_EXPENSE_TYPES = ['Loadman Salary', 'Salary'];
+
     useEffect(() => {
         dispatch(setPageTitle('ExpenceType Management'));
         fetchExpenceTypes();
@@ -56,7 +59,8 @@ const Index = () => {
                 id: item.expenceTypeId, // Note: camelCase from API response
                 expence_type_name: item.expenceTypeName, // Convert to snake_case for table display
                 is_active: item.isActive === 1 ? 'Active' : 'Inactive',
-                originalData: item // Keep original data for reference
+                originalData: item, // Keep original data for reference
+                isProtected: PROTECTED_EXPENSE_TYPES.includes(item.expenceTypeName) // Flag for protected items
             }));
             setTransformedExpenceTypes(transformed);
         } else {
@@ -95,6 +99,11 @@ const Index = () => {
         dispatch(getExpenceType({})); 
     };
 
+    // Check if expense type is protected (cannot be edited/deleted)
+    const isProtectedExpenseType = (expenseTypeName) => {
+        return PROTECTED_EXPENSE_TYPES.includes(expenseTypeName);
+    };
+
     const columns = [
         {
             Header: 'S.No',
@@ -106,6 +115,16 @@ const Index = () => {
             Header: 'Expence Type Name',
             accessor: 'expence_type_name',
             sort: true,
+            Cell: ({ value, row }) => (
+                <div className="flex items-center">
+                    <span>{value}</span>
+                    {isProtectedExpenseType(value) && (
+                        <span className="ml-2 px-2 py-0.5 text-xs bg-warning/20 text-warning rounded-full">
+                            Protected
+                        </span>
+                    )}
+                </div>
+            ),
         },
         {
             Header: 'Status',
@@ -123,24 +142,36 @@ const Index = () => {
         {
             Header: 'Actions',
             accessor: 'actions',
-            Cell: ({ row }) => (
-                <div className="flex items-center space-x-2">
-                    {_.includes(accessIds, '3') && (
-                        <Tippy content="Edit">
-                            <span className="text-success me-2 cursor-pointer" onClick={() => onEditForm(row.original)}>
-                                <IconPencil />
-                            </span>
-                        </Tippy>
-                    )}
-                    {_.includes(accessIds, '4') && (
-                        <Tippy content="Delete">
-                            <span className="text-danger me-2 cursor-pointer" onClick={() => handleDeleteExpenceType(row.original.id)}>
-                                <IconTrashLines />
-                            </span>
-                        </Tippy>
-                    )}
-                </div>
-            ),
+            Cell: ({ row }) => {
+                const isProtected = isProtectedExpenseType(row.original.expence_type_name);
+                
+                return (
+                    <div className="flex items-center space-x-2">
+                        {_.includes(accessIds, '3') && !isProtected && (
+                            <Tippy content="Edit">
+                                <span className="text-success me-2 cursor-pointer" onClick={() => onEditForm(row.original)}>
+                                    <IconPencil />
+                                </span>
+                            </Tippy>
+                        )}
+                        {_.includes(accessIds, '4') && !isProtected && (
+                            <Tippy content="Delete">
+                                <span className="text-danger me-2 cursor-pointer" onClick={() => handleDeleteExpenceType(row.original.id)}>
+                                    <IconTrashLines />
+                                </span>
+                            </Tippy>
+                        )}
+                        {isProtected && (
+                            <Tippy content="This is a protected expense type and cannot be modified">
+                                <span className="text-gray-400 cursor-not-allowed">
+                                    <IconPencil className="opacity-30" />
+                                    <IconTrashLines className="opacity-30 ml-2" />
+                                </span>
+                            </Tippy>
+                        )}
+                    </div>
+                );
+            },
             width: 120,
         },
     ];
@@ -165,6 +196,12 @@ const Index = () => {
     };
 
     const onEditForm = (data) => {
+        // Prevent editing of protected expense types
+        if (isProtectedExpenseType(data.expence_type_name)) {
+            showMessage('warning', 'This expense type is protected and cannot be edited');
+            return;
+        }
+
         setState({
             expenceTypeName: data.expence_type_name, // Use the transformed field name
         });
@@ -181,6 +218,12 @@ const Index = () => {
             return;
         }
 
+        // Prevent creating duplicate protected names
+        if (PROTECTED_EXPENSE_TYPES.includes(state.expenceTypeName.trim())) {
+            showMessage('error', `"${state.expenceTypeName}" is a protected name and cannot be used`);
+            return;
+        }
+
         // Check for duplicate expence type name
         const duplicateExpenceType = transformedExpenceTypes.find(
             (expenceType) => 
@@ -191,6 +234,13 @@ const Index = () => {
 
         if (duplicateExpenceType) {
             showMessage('error', 'ExpenceType name already exists');
+            return;
+        }
+
+        // Check if trying to update a protected expense type
+        if (isEdit && selectedItem && isProtectedExpenseType(selectedItem.expence_type_name)) {
+            showMessage('warning', 'This expense type is protected and cannot be modified');
+            closeModel();
             return;
         }
 
@@ -224,6 +274,14 @@ const Index = () => {
     };
 
     const handleDeleteExpenceType = (expenceTypeId) => {
+        // Find the expense type to check if it's protected
+        const expenseType = transformedExpenceTypes.find(et => et.id === expenceTypeId);
+        
+        if (expenseType && isProtectedExpenseType(expenseType.expence_type_name)) {
+            showMessage('warning', 'This expense type is protected and cannot be deleted');
+            return;
+        }
+
         showMessage('warning', 'Are you sure you want to delete this expenceType?', () => {
             dispatch(deleteExpenceType(expenceTypeId));
         });
