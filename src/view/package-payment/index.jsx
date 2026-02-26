@@ -52,10 +52,7 @@ const PendingPayments = () => {
     const statusOptions = [
         { value: 'all', label: 'All Status' },
         { value: 'fully_paid', label: 'Fully Paid' },
-        { value: 'partial', label: 'Partial' },
         { value: 'pending', label: 'Pending' },
-        { value: 'not_responsible', label: 'Not Responsible' },
-        { value: 'no_bookings', label: 'No Bookings' },
     ];
 
     useEffect(() => {
