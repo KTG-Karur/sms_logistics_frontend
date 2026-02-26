@@ -25,13 +25,13 @@ import { getOfficeCentersWithLocations } from '../../redux/officeCenterSlice';
 import { createLocations } from '../../redux/locationSlice';
 import moment from 'moment';
 
-const PackageIntake = () => {
+const Booking = () => {
     const dispatch = useDispatch();
 
     // Get login info for permissions
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Package Intake');
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Booking');
     const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
     const roleIdforRole = localData?.roleName;
 
@@ -82,8 +82,6 @@ const PackageIntake = () => {
     const [formData, setFormData] = useState({
         fromCenterId: null,
         toCenterId: null,
-        fromLocationId: null,
-        toLocationId: null,
         fromMobile: '',
         fromCustomerId: null,
         toMobile: '',
@@ -102,32 +100,38 @@ const PackageIntake = () => {
         ],
     });
 
+    // We'll store locations separately since they depend on centers
+    const [selectedLocations, setSelectedLocations] = useState({
+        fromLocationId: null,
+        toLocationId: null,
+    });
+
     const [errors, setErrors] = useState({});
 
     // Load initial data
     useEffect(() => {
-        dispatch(setPageTitle('Package Intake Management'));
+        dispatch(setPageTitle('Booking Management'));
         fetchInitialData();
     }, []);
 
     // Fetch success/error handling
     useEffect(() => {
         if (createPackageSuccess) {
-            showMessage('success', 'Package created successfully');
+            showMessage('success', 'Booking created successfully');
             resetForm();
             setShowForm(false);
             dispatch(resetPackageStatus());
             fetchPackages();
         }
         if (updatePackageSuccess) {
-            showMessage('success', 'Package updated successfully');
+            showMessage('success', 'Booking updated successfully');
             resetForm();
             setShowForm(false);
             dispatch(resetPackageStatus());
             fetchPackages();
         }
         if (deletePackageSuccess) {
-            showMessage('success', 'Package deleted successfully');
+            showMessage('success', 'Booking deleted successfully');
             dispatch(resetPackageStatus());
             fetchPackages();
         }
@@ -174,13 +178,13 @@ const PackageIntake = () => {
                     const center = officeCentersWithLocationsData.find((c) => c.office_center_id === formData.fromCenterId);
                     if (center && center.locations && center.locations.length > 0) {
                         const newLoc = center.locations[center.locations.length - 1];
-                        setFormData((prev) => ({ ...prev, fromLocationId: newLoc.location_id }));
+                        setSelectedLocations((prev) => ({ ...prev, fromLocationId: newLoc.location_id }));
                     }
                 } else if (locationField === 'to' && formData.toCenterId) {
                     const center = officeCentersWithLocationsData.find((c) => c.office_center_id === formData.toCenterId);
                     if (center && center.locations && center.locations.length > 0) {
                         const newLoc = center.locations[center.locations.length - 1];
-                        setFormData((prev) => ({ ...prev, toLocationId: newLoc.location_id }));
+                        setSelectedLocations((prev) => ({ ...prev, toLocationId: newLoc.location_id }));
                     }
                 }
             }, 500);
@@ -311,8 +315,8 @@ const PackageIntake = () => {
         setFormData((prev) => ({
             ...prev,
             fromCenterId: selected?.value,
-            fromLocationId: null, // Reset location when center changes
         }));
+        setSelectedLocations((prev) => ({ ...prev, fromLocationId: null })); // Reset location when center changes
         setErrors((prev) => ({ ...prev, fromCenterId: null }));
     };
 
@@ -320,8 +324,8 @@ const PackageIntake = () => {
         setFormData((prev) => ({
             ...prev,
             toCenterId: selected?.value,
-            toLocationId: null, // Reset location when center changes
         }));
+        setSelectedLocations((prev) => ({ ...prev, toLocationId: null })); // Reset location when center changes
         setErrors((prev) => ({ ...prev, toCenterId: null }));
     };
 
@@ -338,10 +342,10 @@ const PackageIntake = () => {
             setLocationModal(true);
         } else {
             if (field === 'from') {
-                setFormData((prev) => ({ ...prev, fromLocationId: selected?.value }));
+                setSelectedLocations((prev) => ({ ...prev, fromLocationId: selected?.value }));
                 setErrors((prev) => ({ ...prev, fromLocationId: null }));
             } else if (field === 'to') {
-                setFormData((prev) => ({ ...prev, toLocationId: selected?.value }));
+                setSelectedLocations((prev) => ({ ...prev, toLocationId: selected?.value }));
                 setErrors((prev) => ({ ...prev, toLocationId: null }));
             }
         }
@@ -530,8 +534,8 @@ const PackageIntake = () => {
             newErrors.toCenterId = 'From and To centers cannot be the same';
         }
 
-        if (!formData.fromLocationId) newErrors.fromLocationId = 'From location is required';
-        if (!formData.toLocationId) newErrors.toLocationId = 'To location is required';
+        if (!selectedLocations.fromLocationId) newErrors.fromLocationId = 'From location is required';
+        if (!selectedLocations.toLocationId) newErrors.toLocationId = 'To location is required';
 
         if (!formData.fromMobile || formData.fromMobile.length !== 10) {
             newErrors.fromMobile = 'Valid sender mobile number (10 digits) is required';
@@ -583,8 +587,8 @@ const PackageIntake = () => {
         const requestData = {
             fromCenterId: formData.fromCenterId,
             toCenterId: formData.toCenterId,
-            fromLocationId: formData.fromLocationId,
-            toLocationId: formData.toLocationId,
+            fromLocationId: selectedLocations.fromLocationId,
+            toLocationId: selectedLocations.toLocationId,
             fromCustomerId: formData.fromCustomerId,
             toCustomerId: formData.toCustomerId,
             paidAmount: safeParseFloat(formData.paidAmount),
@@ -611,7 +615,7 @@ const PackageIntake = () => {
                 await dispatch(createPackage(requestData)).unwrap();
             }
         } catch (error) {
-            showMessage('error', error.message || 'Failed to save package');
+            showMessage('error', error.message || 'Failed to save booking');
         }
     };
 
@@ -620,8 +624,6 @@ const PackageIntake = () => {
         setFormData({
             fromCenterId: null,
             toCenterId: null,
-            fromLocationId: null,
-            toLocationId: null,
             fromMobile: '',
             fromCustomerId: null,
             toMobile: '',
@@ -639,6 +641,10 @@ const PackageIntake = () => {
                 },
             ],
         });
+        setSelectedLocations({
+            fromLocationId: null,
+            toLocationId: null,
+        });
         setPaymentMode('cash');
         setErrors({});
         setIsEdit(false);
@@ -648,7 +654,7 @@ const PackageIntake = () => {
     // Edit package
     const handleEdit = (pkg) => {
         if (pkg.delivery_status !== 'not_started') {
-            showMessage('error', 'Cannot edit package that is already in delivery process');
+            showMessage('error', 'Cannot edit booking that is already in delivery process');
             return;
         }
 
@@ -659,8 +665,6 @@ const PackageIntake = () => {
         setFormData({
             fromCenterId: pkg.from_center_id,
             toCenterId: pkg.to_center_id,
-            fromLocationId: pkg.from_location_id,
-            toLocationId: pkg.to_location_id,
             fromMobile: pkg.fromCustomer?.customer_number || '',
             fromCustomerId: pkg.from_customer_id,
             toMobile: pkg.toCustomer?.customer_number || '',
@@ -676,18 +680,23 @@ const PackageIntake = () => {
                 handlingCharge: p.handling_charge?.toString() || '',
             })),
         });
+
+        setSelectedLocations({
+            fromLocationId: pkg.from_location_id,
+            toLocationId: pkg.to_location_id,
+        });
     };
 
     // Delete package
     const handleDelete = (pkg) => {
         if (pkg.delivery_status !== 'not_started') {
-            showMessage('error', 'Cannot delete package that is already in delivery process');
+            showMessage('error', 'Cannot delete booking that is already in delivery process');
             return;
         }
 
         showMessage(
             'warning',
-            `Are you sure you want to delete package #${pkg.booking_number || pkg.booking_id}?`,
+            `Are you sure you want to delete booking #${pkg.booking_number || pkg.booking_id}?`,
             () => {
                 dispatch(deletePackage(pkg.booking_id));
             },
@@ -939,8 +948,8 @@ const PackageIntake = () => {
             <div className="mb-4 sm:mb-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
                     <div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Package Intake</h1>
-                        <p className="text-gray-600 mt-1 text-xs sm:text-sm">Manage package intake, track deliveries, and handle payments</p>
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Booking Management</h1>
+                        <p className="text-gray-600 mt-1 text-xs sm:text-sm">Manage bookings, track deliveries, and handle payments</p>
                     </div>
                 </div>
 
@@ -1067,7 +1076,7 @@ const PackageIntake = () => {
                                 ) : (
                                     <>
                                         <IconPlus className="w-3 h-3 mr-1" />
-                                        Add New Package
+                                        New Booking
                                         <IconChevronDown className="w-3 h-3 ml-1" />
                                     </>
                                 )}
@@ -1129,261 +1138,180 @@ const PackageIntake = () => {
                     <div className="p-3 sm:p-4 border-b border-gray-200">
                         <h2 className="text-base sm:text-lg font-bold text-gray-800 flex items-center">
                             <IconPackage className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" />
-                            {isEdit ? 'Edit Package' : 'New Package Intake'}
+                            {isEdit ? 'Edit Booking' : 'Create New Booking'}
                         </h2>
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-3 sm:p-4">
                         <div className="space-y-4 sm:space-y-5">
-                            {/* Company Centers Section */}
-                            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                    <IconMapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-primary" />
-                                    Company Centers *
-                                </h3>
+                            {/* Row 1: Company Centers and Mobile Numbers (4 fields in one line) */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                {/* From Center */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">From Center *</label>
+                                    <Select
+                                        options={getFilteredCenterOptions(formData.fromCenterId, formData.toCenterId)}
+                                        value={getOfficeCenterOptions().find((opt) => opt.value === formData.fromCenterId)}
+                                        onChange={handleFromCenterChange}
+                                        placeholder="Select from center"
+                                        className="react-select"
+                                        classNamePrefix="select"
+                                        styles={{
+                                            control: (base) => ({
+                                                ...base,
+                                                borderColor: errors.fromCenterId ? '#ef4444' : '#d1d5db',
+                                                minHeight: '32px',
+                                                fontSize: '13px',
+                                            }),
+                                        }}
+                                        isLoading={officeCentersLoading}
+                                    />
+                                    {errors.fromCenterId && <p className="mt-1 text-xs text-red-600">{errors.fromCenterId}</p>}
+                                </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                                    {/* From Center */}
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">From Center *</label>
-                                        <Select
-                                            options={getFilteredCenterOptions(formData.fromCenterId, formData.toCenterId)}
-                                            value={getOfficeCenterOptions().find((opt) => opt.value === formData.fromCenterId)}
-                                            onChange={handleFromCenterChange}
-                                            placeholder="Select from center"
-                                            className="react-select"
-                                            classNamePrefix="select"
-                                            styles={{
-                                                control: (base) => ({
-                                                    ...base,
-                                                    borderColor: errors.fromCenterId ? '#ef4444' : '#d1d5db',
-                                                    minHeight: '36px',
-                                                    fontSize: '14px',
-                                                }),
-                                            }}
-                                            isLoading={officeCentersLoading}
-                                        />
-                                        {errors.fromCenterId && <p className="mt-1 text-xs text-red-600">{errors.fromCenterId}</p>}
-                                    </div>
+                                {/* To Center */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">To Center *</label>
+                                    <Select
+                                        options={getFilteredCenterOptions(formData.toCenterId, formData.fromCenterId)}
+                                        value={getOfficeCenterOptions().find((opt) => opt.value === formData.toCenterId)}
+                                        onChange={handleToCenterChange}
+                                        placeholder="Select to center"
+                                        className="react-select"
+                                        classNamePrefix="select"
+                                        styles={{
+                                            control: (base) => ({
+                                                ...base,
+                                                borderColor: errors.toCenterId ? '#ef4444' : '#d1d5db',
+                                                minHeight: '32px',
+                                                fontSize: '13px',
+                                            }),
+                                        }}
+                                        isLoading={officeCentersLoading}
+                                    />
+                                    {errors.toCenterId && <p className="mt-1 text-xs text-red-600">{errors.toCenterId}</p>}
+                                </div>
+                                {/* From Location */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">From Location *</label>
+                                    <Select
+                                        options={getLocationOptions(formData.fromCenterId)}
+                                        filterOption={locationFilterOption}
+                                        value={getLocationOptions(formData.fromCenterId).find((opt) => opt.value === selectedLocations.fromLocationId)}
+                                        onChange={(selected) => handleLocationChange(selected, 'from')}
+                                        placeholder={formData.fromCenterId ? 'Select or add location' : 'Select from center first'}
+                                        className="react-select"
+                                        classNamePrefix="select"
+                                        isDisabled={!formData.fromCenterId}
+                                    />
+                                </div>
 
-                                    {/* To Center */}
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">To Center *</label>
-                                        <Select
-                                            options={getFilteredCenterOptions(formData.toCenterId, formData.fromCenterId)}
-                                            value={getOfficeCenterOptions().find((opt) => opt.value === formData.toCenterId)}
-                                            onChange={handleToCenterChange}
-                                            placeholder="Select to center"
-                                            className="react-select"
-                                            classNamePrefix="select"
-                                            styles={{
-                                                control: (base) => ({
-                                                    ...base,
-                                                    borderColor: errors.toCenterId ? '#ef4444' : '#d1d5db',
-                                                    minHeight: '36px',
-                                                    fontSize: '14px',
-                                                }),
-                                            }}
-                                            isLoading={officeCentersLoading}
-                                        />
-                                        {errors.toCenterId && <p className="mt-1 text-xs text-red-600">{errors.toCenterId}</p>}
-                                    </div>
+                                {/* To Location */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">To Location *</label>
+                                    <Select
+                                        options={getLocationOptions(formData.toCenterId)}
+                                        filterOption={locationFilterOption}
+                                        value={getLocationOptions(formData.toCenterId).find((opt) => opt.value === selectedLocations.toLocationId)}
+                                        onChange={(selected) => handleLocationChange(selected, 'to')}
+                                        placeholder={formData.toCenterId ? 'Select or add location' : 'Select to center first'}
+                                        className="react-select"
+                                        classNamePrefix="select"
+                                        isDisabled={!formData.toCenterId}
+                                    />
                                 </div>
                             </div>
 
-                            {/* Customer Locations Section */}
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                    <IconMapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-orange-500" />
-                                    Customer Locations *
-                                </h3>
-
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                                    {/* From Location */}
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">From Location *</label>
-                                        <Select
-                                            options={getLocationOptions(formData.fromCenterId)}
-                                            filterOption={locationFilterOption}
-                                            value={getLocationOptions(formData.fromCenterId).find((opt) => opt.value === formData.fromLocationId)}
-                                            onChange={(selected) => handleLocationChange(selected, 'from')}
-                                            placeholder={formData.fromCenterId ? 'Select or add location' : 'Select from center first'}
-                                            className="react-select"
-                                            classNamePrefix="select"
-                                            styles={{
-                                                control: (base) => ({
-                                                    ...base,
-                                                    borderColor: errors.fromLocationId ? '#ef4444' : '#d1d5db',
-                                                    minHeight: '36px',
-                                                    fontSize: '14px',
-                                                }),
-                                            }}
-                                            isDisabled={!formData.fromCenterId}
-                                        />
-                                        {errors.fromLocationId && <p className="mt-1 text-xs text-red-600">{errors.fromLocationId}</p>}
-                                    </div>
-
-                                    {/* To Location */}
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">To Location *</label>
-                                        <Select
-                                            options={getLocationOptions(formData.toCenterId)}
-                                            filterOption={locationFilterOption}
-                                            value={getLocationOptions(formData.toCenterId).find((opt) => opt.value === formData.toLocationId)}
-                                            onChange={(selected) => handleLocationChange(selected, 'to')}
-                                            placeholder={formData.toCenterId ? 'Select or add location' : 'Select to center first'}
-                                            className="react-select"
-                                            classNamePrefix="select"
-                                            styles={{
-                                                control: (base) => ({
-                                                    ...base,
-                                                    borderColor: errors.toLocationId ? '#ef4444' : '#d1d5db',
-                                                    minHeight: '36px',
-                                                    fontSize: '14px',
-                                                }),
-                                            }}
-                                            isDisabled={!formData.toCenterId}
-                                        />
-                                        {errors.toLocationId && <p className="mt-1 text-xs text-red-600">{errors.toLocationId}</p>}
-                                    </div>
+                            {/* Row 2: Locations + Customers (4 fields in one line) */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                {/* From Mobile */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Sender Mobile *</label>
+                                    <input
+                                        type="text"
+                                        value={formData.fromMobile}
+                                        onChange={(e) => handleFromMobileChange(e.target.value)}
+                                        className={`form-input w-full text-sm ${errors.fromMobile ? 'border-red-500' : ''}`}
+                                        placeholder="10-digit mobile"
+                                        maxLength="10"
+                                    />
+                                    {errors.fromMobile && <p className="mt-1 text-xs text-red-600">{errors.fromMobile}</p>}
                                 </div>
-                            </div>
 
-                            {/* Customer Details Section */}
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3 flex items-center">
-                                    <IconUser className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-blue-500" />
-                                    Customer Details *
-                                </h3>
+                                {/* Select Sender */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Select Sender *</label>
+                                    <Select
+                                        options={getCustomerOptions(formData.fromMobile)}
+                                        value={getCustomerOptions(formData.fromMobile).find((opt) => opt.value === formData.fromCustomerId)}
+                                        onChange={handleFromCustomerSelect}
+                                        placeholder={formData.fromMobile.length === 10 ? 'Select or add sender' : 'Enter mobile first'}
+                                        isDisabled={formData.fromMobile.length !== 10}
+                                        className="react-select"
+                                        classNamePrefix="select"
+                                    />
+                                </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                                    {/* From Customer */}
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Sender Mobile *</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={formData.fromMobile}
-                                                onChange={(e) => handleFromMobileChange(e.target.value)}
-                                                className={`form-input w-full ${errors.fromMobile ? 'border-red-500' : ''}`}
-                                                placeholder="10-digit mobile"
-                                                maxLength="10"
-                                            />
-                                        </div>
-                                        {errors.fromMobile && <p className="mt-1 text-xs text-red-600">{errors.fromMobile}</p>}
+                                {/* To Mobile */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Receiver Mobile *</label>
+                                    <input
+                                        type="text"
+                                        value={formData.toMobile}
+                                        onChange={(e) => handleToMobileChange(e.target.value)}
+                                        className={`form-input w-full text-sm ${errors.toMobile ? 'border-red-500' : ''}`}
+                                        placeholder="10-digit mobile"
+                                        maxLength="10"
+                                    />
+                                    {errors.toMobile && <p className="mt-1 text-xs text-red-600">{errors.toMobile}</p>}
+                                </div>
 
-                                        {/* Customer Dropdown */}
-                                        {formData.fromMobile.length === 10 && (
-                                            <div className="mt-2">
-                                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Select Sender *</label>
-                                                <Select
-                                                    options={getCustomerOptions(formData.fromMobile)}
-                                                    value={getCustomerOptions(formData.fromMobile).find((opt) => opt.value === formData.fromCustomerId)}
-                                                    onChange={handleFromCustomerSelect}
-                                                    placeholder="Select or add sender"
-                                                    className="react-select"
-                                                    classNamePrefix="select"
-                                                    styles={{
-                                                        control: (base) => ({
-                                                            ...base,
-                                                            borderColor: errors.fromCustomerId ? '#ef4444' : '#d1d5db',
-                                                            minHeight: '36px',
-                                                            fontSize: '14px',
-                                                        }),
-                                                    }}
-                                                />
-                                                {errors.fromCustomerId && <p className="mt-1 text-xs text-red-600">{errors.fromCustomerId}</p>}
-                                            </div>
-                                        )}
-
-                                        {formData.fromCustomerId && formData.fromCustomerId !== 'new' && (
-                                            <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
-                                                <div className="flex items-center text-xs sm:text-sm text-gray-700">
-                                                    <IconUser className="w-3 h-3 mr-1 text-blue-500" />
-                                                    <span className="font-medium">{customersData.find((c) => c.customer_id === formData.fromCustomerId)?.customer_name}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* To Customer */}
-                                    <div>
-                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Receiver Mobile *</label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={formData.toMobile}
-                                                onChange={(e) => handleToMobileChange(e.target.value)}
-                                                className={`form-input w-full ${errors.toMobile ? 'border-red-500' : ''}`}
-                                                placeholder="10-digit mobile"
-                                                maxLength="10"
-                                            />
-                                        </div>
-                                        {errors.toMobile && <p className="mt-1 text-xs text-red-600">{errors.toMobile}</p>}
-
-                                        {/* Customer Dropdown */}
-                                        {formData.toMobile.length === 10 && (
-                                            <div className="mt-2">
-                                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Select Receiver *</label>
-                                                <Select
-                                                    options={getCustomerOptions(formData.toMobile)}
-                                                    value={getCustomerOptions(formData.toMobile).find((opt) => opt.value === formData.toCustomerId)}
-                                                    onChange={handleToCustomerSelect}
-                                                    placeholder="Select or add receiver"
-                                                    className="react-select"
-                                                    classNamePrefix="select"
-                                                    styles={{
-                                                        control: (base) => ({
-                                                            ...base,
-                                                            borderColor: errors.toCustomerId ? '#ef4444' : '#d1d5db',
-                                                            minHeight: '36px',
-                                                            fontSize: '14px',
-                                                        }),
-                                                    }}
-                                                />
-                                                {errors.toCustomerId && <p className="mt-1 text-xs text-red-600">{errors.toCustomerId}</p>}
-                                            </div>
-                                        )}
-
-                                        {formData.toCustomerId && formData.toCustomerId !== 'new' && (
-                                            <div className="mt-2 p-2 bg-green-50 rounded border border-green-200">
-                                                <div className="flex items-center text-xs sm:text-sm text-gray-700">
-                                                    <IconUser className="w-3 h-3 mr-1 text-green-500" />
-                                                    <span className="font-medium">{customersData.find((c) => c.customer_id === formData.toCustomerId)?.customer_name}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                {/* Select Receiver */}
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-1">Select Receiver *</label>
+                                    <Select
+                                        options={getCustomerOptions(formData.toMobile)}
+                                        value={getCustomerOptions(formData.toMobile).find((opt) => opt.value === formData.toCustomerId)}
+                                        onChange={handleToCustomerSelect}
+                                        placeholder={formData.toMobile.length === 10 ? 'Select or add receiver' : 'Enter mobile first'}
+                                        isDisabled={formData.toMobile.length !== 10}
+                                        className="react-select"
+                                        classNamePrefix="select"
+                                    />
                                 </div>
                             </div>
 
                             {/* Package Details Section */}
                             <div className="bg-white rounded-lg p-3 border border-gray-200">
                                 <div className="flex items-center justify-between mb-3">
-                                    <h3 className="text-sm sm:text-base font-semibold text-gray-800 flex items-center">
-                                        <IconPackage className="w-3 h-3 sm:w-4 sm:h-4 mr-1 text-purple-500" />
+                                    <h3 className="text-sm font-semibold text-gray-800 flex items-center">
+                                        <IconPackage className="w-3 h-3 mr-1 text-purple-500" />
                                         Package Details *
                                     </h3>
-                                    <button type="button" onClick={addPackageDetail} className="btn btn-outline-primary btn-xs sm:btn-sm flex items-center text-xs">
+                                    <button type="button" onClick={addPackageDetail} className="btn btn-outline-primary btn-xs flex items-center text-xs">
                                         <IconPlus className="w-3 h-3 mr-1" />
                                         Add Item
                                     </button>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="space-y-2">
                                     {formData.packages.map((pkg, index) => {
                                         const selectedPkg = packageTypeData.find((pt) => pt.package_type_id === pkg.packageTypeId);
 
                                         return (
-                                            <div key={index} className="bg-gray-50 rounded p-3 border border-gray-200 relative">
+                                            <div key={index} className="bg-gray-50 rounded p-2 border border-gray-200 relative">
                                                 {formData.packages.length > 1 && (
-                                                    <button type="button" onClick={() => removePackageDetail(index)} className="absolute top-1 right-1 text-red-500 hover:text-red-700">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removePackageDetail(index)}
+                                                        className="absolute -top-1 -right-1 text-red-500 hover:text-red-700 bg-white rounded-full p-0.5 shadow-sm"
+                                                    >
                                                         <IconX className="w-3 h-3" />
                                                     </button>
                                                 )}
-                                                <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                                                     {/* Package Type */}
-                                                    <div className="md:col-span-2">
+                                                    <div className="md:col-span-5">
                                                         <label className="block text-xs font-medium text-gray-700 mb-1">Package Type *</label>
                                                         <Select
                                                             options={getPackageTypeOptions(index)}
@@ -1396,13 +1324,8 @@ const PackageIntake = () => {
                                                                 control: (base) => ({
                                                                     ...base,
                                                                     borderColor: errors[`packageType_${index}`] ? '#ef4444' : '#d1d5db',
-                                                                    minHeight: '36px',
-                                                                    fontSize: '14px',
-                                                                }),
-                                                                option: (base, state) => ({
-                                                                    ...base,
-                                                                    backgroundColor: state.isDisabled ? '#f3f4f6' : base.backgroundColor,
-                                                                    color: state.isDisabled ? '#9ca3af' : base.color,
+                                                                    minHeight: '32px',
+                                                                    fontSize: '13px',
                                                                 }),
                                                             }}
                                                             isLoading={packageTypeData.length === 0}
@@ -1411,84 +1334,68 @@ const PackageIntake = () => {
                                                             }}
                                                         />
                                                         {errors[`packageType_${index}`] && <p className="mt-1 text-xs text-red-600">{errors[`packageType_${index}`]}</p>}
-
-                                                        {/* Show pickup and drop prices below package type */}
-                                                        {selectedPkg && (
-                                                            <div className="mt-1 text-xs text-gray-500">
-                                                                <span>
-                                                                    Pickup: ₹{safeToFixed(selectedPkg.package_pickup_price)} | Drop: ₹{safeToFixed(selectedPkg.package_drop_price)}
-                                                                </span>
-                                                            </div>
-                                                        )}
                                                     </div>
 
                                                     {/* Quantity */}
-                                                    <div>
+                                                    <div className="md:col-span-2">
                                                         <label className="block text-xs font-medium text-gray-700 mb-1">Qty *</label>
                                                         <input
                                                             type="text"
                                                             value={pkg.quantity}
                                                             onChange={(e) => handlePackageDetailChange(index, 'quantity', e.target.value)}
-                                                            className={`form-input w-full ${errors[`quantity_${index}`] ? 'border-red-500' : ''}`}
-                                                            placeholder="Enter quantity"
+                                                            className={`form-input w-full text-sm ${errors[`quantity_${index}`] ? 'border-red-500' : ''}`}
+                                                            placeholder="Qty"
                                                         />
                                                         {errors[`quantity_${index}`] && <p className="mt-1 text-xs text-red-600">{errors[`quantity_${index}`]}</p>}
                                                     </div>
 
                                                     {/* Handling Charge */}
-                                                    <div>
-                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Handling</label>
+                                                    <div className="md:col-span-2">
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Rate</label>
                                                         <input
                                                             type="text"
                                                             value={pkg.handlingCharge}
                                                             onChange={(e) => handlePackageDetailChange(index, 'handlingCharge', e.target.value)}
-                                                            className="form-input w-full"
-                                                            placeholder="Enter amount"
+                                                            className="form-input w-full text-sm"
+                                                            placeholder="₹"
                                                         />
                                                     </div>
 
-                                                    {/* Package Total - Prominent Display */}
-                                                    <div className="md:col-span-1 flex items-end">
-                                                        <div className="w-full">
-                                                            <label className="block text-xs font-medium text-gray-700 mb-1">Package Total</label>
-                                                            <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded p-2 text-center">
-                                                                <div className="text-lg font-bold text-primary">₹{safeToFixed(calculatePackageTotal(pkg))}</div>
-                                                            </div>
+                                                    {/* Package Total */}
+                                                    <div className="md:col-span-3">
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Total</label>
+                                                        <div className="bg-blue-50 border border-blue-200 rounded p-1.5 text-center">
+                                                            <div className="text-sm font-bold text-primary">₹{safeToFixed(calculatePackageTotal(pkg))}</div>
                                                         </div>
                                                     </div>
                                                 </div>
+
+                                                {/* Show pickup/drop prices below */}
+                                                {selectedPkg && (
+                                                    <div className="mt-1 text-xs text-gray-500">
+                                                        <span>
+                                                            Pickup: ₹{safeToFixed(selectedPkg.package_pickup_price)} | Drop: ₹{safeToFixed(selectedPkg.package_drop_price)}
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
                                 </div>
                             </div>
 
-                            {/* Additional Information */}
-                            <div className="bg-white rounded-lg p-3 border border-gray-200">
-                                <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Additional Information</h3>
-                                <div>
-                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
-                                    <textarea
-                                        value={formData.specialInstructions}
-                                        onChange={(e) => setFormData((prev) => ({ ...prev, specialInstructions: e.target.value }))}
-                                        className="form-textarea"
-                                        placeholder="Any special instructions (e.g., Handle with care, Fragile, etc.)"
-                                        rows="2"
-                                    />
-                                </div>
-                            </div>
-
                             {/* Payment & Total Section */}
                             <div className="bg-white rounded-lg p-3 border border-gray-200">
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                    {/* Payment Details - Only show for Sender Pays */}
-                                    <div>
-                                        <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Payment Details *</h3>
-                                        <div className="space-y-3">
+                                    {/* Left Column - Payment Details & Additional Information */}
+                                    <div className="space-y-4">
+                                        {/* Payment Details */}
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-gray-800 mb-3">Payment Details *</h3>
                                             <div>
-                                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Payment By *</label>
-                                                <div className="flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0">
-                                                    <label className="flex items-center cursor-pointer group">
+                                                <label className="block text-xs font-medium text-gray-700 mb-2">Payment By *</label>
+                                                <div className="flex space-x-4">
+                                                    <label className="flex items-center cursor-pointer">
                                                         <input
                                                             type="radio"
                                                             name="paymentBy"
@@ -1500,9 +1407,9 @@ const PackageIntake = () => {
                                                             }}
                                                             className="form-radio"
                                                         />
-                                                        <span className="ml-2 text-sm text-gray-700">Sender Pays</span>
+                                                        <span className="ml-2 text-sm text-gray-700">In Pay</span>
                                                     </label>
-                                                    <label className="flex items-center cursor-pointer group">
+                                                    <label className="flex items-center cursor-pointer">
                                                         <input
                                                             type="radio"
                                                             name="paymentBy"
@@ -1514,100 +1421,107 @@ const PackageIntake = () => {
                                                             }}
                                                             className="form-radio"
                                                         />
-                                                        <span className="ml-2 text-sm text-gray-700">Receiver Pays</span>
+                                                        <span className="ml-2 text-sm text-gray-700">To Pay</span>
                                                     </label>
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            {/* Payment Details - Only show when Sender Pays */}
-                                            {formData.paymentBy === 'sender' && (
-                                                <>
-                                                    {/* Payment Mode */}
+                                        {/* Additional Information */}
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-gray-800 mb-2">Additional Information</h3>
+                                            <textarea
+                                                value={formData.specialInstructions}
+                                                onChange={(e) => setFormData((prev) => ({ ...prev, specialInstructions: e.target.value }))}
+                                                className="form-textarea text-sm w-full"
+                                                placeholder="Special instructions (e.g., Handle with care, Fragile, etc.)"
+                                                rows="4"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column - Total Amount & Payment Fields */}
+                                    <div className="space-y-4">
+                                        {/* Total Amount */}
+                                        <div className="flex items-baseline justify-between">
+                                            <h3 className="text-sm font-semibold text-gray-800 mb-2">Total Amount</h3>
+
+                                            <span className="text-2xl font-bold text-primary">₹{safeToFixed(totalAmount)}</span>
+                                        </div>
+
+                                        {/* Payment Fields - Only show for In Pay */}
+                                        {/* Payment Mode & Paid Amount in one line */}
+                                        {formData.paymentBy === 'sender' && (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-2">
                                                     <div>
-                                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
-                                                        <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="form-select">
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Payment Mode</label>
+                                                        <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="form-select text-sm w-full">
                                                             <option value="cash">Cash</option>
-                                                            <option value="card">Card</option>
                                                             <option value="upi">UPI</option>
-                                                            <option value="bank_transfer">Bank Transfer</option>
-                                                            <option value="cheque">Cheque</option>
-                                                            <option value="wallet">Wallet</option>
                                                         </select>
                                                     </div>
-
-                                                    {/* Paid Amount with Max Validation */}
                                                     <div>
-                                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Paid Amount (₹)</label>
+                                                        <label className="block text-xs font-medium text-gray-700 mb-1">Paid Amount (₹)</label>
                                                         <div className="relative">
                                                             <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm">₹</span>
                                                             <input
                                                                 type="text"
                                                                 value={formData.paidAmount}
                                                                 onChange={(e) => handlePaidAmountChange(e.target.value)}
-                                                                className={`form-input w-full pl-6 ${errors.paidAmount ? 'border-red-500' : ''}`}
+                                                                className={`form-input w-full pl-6 text-sm ${errors.paidAmount ? 'border-red-500' : ''}`}
                                                                 placeholder={`Max: ₹${safeToFixed(totalAmount)}`}
                                                             />
                                                         </div>
-                                                        {errors.paidAmount && <p className="mt-1 text-xs text-red-600">{errors.paidAmount}</p>}
-                                                        <div className="flex items-center justify-between mt-1 text-xs text-gray-500">
-                                                            <span>Leave empty if not paid</span>
-                                                            <span className="font-medium text-gray-700">Due: ₹{safeToFixed(totalAmount - safeParseFloat(formData.paidAmount))}</span>
-                                                        </div>
                                                     </div>
-                                                </>
-                                            )}
-
-                                            {/* Show message when Receiver Pays */}
-                                            {formData.paymentBy === 'receiver' && (
-                                                <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-700">
-                                                    <p>Payment will be collected from receiver at the time of delivery.</p>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
 
-                                    {/* Total Summary */}
-                                    <div>
-                                        <h3 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Total Summary</h3>
-                                        <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 rounded-lg p-3">
-                                            <div className="text-xl sm:text-2xl font-bold text-primary text-center mb-1">₹{safeToFixed(totalAmount)}</div>
-                                            <div className="text-xs text-gray-600 text-center mb-3">Total Amount</div>
-                                            <div className="space-y-1">
-                                                {formData.packages.map((pkg, index) => {
-                                                    const pkgType = packageTypeData.find((pt) => pt.package_type_id === pkg.packageTypeId);
-                                                    return (
-                                                        <div key={index} className="flex justify-between text-xs">
-                                                            <span className="text-gray-600 truncate">
-                                                                {pkgType?.package_type_name || 'Item'} {index + 1}:
-                                                            </span>
-                                                            <span className="font-medium whitespace-nowrap">₹{safeToFixed(calculatePackageTotal(pkg))}</span>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                            <div className="mt-3 pt-2 border-t border-blue-200 text-xs text-gray-500">Includes pickup, drop, and handling charges</div>
-                                        </div>
+                                                {/* Due Amount */}
+                                                <div>
+                                                    <div className="flex items-baseline justify-between">
+                                                        <span className="text-xs font-medium text-gray-600">Due Amount</span>
+                                                        <span className="text-xl font-bold text-orange-600">₹{safeToFixed(totalAmount - safeParseFloat(formData.paidAmount))}</span>
+                                                    </div>
+                                                    {errors.paidAmount && <p className="mt-1 text-xs text-red-600">{errors.paidAmount}</p>}
+                                                </div>
+
+                                                <div className="text-xs text-gray-500 italic">Leave paid amount empty if not paid</div>
+                                            </>
+                                        )}
+
+                                        {/* Show message when To Pay */}
+                                        {formData.paymentBy === 'receiver' && (
+                                            <>
+                                                <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-700">Payment will be collected from receiver at delivery</div>
+                                                <div>
+                                                    <div className="flex items-baseline justify-between">
+                                                        <span className="text-xs font-medium text-gray-600">Total to Collect</span>
+                                                        <span className="text-xl font-bold text-orange-600">₹{safeToFixed(totalAmount)}</span>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2 pt-3 border-t border-gray-200">
+                            <div className="flex justify-end space-x-2 pt-2 border-t border-gray-200">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         resetForm();
                                         setShowForm(false);
                                     }}
-                                    className="btn btn-outline-secondary hover:shadow-md transition-all duration-300 text-xs sm:text-sm py-2"
+                                    className="btn btn-outline-secondary btn-sm"
                                 >
                                     Cancel
                                 </button>
-                                <button type="button" onClick={resetForm} className="btn btn-outline-primary hover:shadow-md transition-all duration-300 text-xs sm:text-sm py-2">
-                                    Clear Form
+                                <button type="button" onClick={resetForm} className="btn btn-outline-primary btn-sm">
+                                    Clear
                                 </button>
-                                <button type="submit" className="btn btn-primary shadow-lg hover:shadow-xl transition-all duration-300 text-xs sm:text-sm py-2 px-4" disabled={loading}>
-                                    {loading ? 'Processing...' : isEdit ? 'Update Package' : 'Record Package'}
+                                <button type="submit" className="btn btn-primary btn-sm px-4" disabled={loading}>
+                                    {loading ? 'Processing...' : isEdit ? 'Update' : 'Save Booking'}
                                 </button>
                             </div>
                         </div>
@@ -1615,13 +1529,13 @@ const PackageIntake = () => {
                 </div>
             )}
 
-            {/* Package Intake List */}
+            {/* Booking List */}
             <div className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
                 <div className="p-3 sm:p-4 border-b border-gray-200 bg-white">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                         <div>
-                            <h2 className="text-base sm:text-lg font-bold text-gray-800">Package Intake Records</h2>
-                            <p className="text-gray-600 mt-0.5 text-xs sm:text-sm">View and manage all package intake records</p>
+                            <h2 className="text-base sm:text-lg font-bold text-gray-800">Booking Records</h2>
+                            <p className="text-gray-600 mt-0.5 text-xs sm:text-sm">View and manage all bookings</p>
                         </div>
                         <div className="text-xs text-gray-500">
                             Showing {getPaginatedData().length} of {getTotalCount()} records
@@ -1632,12 +1546,12 @@ const PackageIntake = () => {
                     {loading && !showForm ? (
                         <div className="flex items-center justify-center h-64">
                             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-                            <span className="ml-3">Loading packages...</span>
+                            <span className="ml-3">Loading bookings...</span>
                         </div>
                     ) : error ? (
-                        <div className="text-center py-8 text-danger">Error loading packages: {error}</div>
+                        <div className="text-center py-8 text-danger">Error loading bookings: {error}</div>
                     ) : packageData.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">No packages found. Click "Add New Package" to get started.</div>
+                        <div className="text-center py-8 text-gray-500">No bookings found. Click "New Booking" to get started.</div>
                     ) : (
                         <Table
                             columns={columns}
@@ -1675,7 +1589,6 @@ const PackageIntake = () => {
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
                         <input type="text" value={newCustomer.mobileNo} disabled className="form-input w-full bg-gray-100" />
-                        <p className="text-xs text-gray-500 mt-1">This mobile number is pre-filled from the form</p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
@@ -1687,7 +1600,6 @@ const PackageIntake = () => {
                             placeholder="Enter customer name"
                             autoFocus
                         />
-                        <p className="text-xs text-gray-500 mt-1">Enter the name for this mobile number</p>
                     </div>
                 </div>
             </ModelViewBox>
@@ -1712,7 +1624,6 @@ const PackageIntake = () => {
                             disabled
                             className="form-input w-full bg-gray-100"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Location will be added to this center</p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Location Name *</label>
@@ -1724,16 +1635,15 @@ const PackageIntake = () => {
                             placeholder="Enter location name"
                             autoFocus
                         />
-                        <p className="text-xs text-gray-500 mt-1">Enter the name for this location</p>
                     </div>
                 </div>
             </ModelViewBox>
 
-            {/* View Package Modal */}
-            <ModelViewBox modal={viewModal} modelHeader="Package Details" setModel={() => setViewModal(false)} handleSubmit={null} modelSize="lg" saveBtn={false}>
+            {/* View Booking Modal */}
+            <ModelViewBox modal={viewModal} modelHeader="Booking Details" setModel={() => setViewModal(false)} handleSubmit={null} modelSize="lg" saveBtn={false}>
                 {selectedViewPackage && (
                     <div className="space-y-4">
-                        {/* Package Header */}
+                        {/* Booking Header */}
                         <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-3 border border-blue-200">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div>
@@ -1922,4 +1832,4 @@ const PackageIntake = () => {
     );
 };
 
-export default PackageIntake;
+export default Booking;

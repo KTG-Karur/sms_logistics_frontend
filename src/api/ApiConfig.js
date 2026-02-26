@@ -1,5 +1,5 @@
-// export const baseURL = 'http://localhost:5098';
-export const baseURL = 'https://ktgapi.smstransports.in'; // live
+export const baseURL = 'http://localhost:5098';
+// export const baseURL = 'https://ktgapi.smstransports.in'; // live
 
 const getBaseUrl = (url) => {
     return `${baseURL}${url}`;

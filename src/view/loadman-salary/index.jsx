@@ -268,8 +268,12 @@ const LoadmanSalaryManagement = () => {
     };
 
     // Handle pagination
-    const handlePageChange = (page) => {
-        setFilters(prev => ({ ...prev, page }));
+    const handlePageChange = (pageIndex, newPageSize) => {
+        setFilters(prev => ({ 
+            ...prev, 
+            page: pageIndex + 1,
+            limit: newPageSize || prev.limit 
+        }));
     };
 
     const handleLimitChange = (e) => {
@@ -373,7 +377,7 @@ const LoadmanSalaryManagement = () => {
 
         const paymentData = {
             loadmanId: paymentForm.loadmanId,
-            salaryDate: paymentForm.salaryDate,
+            payUntilDate: paymentForm.salaryDate,
             paymentDate: paymentForm.paymentDate,
             amount: parseFloat(paymentForm.amount),
             officeCenterId: paymentForm.officeCenterId,
@@ -561,14 +565,6 @@ const LoadmanSalaryManagement = () => {
                 
                 return (
                     <div className="flex gap-1">
-                        <Tippy content="View Details">
-                            <button
-                                onClick={() => viewLoadmanDetails(loadman)}
-                                className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
-                            >
-                                <IconEye className="w-4 h-4" />
-                            </button>
-                        </Tippy>
                         <Tippy content={hasPending ? "Make Payment" : "No Pending Amount"}>
                             <button
                                 onClick={() => openPaymentModal(loadman)}
@@ -638,8 +634,17 @@ const LoadmanSalaryManagement = () => {
             ),
             width: 150
         },
-     
     ], []);
+
+    // Calculate pagination values
+    const summaryData = allLoadmenSalarySummary.loadmen || [];
+    const paymentsData = loadmanPayments.data || [];
+    
+    const summaryTotalCount = allLoadmenSalarySummary.totalCount || summaryData.length;
+    const paymentsTotalCount = loadmanPayments.total || paymentsData.length;
+    
+    const summaryTotalPages = allLoadmenSalarySummary.totalPages || Math.ceil(summaryTotalCount / filters.limit);
+    const paymentsTotalPages = loadmanPayments.totalPages || Math.ceil(paymentsTotalCount / filters.limit);
 
     return (
         <div className="container mx-auto px-2 sm:px-3 lg:px-4 py-3 sm:py-4 lg:py-6">
@@ -697,17 +702,6 @@ const LoadmanSalaryManagement = () => {
                         >
                             <IconHistory className="w-4 h-4 inline mr-1" />
                             Payment History
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('details')}
-                            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                activeTab === 'details'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                            }`}
-                        >
-                            <IconChart className="w-4 h-4 inline mr-1" />
-                            Loadman Details
                         </button>
                     </nav>
                 </div>
@@ -890,18 +884,16 @@ const LoadmanSalaryManagement = () => {
                                 ) : (
                                     <ResponsiveTable
                                         columns={summaryColumns}
-                                        data={allLoadmenSalarySummary.loadmen || []}
+                                        data={summaryData}
                                         pageSize={filters.limit}
                                         pageIndex={filters.page - 1}
-                                        onPaginationChange={(pageIndex, pageSize) => {
-                                            handlePageChange(pageIndex + 1);
-                                            if (pageSize !== filters.limit) {
-                                                setFilters(prev => ({ ...prev, limit: pageSize }));
-                                            }
-                                        }}
+                                        totalCount={summaryTotalCount}
+                                        totalPages={summaryTotalPages}
+                                        onPaginationChange={handlePageChange}
                                         pagination={true}
                                         isSearchable={false}
                                         showPageSize={true}
+                                        loading={loading}
                                     />
                                 )
                             )}
@@ -926,41 +918,24 @@ const LoadmanSalaryManagement = () => {
                                 <>
                                     <ResponsiveTable
                                         columns={paymentsColumns}
-                                        data={loadmanPayments.data || []}
+                                        data={paymentsData}
                                         pageSize={filters.limit}
                                         pageIndex={filters.page - 1}
-                                        onPaginationChange={(pageIndex, pageSize) => {
-                                            handlePageChange(pageIndex + 1);
-                                            if (pageSize !== filters.limit) {
-                                                setFilters(prev => ({ ...prev, limit: pageSize }));
-                                            }
-                                        }}
+                                        totalCount={paymentsTotalCount}
+                                        totalPages={paymentsTotalPages}
+                                        onPaginationChange={handlePageChange}
                                         pagination={true}
                                         isSearchable={false}
                                         showPageSize={true}
+                                        loading={loading}
                                     />
                                     <div className="mt-3 text-sm text-gray-600 text-right">
-                                        Total: {loadmanPayments.total} payments
+                                        Total: {paymentsTotalCount} payments
                                     </div>
                                 </>
                             )}
                         </div>
                     </>
-                )}
-
-                {activeTab === 'details' && (
-                    <LoadmanDirectory
-                        onSelectLoadman={(loadman) => {
-                            setSelectedLoadman(loadman);
-                            setViewMode('single');
-                            setFilters(prev => ({ 
-                                ...prev, 
-                                loadmanId: loadman.employeeId || loadman.employee_id, 
-                                page: 1 
-                            }));
-                            setActiveTab('summary');
-                        }}
-                    />
                 )}
             </div>
 
@@ -1303,87 +1278,5 @@ const LoadmanSalaryDetail = ({ data, startDate, endDate }) => {
         </div>
     );
 };
-
-// Loadman Directory Component
-const LoadmanDirectory = ({ onSelectLoadman }) => {
-    const dispatch = useDispatch();
-    const [loadmen, setLoadmen] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-
-    useEffect(() => {
-        fetchLoadmen();
-    }, []);
-
-    const fetchLoadmen = async () => {
-        setLoading(true);
-        try {
-            const response = await dispatch(getLoadmanData({})).unwrap();
-            setLoadmen(response.data?.loadmen || []);
-        } catch (error) {
-            showMessage('error', 'Failed to load loadmen');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const filteredLoadmen = loadmen.filter(l => 
-        l.employee_name?.toLowerCase().includes(search.toLowerCase()) ||
-        l.mobile_no?.includes(search)
-    );
-
-    return (
-        <div className="p-4">
-            <div className="mb-4">
-                <input
-                    type="text"
-                    placeholder="Search loadmen..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="form-input w-full"
-                />
-            </div>
-
-            {loading ? (
-                <div className="flex justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filteredLoadmen.map((loadman) => (
-                        <div
-                            key={loadman.employee_id}
-                            className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer"
-                            onClick={() => onSelectLoadman(loadman)}
-                        >
-                            <div className="flex items-center">
-                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mr-3">
-                                    <IconUser className="w-5 h-5 text-primary" />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="font-medium">{loadman.employee_name}</div>
-                                    <div className="text-xs text-gray-500">{loadman.mobile_no || 'No mobile'}</div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-gray-500">Total Earnings</div>
-                                    <div className="font-bold text-green-600">
-                                        ₹{loadman.summary?.total_earnings || '0.00'}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    {filteredLoadmen.length === 0 && (
-                        <div className="col-span-full text-center py-8 text-gray-500">
-                            No loadmen found
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-};
-
-
 
 export default LoadmanSalaryManagement;
