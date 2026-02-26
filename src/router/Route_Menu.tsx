@@ -108,7 +108,6 @@ export const CompanyInfo = lazy(() => import('../view/company-info'));
 
 //new for the VMS
 export const Vehicle = lazy(() => import('../view/master/vehicle'));
-export const ChecklistSupplier = lazy(() => import('../view/master/checklistSupplier'));
 export const Staff = lazy(() => import('../view/master/employee'));
 export const StaffSalary = lazy(() => import('../view/staffSalary'));
 export const ExpensesSettlement = lazy(() => import('../view/expensesSettlement'));
@@ -132,7 +131,6 @@ export const PackageReportPrint = lazy(() => import('../view/documents/packageRe
 export const PaymentPrintPdf = lazy(() => import('../view/documents/package-payment-print'));
 export const ProfitLossReport = lazy(() => import('../view/report/monthlyProfitLossReport'));
 export const AttendanceReport = lazy(() => import('../view/report/attendanceReport'));
-export const AuditReSchedule = lazy(() => import('../view/reasignAudit'));
 export const VehicleType = lazy(() => import('../view/master/vehicleType'));
 export const ExpenceType = lazy(() => import('../view/master/expenceType'));
 export const PackageDelivery = lazy(() => import('../view/package-delivery'));

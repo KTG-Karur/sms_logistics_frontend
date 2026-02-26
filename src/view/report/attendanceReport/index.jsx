@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
-import { showMessage, dateConversion } from '../../../util/AllFunction';
+import { showMessage, dateConversion , getAccessIdsByLabel } from '../../../util/AllFunction';
 import { getEmployee } from '../../../redux/employeeSlice';
 import { getStaffAttendanceList, getStaffAttendance, getStaffAttendanceReport } from '../../../redux/attendanceSlice';
 import { getHoliday, createHoliday, resetHolidayStatus, deleteHoliday } from '../../../redux/holidaySlice';
@@ -38,6 +38,7 @@ const AttendanceReport = () => {
   // Login info
   const loginInfo = localStorage.getItem('loginInfo');
   const localData = loginInfo ? JSON.parse(loginInfo) : null;
+  const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Attendance Report');
   const branchIdforRole = localData?.branchId || null;
   const roleIdforRole = localData?.roleId || null;
   const currentUserId = localData?.employeeId || null;

@@ -8,7 +8,7 @@ import IconTrashLines from '../../../components/Icon/IconTrashLines';
 import ModelViewBox from '../../../util/ModelViewBox';
 import FormLayout from './roleFormLayout';
 import { roleFormContainer } from './formContainer';
-import { findArrObj, showMessage } from '../../../util/AllFunction';
+import { findArrObj, showMessage , getAccessIdsByLabel} from '../../../util/AllFunction';
 import { getRole, createRole, updateRole, deleteRole, resetRoleStatus, getRolePermissions } from '../../../redux/roleSlice';
 import { getPages, resetPageStatus } from '../../../redux/pageSlice';
 import RoleTreeView from '../../../components/Atom/RoleTreeView';
@@ -19,8 +19,7 @@ let isEdit = false;
 const Roles = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Role');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Role');
     const roleIdforRole = localData?.roleName; // for role Permission (1.superadmin)
 
     const dispatch = useDispatch();

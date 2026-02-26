@@ -4,7 +4,7 @@ import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
 import IconTrashLines from '../../../components/Icon/IconTrashLines';
 import Table from '../../../util/Table';
 import Tippy from '@tippyjs/react';
-import { showMessage } from '../../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import IconX from '../../../components/Icon/IconX';
 import IconPlus from '../../../components/Icon/IconPlus';
 import IconPencil from '../../../components/Icon/IconPencil';
@@ -15,8 +15,7 @@ import { getCustomers, createCustomers, updateCustomers, deleteCustomers } from 
 const Customers = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Customer');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Customer');
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 

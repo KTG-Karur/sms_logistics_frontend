@@ -31,6 +31,10 @@ import { getVehicles } from '../../../redux/vehiclesSlice';
 import { showMessage } from '../../../util/AllFunction';
 
 const TripReport = () => {
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Trip Report');
+    
     const dispatch = useDispatch();
     const navigate = useNavigate();
 

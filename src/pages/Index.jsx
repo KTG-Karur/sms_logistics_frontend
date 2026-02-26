@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { setPageTitle } from '../redux/themeStore/themeConfigSlice';
 import { getDashboardData } from '../redux/dashboardSlice'; // Adjust path
 import moment from 'moment';
+import { findArrObj, showMessage , getAccessIdsByLabel } from '../util/AllFunction';
 
 // Import Icons
 import IconTruck from '../components/Icon/IconTruck';
@@ -38,6 +39,10 @@ const brandColors = {
 };
 
 const LogisticsDashboard = () => {
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Dashboard');
+
     const dispatch = useDispatch();
     const navigate = useNavigate();
     

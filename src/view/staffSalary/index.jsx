@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Table from '../../util/Table';
-import { showMessage } from '../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../util/AllFunction';
 import _ from 'lodash';
 import IconUsers from '../../components/Icon/IconUsers';
 import IconCalendar from '../../components/Icon/IconCalendar';
@@ -26,6 +26,10 @@ import {
 } from '../../redux/salarySlice';
 
 const SalaryCalculation = () => {
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Staff Salary');
+
     const dispatch = useDispatch();
     
     // Redux state

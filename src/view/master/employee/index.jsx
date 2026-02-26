@@ -7,7 +7,7 @@ import IconFilter from '../../../components/Icon/IconSearch';
 import IconX from '../../../components/Icon/IconX';
 import Table from '../../../util/Table';
 import Tippy from '@tippyjs/react';
-import { findArrObj, showMessage } from '../../../util/AllFunction';
+import { findArrObj, showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import { getEmployee, createEmployee, updateEmployee, deleteEmployee, resetEmployeeStatus, setFilters, clearFilters } from '../../../redux/employeeSlice';
 import { getRolesApi } from '../../../api/RoleApi';
 import Select from 'react-select';
@@ -15,8 +15,7 @@ import Select from 'react-select';
 const Employees = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Staff');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Staff');
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
     

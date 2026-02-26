@@ -4,7 +4,7 @@ import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
 import IconTrashLines from '../../../components/Icon/IconTrashLines';
 import Table from '../../../util/Table';
 import Tippy from '@tippyjs/react';
-import { showMessage } from '../../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import _ from 'lodash';
 import Select from 'react-select';
 import IconX from '../../../components/Icon/IconX';
@@ -19,7 +19,7 @@ const Vehicles = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
     const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Vehicle');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds =  getAccessIdsByLabel(localData?.pagePermission || [], 'Vehicle');
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 

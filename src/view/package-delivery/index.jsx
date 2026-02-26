@@ -280,7 +280,7 @@ const DeliveryManagement = () => {
     // Get login info for permissions
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo || '{}');
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Delivery Management');
+    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Delivery');
     const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
 
     // Redux state
