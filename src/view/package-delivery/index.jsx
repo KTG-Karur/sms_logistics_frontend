@@ -893,7 +893,7 @@ const DeliveryManagement = () => {
                             </button>
                         </Tippy>
                         )}
-                        {delivery.delivery_status === 'out_for_delivery' && _.includes(accessIds, '3') && (
+                        {delivery.delivery_status === 'out_for_delivery' && _.includes(accessIds, '7') && (
                             <Tippy content="Mark Delivered">
                                 <button
                                     onClick={() => handleQuickStatusUpdate(delivery.booking_id, 'delivered')}
