@@ -40,6 +40,7 @@ import {
     PackageIntake,
     PakagePaymentScreen,
     PakagePayment,
+    RoutePayment,
     AssignTrip,
     VehicleType,
     ExpensesSettlement,
@@ -275,6 +276,7 @@ const routes = [
         path: '/package/payment/:id',
         element: <PakagePaymentScreen />,
     },
+    
     {
         path: '/staff/salary',
         element: <StaffSalary />,
@@ -315,6 +317,10 @@ const routes = [
     {
         path: '/package/payment',
         element: <PakagePayment />,
+    },
+      {
+        path: '/package/route-payments',
+        element: <RoutePayment />,
     },
      {
         path: '/master/attendance',

@@ -176,7 +176,7 @@ const LoginBoxed = () => {
                 <div className="block lg:hidden w-full max-w-md">
                     <div className="text-center mb-8">
                         <div className="flex justify-center mb-4">
-                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center shadow-lg">
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-600 to-yellow-400 flex items-center justify-center shadow-lg">
                                 <IconTruck className="w-8 h-8 text-white" />
                             </div>
                         </div>
@@ -195,7 +195,7 @@ const LoginBoxed = () => {
                         </div>
                     </div>
 
-                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
+                    {/* <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
                         <div className="space-y-4">
                             <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
@@ -216,7 +216,7 @@ const LoginBoxed = () => {
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </div> */}
 
                     <div
                         ref={mobileFormRef}
@@ -319,7 +319,7 @@ const LoginBoxed = () => {
                         </div>
 
                         <div className="mt-4 text-center">
-                            <p className="text-xs text-gray-400">Logistics System v4.0 • Production</p>
+                            <p className="text-xs text-gray-400">Logistics System • Production</p>
                         </div>
                     </div>
                 </div>
@@ -332,7 +332,7 @@ const LoginBoxed = () => {
                                     <IconTruck className="w-10 h-10 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-4xl font-bold leading-tight">
+                                    <h1 className="text-3xl font-bold leading-tight">
                                         Logistics & Transportation
                                         <br />
                                         <span className="text-yellow-300">Management System</span>
@@ -358,7 +358,7 @@ const LoginBoxed = () => {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="flex items-center space-x-3">
                                     <div className="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center">
@@ -403,7 +403,7 @@ const LoginBoxed = () => {
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
                     </div>
 
                     <div className="flex justify-center lg:justify-end">
@@ -502,8 +502,8 @@ const LoginBoxed = () => {
                             </div>
                             
                             <div className="mt-4 text-center">
-                                <p className="text-xs text-gray-400">Transport Management System v4.0 • Asian Fabricx Pvt Ltd</p>
-                                <p className="text-xs text-gray-400 mt-1">© 2024 All rights reserved</p>
+                                <p className="text-xs text-gray-400">Transport Management System </p>
+                                <p className="text-xs text-gray-400 mt-1">© {new Date().getFullYear()} All rights reserved</p>
                             </div>
                         </div>
                     </div>

@@ -116,6 +116,7 @@ export const DailyExpenseEntry = lazy(() => import('../view/dailyExpenseEntry'))
 export const PackageIntake = lazy(() => import('../view/package-intake'));
 export const AssignTrip = lazy(() => import('../view/assign-trip'));
 export const PakagePayment = lazy(() => import('../view/package-payment'));
+export const RoutePayment = lazy(() => import('../view/route-payments'));
 export const Attendance = lazy(() => import('../view/master/attendance/Index'));
 
 //new of asf ev

@@ -148,7 +148,7 @@ const ProfitLossReport = () => {
                 packageId: payment.payment_number,
                 date: payment.date,
                 packageType: payment.type || 'Standard',
-                weight: 'N/A',
+                // weight: 'N/A',
                 dimensions: 'N/A',
                 fromLocation: payment.booking_center?.name || 'Unknown',
                 toLocation: payment.booking_center?.name || 'Unknown',
