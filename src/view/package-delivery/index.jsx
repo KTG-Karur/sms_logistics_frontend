@@ -32,6 +32,7 @@ import {
     clearDeliveryFilters
 } from '../../redux/deliverySlice';
 import { getOfficeCenters } from '../../redux/officeCenterSlice';
+import _ from 'lodash';
 
 // Custom responsive table component
 const ResponsiveTable = ({ columns, data, pageSize = 10, pageIndex = 0, onPaginationChange, onSearchChange, pagination = true, isSearchable = true, searchPlaceholder = "Search...", showPageSize = true, showStatusFilter = false, statusFilterValue = 'all', onStatusFilterChange }) => {
@@ -872,6 +873,7 @@ const DeliveryManagement = () => {
                 const delivery = row.original;
                 return (
                     <div className="flex flex-wrap gap-1 sm:gap-2">
+                        {_.includes(accessIds, '1') && (
                         <Tippy content={delivery.expanded ? "Hide Details" : "View Details"}>
                             <button
                                 onClick={() => toggleDeliveryDetails(delivery.booking_id)}
@@ -880,6 +882,8 @@ const DeliveryManagement = () => {
                                 {delivery.expanded ? <IconChevronUp className="w-3 h-3 sm:w-4 sm:h-4" /> : <IconEye className="w-3 h-3 sm:w-4 sm:h-4" />}
                             </button>
                         </Tippy>
+                        )}
+                        {_.includes(accessIds, '3') && (
                         <Tippy content="Update Status">
                             <button
                                 onClick={() => handleStatusUpdate(delivery)}
@@ -888,7 +892,8 @@ const DeliveryManagement = () => {
                                 <IconEdit className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
                         </Tippy>
-                        {delivery.delivery_status === 'out_for_delivery' && (
+                        )}
+                        {delivery.delivery_status === 'out_for_delivery' && _.includes(accessIds, '3') && (
                             <Tippy content="Mark Delivered">
                                 <button
                                     onClick={() => handleQuickStatusUpdate(delivery.booking_id, 'delivered')}
