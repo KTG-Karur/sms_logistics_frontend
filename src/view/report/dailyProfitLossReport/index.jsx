@@ -520,6 +520,7 @@ const ProfitLossReport = () => {
 
                 {/* Export Buttons */}
                 <div className="flex flex-wrap justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
+                {_.includes(accessIds, '5') && (
                     <button
                         onClick={onDownloadExcel}
                         disabled={!reportData}
@@ -530,6 +531,8 @@ const ProfitLossReport = () => {
                         <IconDownload className="mr-2 w-4 h-4" />
                         Export Excel
                     </button>
+                    )}
+                    {_.includes(accessIds, '9') && (
                     <button
                         onClick={onGeneratePDF}
                         disabled={!reportData}
@@ -540,6 +543,7 @@ const ProfitLossReport = () => {
                         <IconPrinter className="mr-2 w-4 h-4" />
                         Generate PDF
                     </button>
+                    )}
                 </div>
 
                 {/* Report Info */}

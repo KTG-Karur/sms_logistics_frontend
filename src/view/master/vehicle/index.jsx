@@ -18,9 +18,7 @@ import { getVehicleType } from '../../../redux/vehicleTypeSlice';
 const Vehicles = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Vehicle');
     const accessIds =  getAccessIdsByLabel(localData?.pagePermission || [], 'Vehicle');
-    const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
     // Get vehicles state from Redux - Updated selector
@@ -447,34 +445,30 @@ const Vehicles = () => {
                     '-'
                 ),
         },
-        roleIdforRole === 'Super Admin'
-            ? {
-                  Header: 'Actions',
-                  accessor: 'actions',
-                  Cell: ({ row }) => (
-                      <div className="flex space-x-2">
-                          <Tippy content="Edit">
-                              <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => onEditForm(row.original)}>
-                                  <IconPencil className="w-4 h-4" />
-                              </button>
-                          </Tippy>
-                          <Tippy content="Delete">
-                              <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteVehicle(row.original)}>
-                                  <IconTrashLines className="w-4 h-4" />
-                              </button>
-                          </Tippy>
-                      </div>
-                  ),
-                  width: 120,
-              }
-            : null,
-    ].filter(Boolean);
-
-    // Helper function
-    function findArrObj(arr, key, value) {
-        if (!arr || !Array.isArray(arr)) return [];
-        return arr.filter((item) => item[key] === value);
-    }
+        {
+            Header: 'Actions',
+            accessor: 'actions',
+            Cell: ({ row }) => (
+                <div className="flex space-x-2">
+                    {_.includes(accessIds, '3') && (
+                        <Tippy content="Edit">
+                            <button type="button" className="btn btn-sm btn-outline-primary" onClick={() => onEditForm(row.original)}>
+                                <IconPencil className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {_.includes(accessIds, '4') && (
+                        <Tippy content="Delete">
+                            <button type="button" className="btn btn-sm btn-outline-danger" onClick={() => handleDeleteVehicle(row.original)}>
+                                <IconTrashLines className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                </div>
+            ),
+            width: 120,
+        }
+    ];
 
     return (
         <div>
@@ -489,7 +483,7 @@ const Vehicles = () => {
                             <IconFilter className="w-4 h-4 mr-2" />
                             Filters
                         </button>
-                        {roleIdforRole === 'Super Admin' && (
+                        {_.includes(accessIds, '2') && (
                             <button type="button" onClick={openAddForm} className="btn btn-primary">
                                 <IconPlus className="w-4 h-4 mr-2" />
                                 Add Vehicle
@@ -680,7 +674,7 @@ const Vehicles = () => {
                 ) : error ? (
                     <div className="text-center py-8 text-danger">Error loading vehicles: {error}</div>
                 ) : vehiclesData.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No vehicles found. {roleIdforRole === 'Super Admin' && 'Click "Add Vehicle" to get started.'}</div>
+                    <div className="text-center py-8 text-gray-500">No vehicles found. {_.includes(accessIds, '2') && 'Click "Add Vehicle" to get started.'}</div>
                 ) : (
                     <Table
                         columns={columns}

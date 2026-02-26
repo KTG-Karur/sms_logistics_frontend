@@ -11,12 +11,12 @@ import IconPencil from '../../../components/Icon/IconPencil';
 import IconFilter from '../../../components/Icon/IconSearch';
 import IconSearch from '../../../components/Icon/IconSearch';
 import { getCustomers, createCustomers, updateCustomers, deleteCustomers } from '../../../redux/customerSlice';
+import _ from 'lodash';
 
 const Customers = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Customer');
-    const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
     // Get customers state from Redux
@@ -257,34 +257,38 @@ const Customers = () => {
             accessor: 'updated_at',
             Cell: ({ value }) => formatDate(value),
         },
-        ...(roleIdforRole === 'Super Admin' ? [{
+        {
             Header: 'Actions',
             accessor: 'actions',
             Cell: ({ row }) => (
                 <div className="flex space-x-2">
-                    <Tippy content="Edit">
-                        <button
-                            type="button"
-                            className="btn btn-sm btn-outline-primary"
-                            onClick={() => onEditForm(row.original)}
-                        >
-                            <IconPencil className="w-4 h-4" />
-                        </button>
-                    </Tippy>
-                    <Tippy content="Delete">
-                        <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDeleteCustomer(row.original)}
-                        >
-                            <IconTrashLines className="w-4 h-4" />
-                        </button>
-                    </Tippy>
+                    {_.includes(accessIds, '3') && (
+                        <Tippy content="Edit">
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => onEditForm(row.original)}
+                            >
+                                <IconPencil className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {_.includes(accessIds, '4') && (
+                        <Tippy content="Delete">
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={() => handleDeleteCustomer(row.original)}
+                            >
+                                <IconTrashLines className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
                 </div>
             ),
             width: 120,
-        }] : [])
-    ].filter(Boolean);
+        }
+    ];
 
     // Helper function
     function findArrObj(arr, key, value) {
@@ -318,7 +322,7 @@ const Customers = () => {
                             <IconFilter className="w-4 h-4 mr-2" />
                             Filters
                         </button>
-                        {roleIdforRole === 'Super Admin' && (
+                        {_.includes(accessIds, '2') && (
                             <button
                                 type="button"
                                 onClick={openAddForm}
@@ -488,7 +492,7 @@ const Customers = () => {
                     </div>
                 ) : customersData.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
-                        No customers found. {roleIdforRole === 'Super Admin' && 'Click "Add Customer" to get started.'}
+                        No customers found. {_.includes(accessIds, '2') && 'Click "Add Customer" to get started.'}
                     </div>
                 ) : (
                     <Table

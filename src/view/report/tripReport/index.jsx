@@ -28,7 +28,7 @@ import { getTripReport, resetTripReportStatus } from '../../../redux/reportSlice
 import { getOfficeCenters } from '../../../redux/officeCenterSlice';
 import { getEmployee } from '../../../redux/employeeSlice';
 import { getVehicles } from '../../../redux/vehiclesSlice';
-import { showMessage } from '../../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 
 const TripReport = () => {
     const loginInfo = localStorage.getItem('loginInfo');
@@ -661,7 +661,7 @@ const TripReport = () => {
                                     'Search'
                                 )}
                             </button>
-                            {appliedFilters && tripData.length > 0 && (
+                            {appliedFilters && tripData.length > 0 && _.includes(accessIds, '5') && (
                                 <button
                                     type="button"
                                     onClick={onDownloadAllExcel}

@@ -476,6 +476,7 @@ const BookingReport = () => {
             width: 80,
             Cell: ({ row }) => (
                 <div className="flex items-center justify-center">
+                    {_.includes(accessIds, '1') && (
                     <button
                         onClick={() => handleViewDetails(row.original)}
                         className="flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-800 transition-colors"
@@ -483,6 +484,7 @@ const BookingReport = () => {
                     >
                         <IconEye className="w-4 h-4" />
                     </button>
+                    )}
                 </div>
             ),
         },
@@ -679,6 +681,8 @@ const BookingReport = () => {
                             </button>
                             {appliedFilters && bookings.length > 0 && (
                                 <>
+                                    {_.includes(accessIds, '5') && (
+                                
                                     <button
                                         type="button"
                                         onClick={handleExportExcel}
@@ -687,6 +691,9 @@ const BookingReport = () => {
                                         <IconDownload className="mr-2 w-4 h-4" />
                                         Export Excel
                                     </button>
+                                    )}
+                                    {_.includes(accessIds, '9') && (
+                                                    
                                     <button
                                         type="button"
                                         onClick={handleGeneratePDF}
@@ -695,6 +702,7 @@ const BookingReport = () => {
                                         <IconPrinter className="mr-2 w-4 h-4" />
                                         Generate PDF
                                     </button>
+                                    )}
                                 </>
                             )}
                         </div>

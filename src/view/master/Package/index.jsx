@@ -14,7 +14,6 @@ const PackageTypes = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Package Types');
-    const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
     // Get package types from Redux store
@@ -176,33 +175,35 @@ const PackageTypes = () => {
             width: 100,
             className: 'text-center',
         },
-        roleIdforRole === 'Super Admin'
-            ? {
-                  Header: 'Actions',
-                  accessor: 'actions',
-                  Cell: ({ row }) => (
-                      <div className="flex items-center justify-center space-x-2">
-                          <Tippy content="Edit">
-                              <button type="button" onClick={() => onEditForm(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200">
-                                  <IconPencil className="w-4 h-4" />
-                              </button>
-                          </Tippy>
-                          <Tippy content="Delete">
-                              <button
-                                  type="button"
-                                  onClick={() => handleDeletePackage(row.original)}
-                                  className="btn btn-outline-danger btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200"
-                              >
-                                  <IconTrashLines className="w-4 h-4" />
-                              </button>
-                          </Tippy>
-                      </div>
-                  ),
-                  width: 120,
-                  className: 'text-center',
-              }
-            : null,
-    ].filter(Boolean);
+        {
+            Header: 'Actions',
+            accessor: 'actions',
+            Cell: ({ row }) => (
+                <div className="flex items-center justify-center space-x-2">
+                    {_.includes(accessIds, '3') && (
+                        <Tippy content="Edit">
+                            <button type="button" onClick={() => onEditForm(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200">
+                                <IconPencil className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {_.includes(accessIds, '4') && (
+                        <Tippy content="Delete">
+                            <button
+                                type="button"
+                                onClick={() => handleDeletePackage(row.original)}
+                                className="btn btn-outline-danger btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200"
+                            >
+                                <IconTrashLines className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                </div>
+            ),
+            width: 120,
+            className: 'text-center',
+        }
+    ];
 
     const closeModel = () => {
         setIsEdit(false);
@@ -359,7 +360,7 @@ const PackageTypes = () => {
                             columns={columns}
                             Title={' '}
                             description=""
-                            toggle={roleIdforRole === 'Super Admin' ? createModel : null}
+                            toggle={_.includes(accessIds, '2') ? createModel : null}
                             data={getPaginatedData()}
                             pageSize={pageSize}
                             pageIndex={currentPage}
@@ -388,7 +389,7 @@ const PackageTypes = () => {
                     </div>
                     <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No Package Types Found</h3>
                     <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">Get started by adding your first package type with pickup and drop prices.</p>
-                    {roleIdforRole === 'Super Admin' && (
+                    {_.includes(accessIds, '2') && (
                         <button type="button" onClick={createModel} className="btn btn-primary">
                             Add First Package Type
                         </button>
