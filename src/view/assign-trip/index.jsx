@@ -1,9 +1,10 @@
+// src/pages/AssignTrip/index.js
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Tippy from '@tippyjs/react';
-import { showMessage, findArrObj } from '../../util/AllFunction';
+import { showMessage, findArrObj, getAccessIdsByLabel } from '../../util/AllFunction';
 import Select from 'react-select';
 import ModelViewBox from '../../util/ModelViewBox'; // Import your modal component
 import IconPlus from '../../components/Icon/IconPlus';
@@ -261,8 +262,28 @@ const AssignTrip = () => {
 
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo || '{}');
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Assign Trip');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    
+    // Get access IDs using the utility function
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Assign Trip');
+    console.log('Access IDs:', accessIds); // For debugging
+    
+    // Map access IDs to permissions
+    // Assuming: 1=View, 2=Create, 3=Update, 4=Delete, 14=Loadman Assignment
+    const canView = accessIds?.includes('1') || false;
+    const canCreate = accessIds?.includes('2') || false;
+    const canUpdate = accessIds?.includes('3') || false;
+    const canDelete = accessIds?.includes('4') || false;
+    const canAssignLoadmen = accessIds?.includes('14') || false;
+    
+
+    // Debug log to verify permissions
+    console.log('Assign Trip Permissions:', { 
+        canView, 
+        canCreate, 
+        canUpdate, 
+        canDelete,
+        canAssignLoadmen 
+    });
 
     // Redux state
     const tripState = useSelector((state) => state.TripSlice || {});
@@ -348,8 +369,12 @@ const AssignTrip = () => {
     // Load initial data
     useEffect(() => {
         dispatch(setPageTitle('Assign Trip Management'));
-        fetchInitialData();
-    }, [dispatch]);
+        if (canView) {
+            fetchInitialData();
+        } else {
+            showMessage('error', 'You do not have permission to view trips');
+        }
+    }, [dispatch, canView]);
 
     // Handle API responses
     useEffect(() => {
@@ -411,6 +436,8 @@ const AssignTrip = () => {
     };
 
     const fetchTrips = () => {
+        if (!canView) return;
+        
         const filterParams = {};
         if (filters.fromDate) filterParams.fromDate = filters.fromDate;
         if (filters.toDate) filterParams.toDate = filters.toDate;
@@ -420,8 +447,10 @@ const AssignTrip = () => {
     };
 
     useEffect(() => {
-        fetchTrips();
-    }, [filters, searchTerm, dispatch]);
+        if (canView) {
+            fetchTrips();
+        }
+    }, [filters, searchTerm, dispatch, canView]);
 
     const fetchAvailableData = async (date) => {
         try {
@@ -446,7 +475,7 @@ const AssignTrip = () => {
     };
 
     useEffect(() => {
-        if (showAssignForm) {
+        if (showAssignForm && canCreate) {
             fetchAvailableData(tripDate);
         } else {
             dispatch(clearAvailableData());
@@ -455,7 +484,7 @@ const AssignTrip = () => {
             setAvailableAddonBookings([]);
             setSelectedAddonBookings([]);
         }
-    }, [showAssignForm, tripDate, dispatch]);
+    }, [showAssignForm, tripDate, dispatch, canCreate]);
 
     // Get unique branches from available bookings
     const branches = useMemo(() => {
@@ -749,6 +778,12 @@ const AssignTrip = () => {
     // Handle trip assignment
     const handleAssignTrip = (e) => {
         e.preventDefault();
+        
+        if (!canCreate) {
+            showMessage('error', 'You do not have permission to create trips');
+            return;
+        }
+        
         if (!validateForm()) {
             showMessage('error', 'Please fix all errors before assigning trip');
             return;
@@ -809,6 +844,11 @@ const AssignTrip = () => {
 
     // Handle add-on trip assignment
     const handleAssignAddonTrip = useCallback((parentTrip) => {
+        if (!canCreate) {
+            showMessage('error', 'You do not have permission to create trips');
+            return;
+        }
+
         console.log('Selected Parent Trip for Add-on:', parentTrip);
         
         setSelectedParentTrip(parentTrip);
@@ -851,10 +891,15 @@ const AssignTrip = () => {
         
         // Clear any previous addon bookings
         setAvailableAddonBookings([]);
-    }, []);
+    }, [canCreate]);
 
     // Open status update modal
     const openStatusModal = (trip) => {
+        if (!canUpdate) {
+            showMessage('error', 'You do not have permission to update trip status');
+            return;
+        }
+
         setSelectedTripForStatus(trip);
         
         // Get current time for default values
@@ -879,6 +924,11 @@ const AssignTrip = () => {
     // Handle status update submission
     const handleStatusUpdate = () => {
         if (!selectedTripForStatus) return;
+        
+        if (!canUpdate) {
+            showMessage('error', 'You do not have permission to update trip status');
+            return;
+        }
         
         const statusData = {
             status: statusForm.status
@@ -912,6 +962,10 @@ const AssignTrip = () => {
 
     // Handle redirect to loadman assignment page
     const handleAssignLoadmen = (trip) => {
+        if (!canAssignLoadmen) {
+            showMessage('error', 'You do not have permission to assign loadmen');
+            return;
+        }
         navigate(`/loadman-salary/trip/${trip.trip_id}/assign`, {
             state: { tripData: trip }
         });
@@ -919,6 +973,11 @@ const AssignTrip = () => {
 
     // Delete trip
     const handleDeleteTrip = (tripId) => {
+        if (!canDelete) {
+            showMessage('error', 'You do not have permission to delete trips');
+            return;
+        }
+
         showMessage(
             'warning',
             'Are you sure you want to delete this trip?',
@@ -1136,192 +1195,207 @@ const AssignTrip = () => {
     };
 
     // Table columns
-    const columns = useMemo(() => [
-        {
-            Header: '#',
-            accessor: 'trip_number',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="font-medium text-gray-600">
-                        <div className="inline-flex flex-col items-center">
-                            <span className="text-xs text-gray-500 hidden sm:block">Trip No</span>
-                            <span className="font-bold text-primary text-sm sm:text-base">{trip.trip_number}</span>
+    const columns = useMemo(() => {
+        const baseColumns = [
+            {
+                Header: '#',
+                accessor: 'trip_number',
+                Cell: ({ row }) => {
+                    const trip = row.original;
+                    return (
+                        <div className="font-medium text-gray-600">
+                            <div className="inline-flex flex-col items-center">
+                                <span className="text-xs text-gray-500 hidden sm:block">Trip No</span>
+                                <span className="font-bold text-primary text-sm sm:text-base">{trip.trip_number}</span>
+                            </div>
                         </div>
-                    </div>
-                );
+                    );
+                },
+                width: 100,
+                mobileFull: false,
             },
-            width: 100,
-            mobileFull: false,
-        },
-        {
-            Header: 'Route',
-            accessor: 'route',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
-                const { officeCentersData = [] } = officeCenterState;
-                
-                const getCenterName = (centerId) => {
-                    if (!centerId) return 'N/A';
-                    if (typeof centerId === 'string' && !centerId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-                        return centerId;
-                    }
-                    const center = officeCentersData.find(c => c.office_center_id === centerId);
-                    return center?.office_center_name || centerId;
-                };
-                
-                const fromCenterName = trip.fromCenter?.office_center_name || 
-                                       getCenterName(trip.from_center_id);
-                const toCenterName = trip.toCenter?.office_center_name || 
-                                     getCenterName(trip.to_center_id);
-                
-                return (
-                    <div className="space-y-1">
-                        <div className="flex items-center text-sm">
-                            <IconMapPin className="w-3 h-3 mr-1 text-blue-500 flex-shrink-0" />
-                            <span className="font-medium truncate">
-                                {fromCenterName} → {toCenterName}
-                            </span>
+            {
+                Header: 'Route',
+                accessor: 'route',
+                Cell: ({ row }) => {
+                    const trip = row.original;
+                    const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
+                    const { officeCentersData = [] } = officeCenterState;
+                    
+                    const getCenterName = (centerId) => {
+                        if (!centerId) return 'N/A';
+                        if (typeof centerId === 'string' && !centerId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                            return centerId;
+                        }
+                        const center = officeCentersData.find(c => c.office_center_id === centerId);
+                        return center?.office_center_name || centerId;
+                    };
+                    
+                    const fromCenterName = trip.fromCenter?.office_center_name || 
+                                           getCenterName(trip.from_center_id);
+                    const toCenterName = trip.toCenter?.office_center_name || 
+                                         getCenterName(trip.to_center_id);
+                    
+                    return (
+                        <div className="space-y-1">
+                            <div className="flex items-center text-sm">
+                                <IconMapPin className="w-3 h-3 mr-1 text-blue-500 flex-shrink-0" />
+                                <span className="font-medium truncate">
+                                    {fromCenterName} → {toCenterName}
+                                </span>
+                            </div>
+                            <div className="text-xs text-gray-600">
+                                {trip.bookings?.length || 0} bookings • {trip.total_packages} packages
+                            </div>
                         </div>
-                        <div className="text-xs text-gray-600">
-                            {trip.bookings?.length || 0} bookings • {trip.total_packages} packages
-                        </div>
-                    </div>
-                );
+                    );
+                },
+                width: 200,
+                mobileFull: true,
             },
-            width: 200,
-            mobileFull: true,
-        },
-        {
-            Header: 'Vehicle & Team',
-            accessor: 'team',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="space-y-1">
-                        <div className="flex items-center text-sm">
-                            <IconTruck className="w-3 h-3 mr-1 text-primary flex-shrink-0" />
-                            <span className="font-medium truncate">{trip.vehicle?.vehicle_number_plate}</span>
+            {
+                Header: 'Vehicle & Team',
+                accessor: 'team',
+                Cell: ({ row }) => {
+                    const trip = row.original;
+                    return (
+                        <div className="space-y-1">
+                            <div className="flex items-center text-sm">
+                                <IconTruck className="w-3 h-3 mr-1 text-primary flex-shrink-0" />
+                                <span className="font-medium truncate">{trip.vehicle?.vehicle_number_plate}</span>
+                            </div>
+                            <div className="flex items-center text-xs text-gray-600">
+                                <IconDriver className="w-3 h-3 mr-1 flex-shrink-0" />
+                                <span className="truncate">{trip.driver?.employee_name}</span>
+                            </div>
+                            <div className="text-xs text-gray-500">
+                                {trip.loadmen?.length || 0} loadmen
+                            </div>
                         </div>
-                        <div className="flex items-center text-xs text-gray-600">
-                            <IconDriver className="w-3 h-3 mr-1 flex-shrink-0" />
-                            <span className="truncate">{trip.driver?.employee_name}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                            {trip.loadmen?.length || 0} loadmen
-                        </div>
-                    </div>
-                );
+                    );
+                },
+                width: 150,
+                mobileFull: false,
             },
-            width: 150,
-            mobileFull: false,
-        },
-        {
-            Header: 'Load Summary',
-            accessor: 'load',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="space-y-1">
-                        <div className="text-sm">
-                            <span className="font-medium">{trip.total_packages}</span> Items
+            {
+                Header: 'Load Summary',
+                accessor: 'load',
+                Cell: ({ row }) => {
+                    const trip = row.original;
+                    return (
+                        <div className="space-y-1">
+                            <div className="text-sm">
+                                <span className="font-medium">{trip.total_packages}</span> Items
+                            </div>
+                            <div className="text-xs text-gray-500">
+                                Amount: ₹{trip.total_amount}
+                            </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                            Amount: ₹{trip.total_amount}
+                    );
+                },
+                width: 120,
+                mobileFull: false,
+            },
+            {
+                Header: 'Status',
+                accessor: 'status',
+                Cell: ({ value }) => {
+                    const statusConfig = {
+                        scheduled: { color: 'bg-blue-100 text-blue-800', icon: '⏰', label: 'Scheduled' },
+                        in_progress: { color: 'bg-yellow-100 text-yellow-800', icon: '🚚', label: 'In Progress' },
+                        completed: { color: 'bg-green-100 text-green-800', icon: '✓', label: 'Completed' },
+                        cancelled: { color: 'bg-red-100 text-red-800', icon: '✗', label: 'Cancelled' },
+                    };
+                    const config = statusConfig[value] || statusConfig.scheduled;
+                    return (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+                            {config.icon} {config.label}
+                        </span>
+                    );
+                },
+                width: 120,
+                mobileFull: false,
+            }
+        ];
+
+        // Add Actions column if user has any action permissions
+        if (canView || canUpdate || canDelete || canCreate || canAssignLoadmen) {
+            baseColumns.push({
+                Header: 'Actions',
+                accessor: 'actions',
+                Cell: ({ row }) => {
+                    const trip = row.original;
+                    return (
+                        <div className="flex flex-wrap gap-1">
+                            {/* View Details - Only if canView */}
+                            {canView && (
+                                <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
+                                    <button
+                                        onClick={() => toggleTripDetails(trip.trip_id)}
+                                        className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
+                                    >
+                                        {trip.expanded ? <IconChevronUp className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
+                                    </button>
+                                </Tippy>
+                            )}
+                            
+                            {/* Loadman Assignment Button - Only if canAssignLoadmen */}
+                            {canAssignLoadmen && (
+                                <Tippy content="Assign Loadmen & Calculate Salary">
+                                    <button
+                                        onClick={() => handleAssignLoadmen(trip)}
+                                        className="btn btn-outline-purple btn-sm p-1.5 rounded-lg hover:bg-purple-500 hover:text-white transition-colors"
+                                    >
+                                        <IconUsers className="w-4 h-4" />
+                                    </button>
+                                </Tippy>
+                            )}
+                            
+                            {/* Status Update Button - Only if canUpdate */}
+                            {canUpdate && (
+                                <Tippy content="Update Status">
+                                    <button
+                                        onClick={() => openStatusModal(trip)}
+                                        className="btn btn-outline-info btn-sm p-1.5 rounded-lg hover:bg-info hover:text-white transition-colors"
+                                    >
+                                        <IconEdit className="w-4 h-4" />
+                                    </button>
+                                </Tippy>
+                            )}
+                            
+                            {/* Add Stage Button - Only for in_progress or scheduled and if canCreate */}
+                            {canCreate && (trip.status === 'in_progress' || trip.status === 'scheduled') && (
+                                <Tippy content="Add Another Stage">
+                                    <button
+                                        onClick={() => handleAssignAddonTrip(trip)}
+                                        className="btn btn-outline-success btn-sm p-1.5 rounded-lg hover:bg-success hover:text-white transition-colors"
+                                    >
+                                        <IconPlus className="w-4 h-4" />
+                                    </button>
+                                </Tippy>
+                            )}
+                            
+                            {/* Delete Button - Only for scheduled and if canDelete */}
+                            {canDelete && trip.status === 'scheduled' && (
+                                <Tippy content="Delete Trip">
+                                    <button
+                                        onClick={() => handleDeleteTrip(trip.trip_id)}
+                                        className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors"
+                                    >
+                                        <IconX className="w-4 h-4" />
+                                    </button>
+                                </Tippy>
+                            )}
                         </div>
-                    </div>
-                );
-            },
-            width: 120,
-            mobileFull: false,
-        },
-        {
-            Header: 'Status',
-            accessor: 'status',
-            Cell: ({ value }) => {
-                const statusConfig = {
-                    scheduled: { color: 'bg-blue-100 text-blue-800', icon: '⏰', label: 'Scheduled' },
-                    in_progress: { color: 'bg-yellow-100 text-yellow-800', icon: '🚚', label: 'In Progress' },
-                    completed: { color: 'bg-green-100 text-green-800', icon: '✓', label: 'Completed' },
-                    cancelled: { color: 'bg-red-100 text-red-800', icon: '✗', label: 'Cancelled' },
-                };
-                const config = statusConfig[value] || statusConfig.scheduled;
-                return (
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
-                        {config.icon} {config.label}
-                    </span>
-                );
-            },
-            width: 120,
-            mobileFull: false,
-        },
-        {
-            Header: 'Actions',
-            accessor: 'actions',
-            Cell: ({ row }) => {
-                const trip = row.original;
-                return (
-                    <div className="flex flex-wrap gap-1">
-                        <Tippy content={trip.expanded ? "Hide Details" : "View Details"}>
-                            <button
-                                onClick={() => toggleTripDetails(trip.trip_id)}
-                                className="btn btn-outline-primary btn-sm p-1.5 rounded-lg hover:bg-primary hover:text-white transition-colors"
-                            >
-                                {trip.expanded ? <IconChevronUp className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
-                            </button>
-                        </Tippy>
-                        
-                        {/* Loadman Assignment Button */}
-                        <Tippy content="Assign Loadmen & Calculate Salary">
-                            <button
-                                onClick={() => handleAssignLoadmen(trip)}
-                                className="btn btn-outline-purple btn-sm p-1.5 rounded-lg hover:bg-purple-500 hover:text-white transition-colors"
-                            >
-                                <IconUsers className="w-4 h-4" />
-                            </button>
-                        </Tippy>
-                        
-                        {/* Status Update Button - Always visible */}
-                        <Tippy content="Update Status">
-                            <button
-                                onClick={() => openStatusModal(trip)}
-                                className="btn btn-outline-info btn-sm p-1.5 rounded-lg hover:bg-info hover:text-white transition-colors"
-                            >
-                                <IconEdit className="w-4 h-4" />
-                            </button>
-                        </Tippy>
-                        
-                        {/* Add Stage Button - Only for in_progress or scheduled */}
-                        {(trip.status === 'in_progress' || trip.status === 'scheduled') && (
-                            <Tippy content="Add Another Stage">
-                                <button
-                                    onClick={() => handleAssignAddonTrip(trip)}
-                                    className="btn btn-outline-success btn-sm p-1.5 rounded-lg hover:bg-success hover:text-white transition-colors"
-                                >
-                                    <IconPlus className="w-4 h-4" />
-                                </button>
-                            </Tippy>
-                        )}
-                        
-                        {/* Delete Button - Only for scheduled */}
-                        {trip.status === 'scheduled' && (
-                            <Tippy content="Delete Trip">
-                                <button
-                                    onClick={() => handleDeleteTrip(trip.trip_id)}
-                                    className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors"
-                                >
-                                    <IconX className="w-4 h-4" />
-                                </button>
-                            </Tippy>
-                        )}
-                    </div>
-                );
-            },
-            width: 200,
-            mobileFull: false,
-        },
-    ], [handleAssignAddonTrip, toggleTripDetails, handleAssignLoadmen, openStatusModal, handleDeleteTrip]);
+                    );
+                },
+                width: 200,
+                mobileFull: false,
+            });
+        }
+
+        return baseColumns;
+    }, [canView, canUpdate, canDelete, canCreate, canAssignLoadmen, toggleTripDetails, handleAssignLoadmen, openStatusModal, handleAssignAddonTrip, handleDeleteTrip]);
 
     // Stats
     const stats = {
@@ -1331,6 +1405,27 @@ const AssignTrip = () => {
         completed: trips.filter((t) => t.status === 'completed').length,
         totalBookings: trips.reduce((sum, t) => sum + (t.total_packages || 0), 0),
     };
+
+    // If user doesn't have view permission, show access denied
+    if (!canView) {
+        return (
+            <div className="container mx-auto px-2 sm:px-3 lg:px-4 py-3 sm:py-4 lg:py-6">
+                <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-8">
+                    <div className="flex items-center justify-center h-64">
+                        <div className="text-center">
+                            <IconXCircle className="w-16 h-16 text-danger mx-auto mb-4" />
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                                Access Denied
+                            </h2>
+                            <p className="text-gray-600">
+                                You do not have permission to view trip assignments.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto px-2 sm:px-3 lg:px-4 py-3 sm:py-4 lg:py-6">
@@ -1428,28 +1523,32 @@ const AssignTrip = () => {
                                 <IconFilter className="w-4 h-4 mr-2" />
                                 Filters
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    resetForm();
-                                    setShowAssignForm(!showAssignForm);
-                                }}
-                                className={`btn ${showAssignForm ? 'btn-outline-primary' : 'btn-primary'} shadow-md hover:shadow-lg transition-all duration-300 flex items-center text-xs sm:text-sm py-2 px-4`}
-                            >
-                                {showAssignForm ? (
-                                    <>
-                                        <IconX className="w-3 h-3 mr-1" />
-                                        Close Form
-                                        <IconChevronUp className="w-3 h-3 ml-1" />
-                                    </>
-                                ) : (
-                                    <>
-                                        <IconPlus className="w-3 h-3 mr-1" />
-                                        Assign New Trip
-                                        <IconChevronDown className="w-3 h-3 ml-1" />
-                                    </>
-                                )}
-                            </button>
+                            
+                            {/* Assign New Trip Button - Only if canCreate */}
+                            {canCreate && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        resetForm();
+                                        setShowAssignForm(!showAssignForm);
+                                    }}
+                                    className={`btn ${showAssignForm ? 'btn-outline-primary' : 'btn-primary'} shadow-md hover:shadow-lg transition-all duration-300 flex items-center text-xs sm:text-sm py-2 px-4`}
+                                >
+                                    {showAssignForm ? (
+                                        <>
+                                            <IconX className="w-3 h-3 mr-1" />
+                                            Close Form
+                                            <IconChevronUp className="w-3 h-3 ml-1" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IconPlus className="w-3 h-3 mr-1" />
+                                            Assign New Trip
+                                            <IconChevronDown className="w-3 h-3 ml-1" />
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -1514,8 +1613,8 @@ const AssignTrip = () => {
                 </div>
             </div>
 
-            {/* Trip Assignment Form */}
-            {showAssignForm && (
+            {/* Trip Assignment Form - Only show if canCreate */}
+            {canCreate && showAssignForm && (
                 <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-6 sm:mb-8 lg:mb-10 animate-fadeIn overflow-hidden">
                     <div className="p-3 sm:p-4 lg:p-6 border-b border-gray-200">
                         <h2 className="text-base sm:text-lg lg:text-xl font-bold text-gray-800 flex items-center">
@@ -2002,111 +2101,113 @@ const AssignTrip = () => {
                 </div>
             </div>
 
-            {/* Status Update Modal using ModelViewBox */}
-            <ModelViewBox
-                modal={showStatusModal}
-                setModel={setShowStatusModal}
-                modelHeader={`Update Trip Status - ${selectedTripForStatus?.trip_number || ''}`}
-                modelSize="md"
-                saveBtn={true}
-                cancelBtn={true}
-                handleSubmit={handleStatusUpdate}
-                btnName="Update Status"
-                isEdit={true}
-                isLoading={loading}
-                backgroundColor="bg-white"
-            >
-                <div className="space-y-4">
-                    {/* Current Status Info */}
-                    {selectedTripForStatus && (
-                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                            <div className="text-sm">
-                                <span className="font-medium">Current Status:</span>{' '}
-                                <span className="capitalize">{selectedTripForStatus.status}</span>
+            {/* Status Update Modal using ModelViewBox - Only if canUpdate */}
+            {canUpdate && (
+                <ModelViewBox
+                    modal={showStatusModal}
+                    setModel={setShowStatusModal}
+                    modelHeader={`Update Trip Status - ${selectedTripForStatus?.trip_number || ''}`}
+                    modelSize="md"
+                    saveBtn={true}
+                    cancelBtn={true}
+                    handleSubmit={handleStatusUpdate}
+                    btnName="Update Status"
+                    isEdit={true}
+                    isLoading={loading}
+                    backgroundColor="bg-white"
+                >
+                    <div className="space-y-4">
+                        {/* Current Status Info */}
+                        {selectedTripForStatus && (
+                            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                <div className="text-sm">
+                                    <span className="font-medium">Current Status:</span>{' '}
+                                    <span className="capitalize">{selectedTripForStatus.status}</span>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    {/* Status Selection */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            New Status *
-                        </label>
-                        <select
-                            name="status"
-                            value={statusForm.status}
-                            onChange={handleStatusFormChange}
-                            className="form-select w-full"
-                            required
-                        >
-                            <option value="">Select Status</option>
-                            <option value="scheduled">Scheduled</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
+                        {/* Status Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                New Status *
+                            </label>
+                            <select
+                                name="status"
+                                value={statusForm.status}
+                                onChange={handleStatusFormChange}
+                                className="form-select w-full"
+                                required
+                            >
+                                <option value="">Select Status</option>
+                                <option value="scheduled">Scheduled</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+
+                        {/* Actual Departure Time - Show when starting trip */}
+                        {(statusForm.status === 'in_progress' || (statusForm.status === 'completed' && !selectedTripForStatus?.actual_departure)) && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Actual Departure Time
+                                </label>
+                                <input
+                                    type="time"
+                                    name="actualDeparture"
+                                    value={statusForm.actualDeparture}
+                                    onChange={handleStatusFormChange}
+                                    className="form-input w-full"
+                                    placeholder="HH:MM"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Leave empty to use current time
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Actual Arrival Time - Show when completing trip */}
+                        {statusForm.status === 'completed' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Actual Arrival Time
+                                </label>
+                                <input
+                                    type="time"
+                                    name="actualArrival"
+                                    value={statusForm.actualArrival}
+                                    onChange={handleStatusFormChange}
+                                    className="form-input w-full"
+                                    placeholder="HH:MM"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Leave empty to use current time
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Warning for status changes */}
+                        {statusForm.status === 'completed' && selectedTripForStatus?.status !== 'in_progress' && (
+                            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                                <p className="text-xs text-yellow-700">
+                                    Warning: Marking trip as completed without starting it first. 
+                                    Please ensure all bookings are delivered.
+                                </p>
+                            </div>
+                        )}
+
+                        {statusForm.status === 'cancelled' && (
+                            <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+                                <p className="text-xs text-red-700">
+                                    Warning: Cancelling this trip will affect all associated bookings.
+                                    This action cannot be undone.
+                                </p>
+                            </div>
+                        )}
                     </div>
-
-                    {/* Actual Departure Time - Show when starting trip */}
-                    {(statusForm.status === 'in_progress' || (statusForm.status === 'completed' && !selectedTripForStatus?.actual_departure)) && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Actual Departure Time
-                            </label>
-                            <input
-                                type="time"
-                                name="actualDeparture"
-                                value={statusForm.actualDeparture}
-                                onChange={handleStatusFormChange}
-                                className="form-input w-full"
-                                placeholder="HH:MM"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Leave empty to use current time
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Actual Arrival Time - Show when completing trip */}
-                    {statusForm.status === 'completed' && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Actual Arrival Time
-                            </label>
-                            <input
-                                type="time"
-                                name="actualArrival"
-                                value={statusForm.actualArrival}
-                                onChange={handleStatusFormChange}
-                                className="form-input w-full"
-                                placeholder="HH:MM"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Leave empty to use current time
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Warning for status changes */}
-                    {statusForm.status === 'completed' && selectedTripForStatus?.status !== 'in_progress' && (
-                        <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                            <p className="text-xs text-yellow-700">
-                                Warning: Marking trip as completed without starting it first. 
-                                Please ensure all bookings are delivered.
-                            </p>
-                        </div>
-                    )}
-
-                    {statusForm.status === 'cancelled' && (
-                        <div className="bg-red-50 p-3 rounded-lg border border-red-200">
-                            <p className="text-xs text-red-700">
-                                Warning: Cancelling this trip will affect all associated bookings.
-                                This action cannot be undone.
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </ModelViewBox>
+                </ModelViewBox>
+            )}
         </div>
     );
 };

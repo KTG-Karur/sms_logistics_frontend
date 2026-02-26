@@ -49,6 +49,24 @@ const Attendance = () => {
         loading: holidayLoading 
     } = useSelector((state) => state.HolidaySlice);
     
+    // Login info for permissions
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = loginInfo ? JSON.parse(loginInfo) : null;
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Staff Attendance');
+    console.log(accessIds)
+    const currentUserId = localData?.employeeId || null;
+    
+    // Extract access IDs for different permissions
+    const viewAccessId = accessIds?.view || null;
+    const createAccessId = accessIds?.create || null;
+    const updateAccessId = accessIds?.update || null;
+    const deleteAccessId = accessIds?.delete || null;
+    
+     const canView = accessIds?.includes('1') || false;
+    const canCreate = accessIds?.includes('2') || false;
+    const canUpdate = accessIds?.includes('3') || false;
+    const canDelete = accessIds?.includes('4') || false;
+    
     // Local state
     const [loading, setLoading] = useState(false);
     const [employeeList, setEmployeeList] = useState([]);
@@ -59,12 +77,6 @@ const Attendance = () => {
     const [showHolidayForm, setShowHolidayForm] = useState(false);
     const [showHolidayList, setShowHolidayList] = useState(false);
     const [viewMode, setViewMode] = useState('daily');
-    
-    // Login info for created_by/updated_by
-    const loginInfo = localStorage.getItem('loginInfo');
-    const localData = loginInfo ? JSON.parse(loginInfo) : null;
-    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Staff Attendance');
-    const currentUserId = localData?.employeeId || null;
     
     // Holiday form state
     const [holidayForm, setHolidayForm] = useState({
@@ -97,9 +109,13 @@ const Attendance = () => {
     // ============= INITIAL LOAD =============
     useEffect(() => {
         dispatch(setPageTitle('Attendance Management'));
-        fetchEmployees();
-        fetchDailyAttendance(selectedDate);
-        fetchHolidays();
+        if (canView) {
+            fetchEmployees();
+            fetchDailyAttendance(selectedDate);
+            fetchHolidays();
+        } else {
+            showMessage('error', 'You do not have permission to view attendance');
+        }
     }, []);
 
     // ============= FETCH DATA =============
@@ -245,8 +261,10 @@ const Attendance = () => {
 
     // ============= FILTERING =============
     useEffect(() => {
-        filterEmployees();
-    }, [searchQuery, statusFilter, attendanceDetail, selectedDate, viewMode, attendanceData]);
+        if (canView) {
+            filterEmployees();
+        }
+    }, [searchQuery, statusFilter, attendanceDetail, selectedDate, viewMode, attendanceData, canView]);
 
     useEffect(() => {
         setCurrentPage(1);
@@ -291,17 +309,21 @@ const Attendance = () => {
     const handleMonthChange = (direction) => {
         const newMonth = moment(selectedMonth).add(direction, 'months').format('YYYY-MM');
         setSelectedMonth(newMonth);
-        dispatch(getStaffAttendanceList({ attendanceDate: newMonth + '-01' }));
+        if (canView) {
+            dispatch(getStaffAttendanceList({ attendanceDate: newMonth + '-01' }));
+        }
     };
 
     const handleDateChange = (date) => {
         setSelectedDate(date);
-        fetchDailyAttendance(date);
+        if (canView) {
+            fetchDailyAttendance(date);
+        }
     };
 
     const handleViewModeChange = (mode) => {
         setViewMode(mode);
-        if (mode === 'monthly') {
+        if (mode === 'monthly' && canView) {
             fetchMonthlyAttendance();
         }
     };
@@ -339,6 +361,12 @@ const Attendance = () => {
     };
 
     const handleAttendanceChange = async (employeeId, status, date = selectedDate) => {
+        // Check update permission
+        if (!canUpdate) {
+            showMessage('error', 'You do not have permission to update attendance');
+            return;
+        }
+
         // Check if trying to mark attendance for future date
         if (isFutureDate(date)) {
             showMessage('error', 'Cannot mark attendance for future dates');
@@ -380,6 +408,12 @@ const Attendance = () => {
     };
 
     const markAllAttendance = async (status) => {
+        // Check update permission
+        if (!canUpdate) {
+            showMessage('error', 'You do not have permission to update attendance');
+            return;
+        }
+
         // Check if trying to mark attendance for future date
         if (isFutureDate(selectedDate)) {
             showMessage('error', 'Cannot mark attendance for future dates');
@@ -424,6 +458,12 @@ const Attendance = () => {
 
     // ============= HOLIDAY HANDLERS =============
     const handleSaveHoliday = async () => {
+        // Check create permission for holidays
+        if (!canCreate) {
+            showMessage('error', 'You do not have permission to add holidays');
+            return;
+        }
+
         if (!holidayForm.reason?.trim()) {
             showMessage('error', 'Please enter holiday name');
             return;
@@ -448,6 +488,12 @@ const Attendance = () => {
     };
 
     const handleDeleteHoliday = async (holidayId) => {
+        // Check delete permission for holidays
+        if (!canDelete) {
+            showMessage('error', 'You do not have permission to delete holidays');
+            return;
+        }
+
         try {
             await dispatch(deleteHoliday(holidayId));
             showMessage('success', 'Holiday deleted successfully');
@@ -647,6 +693,25 @@ const Attendance = () => {
             </span>
         );
     };
+
+    // If user doesn't have view permission, show access denied
+    if (!canView) {
+        return (
+            <div className="panel">
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <IconXCircle className="w-16 h-16 text-danger mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white-light mb-2">
+                            Access Denied
+                        </h2>
+                        <p className="text-gray-500 dark:text-gray-400">
+                            You do not have permission to view attendance records.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     // ============= RENDER =============
     const isLoading = loading || attendanceLoading || holidayLoading;
@@ -848,7 +913,7 @@ const Attendance = () => {
                 </div>
 
                 {/* Action Buttons - Only for Daily View and non-future dates */}
-                {viewMode === 'daily' && !isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && (
+                {viewMode === 'daily' && !isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && canUpdate && (
                     <div className="mt-6 flex flex-wrap gap-2">
                         <button
                             onClick={() => markAllAttendance('present')}
@@ -876,13 +941,15 @@ const Attendance = () => {
 
                 {/* Global Action Buttons */}
                 <div className="mt-6 flex flex-wrap gap-2">
-                    <button
-                        onClick={() => setShowHolidayForm(true)}
-                        className="btn btn-info"
-                    >
-                        <IconPlus className="w-4 h-4 mr-2" />
-                        Add Holiday
-                    </button>
+                    {canCreate && (
+                        <button
+                            onClick={() => setShowHolidayForm(true)}
+                            className="btn btn-info"
+                        >
+                            <IconPlus className="w-4 h-4 mr-2" />
+                            Add Holiday
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowHolidayList(true)}
                         className="btn btn-warning"
@@ -1055,7 +1122,7 @@ const Attendance = () => {
                                                 <th className="px-4 py-3 text-left">S.No</th>
                                                 <th className="px-4 py-3 text-left">Employee</th>
                                                 <th className="px-4 py-3 text-left">Status</th>
-                                                {!isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && (
+                                                {!isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && canUpdate && (
                                                     <th className="px-4 py-3 text-left">Actions</th>
                                                 )}
                                             </tr>
@@ -1063,7 +1130,36 @@ const Attendance = () => {
                                         <tbody>
                                             {currentItems.map((employee, index) => {
                                                 const status = getEmployeeAttendanceStatus(employee.employeeId, selectedDate);
-                                                const isDisabled = status === 'holiday' || status === 'sunday' || isFutureDate(selectedDate);
+                                                
+                                                // Get status details with static class names
+                                                let statusConfig;
+                                                let StatusIcon;
+                                                
+                                                switch(status) {
+                                                    case 'present':
+                                                        statusConfig = { color: 'success', label: 'Present' };
+                                                        StatusIcon = IconCheckCircle;
+                                                        break;
+                                                    case 'absent':
+                                                        statusConfig = { color: 'danger', label: 'Absent' };
+                                                        StatusIcon = IconXCircle;
+                                                        break;
+                                                    case 'halfday':
+                                                        statusConfig = { color: 'warning', label: 'Half Day' };
+                                                        StatusIcon = IconClock;
+                                                        break;
+                                                    case 'holiday':
+                                                        statusConfig = { color: 'info', label: 'Holiday' };
+                                                        StatusIcon = IconSun;
+                                                        break;
+                                                    case 'sunday':
+                                                        statusConfig = { color: 'secondary', label: 'Sunday' };
+                                                        StatusIcon = IconSun;
+                                                        break;
+                                                    default:
+                                                        statusConfig = { color: 'light', label: 'Pending' };
+                                                        StatusIcon = IconMinus;
+                                                }
                                                 
                                                 return (
                                                     <tr
@@ -1084,9 +1180,19 @@ const Attendance = () => {
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3">
-                                                            <StatusBadge status={status} />
+                                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+                                                                ${status === 'present' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : ''}
+                                                                ${status === 'absent' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : ''}
+                                                                ${status === 'halfday' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}
+                                                                ${status === 'holiday' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : ''}
+                                                                ${status === 'sunday' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' : ''}
+                                                                ${status === '-' || status === 'pending' ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300' : ''}
+                                                            `}>
+                                                                {StatusIcon && <StatusIcon className="w-3.5 h-3.5" />}
+                                                                <span>{statusConfig.label}</span>
+                                                            </span>
                                                         </td>
-                                                        {!isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && (
+                                                        {!isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && canUpdate && (
                                                             <td className="px-4 py-3">
                                                                 <div className="flex items-center space-x-2">
                                                                     <button
@@ -1133,7 +1239,7 @@ const Attendance = () => {
                                 <div className="md:hidden space-y-4">
                                     {currentItems.map((employee, index) => {
                                         const status = getEmployeeAttendanceStatus(employee.employeeId, selectedDate);
-                                        const canMarkAttendance = !isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate);
+                                        const canMarkAttendance = !isHoliday(selectedDate) && !isSunday(selectedDate) && !isFutureDate(selectedDate) && canUpdate;
                                         
                                         return (
                                             <div
@@ -1234,7 +1340,7 @@ const Attendance = () => {
             </div>
 
             {/* Holiday Form Modal */}
-            {showHolidayForm && (
+            {showHolidayForm && canCreate && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md">
                         <div className="flex items-center justify-between p-4 border-b">
@@ -1328,7 +1434,9 @@ const Attendance = () => {
                                                 <th className="px-4 py-3 text-left">Holiday Name</th>
                                                 <th className="px-4 py-3 text-left">Date</th>
                                                 <th className="px-4 py-3 text-left">Day</th>
-                                                <th className="px-4 py-3 text-left">Actions</th>
+                                                {canDelete && (
+                                                    <th className="px-4 py-3 text-left">Actions</th>
+                                                )}
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1343,15 +1451,17 @@ const Attendance = () => {
                                                     <td className="px-4 py-3">
                                                         {moment(holiday.holidayDate).format('dddd')}
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <button
-                                                            onClick={() => handleDeleteHoliday(holiday.holidayId)}
-                                                            className="btn btn-outline-danger btn-sm"
-                                                        >
-                                                            <IconTrashLines className="w-3 h-3 mr-1" />
-                                                            Delete
-                                                        </button>
-                                                    </td>
+                                                    {canDelete && (
+                                                        <td className="px-4 py-3">
+                                                            <button
+                                                                onClick={() => handleDeleteHoliday(holiday.holidayId)}
+                                                                className="btn btn-outline-danger btn-sm"
+                                                            >
+                                                                <IconTrashLines className="w-3 h-3 mr-1" />
+                                                                Delete
+                                                            </button>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))}
                                         </tbody>

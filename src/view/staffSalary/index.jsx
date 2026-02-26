@@ -29,20 +29,42 @@ const SalaryCalculation = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Staff Salary');
-
+    console.log('Access IDs:', accessIds); // For debugging
+    
     const dispatch = useDispatch();
     
+    // Map access IDs to permissions
+    // Assuming: 1=View, 2=Create, 3=Update, 4=Delete, 10=Pay, 11=Add Extra, 12=Add Deduction
+    const canView = accessIds?.includes('1') || false;
+    const canCreate = accessIds?.includes('2') || false;
+    const canUpdate = accessIds?.includes('3') || false;
+    const canDelete = accessIds?.includes('4') || false;
+    const canPay = accessIds?.includes('10') || false;
+    const canAddExtra = accessIds?.includes('11') || false;
+    const canAddDeduction = accessIds?.includes('12') || false;
+    
+    // Debug log to verify permissions
+    console.log('Salary Permissions:', { 
+        canView, 
+        canCreate, 
+        canUpdate, 
+        canDelete,
+        canPay,
+        canAddExtra,
+        canAddDeduction 
+    });
+
     // Redux state
     const { 
-        salaryCalculation,
-        loading,
-        calculateSalarySuccess,
-        calculateSalaryFailed,
-        processSalaryPaymentSuccess,
-        processSalaryPaymentFailed,
-        createSalaryAdjustmentSuccess,
-        createSalaryAdjustmentFailed,
-        error
+        salaryCalculation, 
+        loading, 
+        calculateSalarySuccess, 
+        calculateSalaryFailed, 
+        processSalaryPaymentSuccess, 
+        processSalaryPaymentFailed, 
+        createSalaryAdjustmentSuccess, 
+        createSalaryAdjustmentFailed, 
+        error 
     } = useSelector((state) => state.SalarySlice);
 
     // Format date to DD/MM/YYYY for display
@@ -108,8 +130,10 @@ const SalaryCalculation = () => {
     }, []);
 
     useEffect(() => {
-        fetchSalaryData();
-    }, [selectedDate]);
+        if (canView) {
+            fetchSalaryData();
+        }
+    }, [selectedDate, canView]);
 
     // Handle API response effects
     useEffect(() => {
@@ -183,11 +207,12 @@ const SalaryCalculation = () => {
 
     // Fetch salary data from API
     const fetchSalaryData = async () => {
+        if (!canView) {
+            showMessage('error', 'You do not have permission to view salary data');
+            return;
+        }
         const salaryMonth = getYearMonth(selectedDate);
-        await dispatch(calculateSalary({ 
-            salaryMonth,
-            includeAdjustments: 'true'
-        }));
+        await dispatch(calculateSalary({ salaryMonth, includeAdjustments: 'true' }));
     };
 
     // Handle date change
@@ -212,16 +237,16 @@ const SalaryCalculation = () => {
         const partiallyPaid = data.filter(person => (person.paidAmount || 0) > 0 && (person.paidAmount || 0) < (person.totalSalary || 0)).length;
         const unpaid = data.filter(person => (person.paidAmount || 0) === 0).length;
 
-        return {
-            totalSalary,
-            totalPaid,
-            totalDeductions,
-            totalExtras,
-            totalRemaining,
-            fullyPaid,
-            partiallyPaid,
-            unpaid,
-            totalCount: data.length
+        return { 
+            totalSalary, 
+            totalPaid, 
+            totalDeductions, 
+            totalExtras, 
+            totalRemaining, 
+            fullyPaid, 
+            partiallyPaid, 
+            unpaid, 
+            totalCount: data.length 
         };
     };
 
@@ -230,26 +255,27 @@ const SalaryCalculation = () => {
     // View details
     const viewDetails = async (person) => {
         setSelectedPerson(person);
-        
         // Fetch detailed salary info
         const salaryMonth = getYearMonth(selectedDate);
-        const result = await dispatch(getEmployeeSalaryDetail({ 
-            employeeId: person.id, 
-            salaryMonth 
-        }));
-        
+        const result = await dispatch(getEmployeeSalaryDetail({ employeeId: person.id, salaryMonth }));
         if (result.payload?.data) {
-            setSelectedPerson({
-                ...person,
-                ...result.payload.data
-            });
+            setSelectedPerson({ ...person, ...result.payload.data });
         }
-        
         setShowDetailsModal(true);
     };
 
     // Open deduction/extra modal
     const openDeductionExtraModal = (person, type = 'deduction') => {
+        // Check permission based on type
+        if (type === 'deduction' && !canAddDeduction) {
+            showMessage('error', 'You do not have permission to add deductions');
+            return;
+        }
+        if (type === 'extra' && !canAddExtra) {
+            showMessage('error', 'You do not have permission to add extras');
+            return;
+        }
+
         setSelectedPerson(person);
         setDeductionExtraForm({
             type: type,
@@ -264,10 +290,7 @@ const SalaryCalculation = () => {
     // Handle deduction/extra form change
     const handleDeductionExtraFormChange = (e) => {
         const { name, value } = e.target;
-        setDeductionExtraForm(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setDeductionExtraForm(prev => ({ ...prev, [name]: value }));
     };
 
     // Add deduction or extra
@@ -297,6 +320,11 @@ const SalaryCalculation = () => {
 
     // Open payment modal
     const openPaymentModal = (person) => {
+        if (!canPay) {
+            showMessage('error', 'You do not have permission to process payments');
+            return;
+        }
+
         setSelectedPerson(person);
         setPaymentForm({
             amount: '',
@@ -311,14 +339,16 @@ const SalaryCalculation = () => {
     // Handle payment form change
     const handlePaymentFormChange = (e) => {
         const { name, value } = e.target;
-        setPaymentForm(prev => ({
-            ...prev,
-            [name]: value
-        }));
+        setPaymentForm(prev => ({ ...prev, [name]: value }));
     };
 
     // Process payment
     const processPayment = () => {
+        if (!canPay) {
+            showMessage('error', 'You do not have permission to process payments');
+            return;
+        }
+
         if (!paymentForm.amount || isNaN(paymentForm.amount) || parseFloat(paymentForm.amount) <= 0) {
             showMessage('error', 'Please enter a valid payment amount');
             return;
@@ -333,69 +363,77 @@ const SalaryCalculation = () => {
         }
 
         // Show warning before processing payment
-        showMessage('warning', `Are you sure you want to process payment of ₹${paymentAmount.toLocaleString('en-IN')} to ${selectedPerson.name}?`, () => {
-            const paymentData = {
-                employeeId: selectedPerson.id,
-                salaryMonth: getYearMonth(selectedDate),
-                amount: paymentAmount,
-                paymentDate: paymentForm.paymentDate,
-                officeCenterId: paymentForm.officeCenterId,
-                paymentType: paymentForm.paymentType,
-                notes: paymentForm.notes || `Salary payment for ${getYearMonth(selectedDate)}`
-            };
-
-            dispatch(processSalaryPayment(paymentData));
-        });
+        showMessage('warning', 
+            `Are you sure you want to process payment of ₹${paymentAmount.toLocaleString('en-IN')} to ${selectedPerson.name}?`, 
+            () => {
+                const paymentData = {
+                    employeeId: selectedPerson.id,
+                    salaryMonth: getYearMonth(selectedDate),
+                    amount: paymentAmount,
+                    paymentDate: paymentForm.paymentDate,
+                    officeCenterId: paymentForm.officeCenterId,
+                    paymentType: paymentForm.paymentType,
+                    notes: paymentForm.notes || `Salary payment for ${getYearMonth(selectedDate)}`
+                };
+                dispatch(processSalaryPayment(paymentData));
+            }
+        );
     };
 
     // Mark as fully paid
     const markAsFullyPaid = (person) => {
-        const remaining = (person.totalSalary || 0) - (person.paidAmount || 0);
-        
-        showMessage('warning', `Mark ${person.name} as fully paid with remaining amount of ₹${remaining.toLocaleString('en-IN')}?`, () => {
-            const paymentData = {
-                employeeId: person.id,
-                salaryMonth: getYearMonth(selectedDate),
-                amount: remaining,
-                paymentDate: formatInputDate(new Date()),
-                officeCenterId: '1', // This should come from user context
-                paymentType: 'cash',
-                notes: 'Full settlement'
-            };
+        if (!canPay) {
+            showMessage('error', 'You do not have permission to process payments');
+            return;
+        }
 
-            dispatch(processSalaryPayment(paymentData));
-        });
+        const remaining = (person.totalSalary || 0) - (person.paidAmount || 0);
+        showMessage('warning', 
+            `Mark ${person.name} as fully paid with remaining amount of ₹${remaining.toLocaleString('en-IN')}?`, 
+            () => {
+                const paymentData = {
+                    employeeId: person.id,
+                    salaryMonth: getYearMonth(selectedDate),
+                    amount: remaining,
+                    paymentDate: formatInputDate(new Date()),
+                    officeCenterId: '1', // This should come from user context
+                    paymentType: 'cash',
+                    notes: 'Full settlement'
+                };
+                dispatch(processSalaryPayment(paymentData));
+            }
+        );
     };
 
     // Get columns for the table
     const getColumns = () => {
-        return [
-            {
-                Header: 'S.No',
-                accessor: 'id',
-                Cell: ({ row }) => <div>{row.index + 1}</div>,
+        const baseColumns = [
+            { 
+                Header: 'S.No', 
+                accessor: 'id', 
+                Cell: ({ row }) => <div>{row.index + 1}</div>, 
                 width: 80,
             },
-            {
-                Header: 'Employee Name',
-                accessor: 'name',
-                sort: true,
+            { 
+                Header: 'Employee Name', 
+                accessor: 'name', 
+                sort: true, 
                 Cell: ({ value }) => (
                     <div className="font-semibold text-gray-800 dark:text-gray-200">{value || ''}</div>
                 ),
             },
-            {
-                Header: 'Salary Type',
-                accessor: 'salaryType',
-                sort: true,
+            { 
+                Header: 'Salary Type', 
+                accessor: 'salaryType', 
+                sort: true, 
                 Cell: ({ value }) => (
                     <div className="capitalize">{value || 'N/A'}</div>
                 ),
             },
-            {
-                Header: 'Rate',
-                accessor: 'rate',
-                sort: true,
+            { 
+                Header: 'Rate', 
+                accessor: 'rate', 
+                sort: true, 
                 Cell: ({ row }) => {
                     const person = row.original;
                     const rate = person.salaryType === 'monthly' ? person.monthlyRate : person.dailyRate;
@@ -409,9 +447,9 @@ const SalaryCalculation = () => {
                     );
                 },
             },
-            {
-                Header: 'Attendance',
-                accessor: 'attendance',
+            { 
+                Header: 'Attendance', 
+                accessor: 'attendance', 
                 Cell: ({ row }) => {
                     const person = row.original;
                     return (
@@ -426,17 +464,17 @@ const SalaryCalculation = () => {
                     );
                 },
             },
-            {
-                Header: 'Base Salary',
-                accessor: 'baseSalary',
-                sort: true,
+            { 
+                Header: 'Base Salary', 
+                accessor: 'baseSalary', 
+                sort: true, 
                 Cell: ({ value }) => (
                     <div className="text-blue-600 font-medium">₹{(value || 0).toLocaleString('en-IN')}</div>
                 ),
             },
-            {
-                Header: 'Adjustments',
-                accessor: 'adjustments',
+            { 
+                Header: 'Adjustments', 
+                accessor: 'adjustments', 
                 Cell: ({ row }) => {
                     const person = row.original;
                     return (
@@ -454,18 +492,18 @@ const SalaryCalculation = () => {
                     );
                 },
             },
-            {
-                Header: 'Net Salary',
-                accessor: 'totalSalary',
-                sort: true,
+            { 
+                Header: 'Net Salary', 
+                accessor: 'totalSalary', 
+                sort: true, 
                 Cell: ({ value }) => (
                     <div className="text-success font-bold text-lg">₹{(value || 0).toLocaleString('en-IN')}</div>
                 ),
             },
-            {
-                Header: 'Paid Amount',
-                accessor: 'paidAmount',
-                sort: true,
+            { 
+                Header: 'Paid Amount', 
+                accessor: 'paidAmount', 
+                sort: true, 
                 Cell: ({ value, row }) => {
                     const remaining = (row.original.totalSalary || 0) - (value || 0);
                     return (
@@ -480,14 +518,13 @@ const SalaryCalculation = () => {
                     );
                 },
             },
-            {
-                Header: 'Status',
-                accessor: 'status',
+            { 
+                Header: 'Status', 
+                accessor: 'status', 
                 Cell: ({ row }) => {
                     const person = row.original;
                     const isFullyPaid = (person.paidAmount || 0) >= (person.totalSalary || 0);
                     const hasPartialPayment = (person.paidAmount || 0) > 0 && !isFullyPaid;
-
                     return (
                         <div className="flex items-center">
                             <div className={`w-3 h-3 rounded-full mr-2 ${isFullyPaid ? 'bg-success' : 'bg-danger'}`}></div>
@@ -498,74 +535,98 @@ const SalaryCalculation = () => {
                     );
                 },
             },
-            {
-                Header: 'Actions',
-                accessor: 'actions',
-                Cell: ({ row }) => {
-                    const person = row.original;
-                    const remaining = (person.totalSalary || 0) - (person.paidAmount || 0);
-                    const isFullyPaid = (person.paidAmount || 0) >= (person.totalSalary || 0);
-                    const hasPartialPayment = (person.paidAmount || 0) > 0 && !isFullyPaid;
+        ];
 
-                    return (
-                        <div className="flex items-center space-x-2">
+        // Add Actions column
+        const actionsColumn = {
+            Header: 'Actions',
+            accessor: 'actions',
+            Cell: ({ row }) => {
+                const person = row.original;
+                const remaining = (person.totalSalary || 0) - (person.paidAmount || 0);
+                const isFullyPaid = (person.paidAmount || 0) >= (person.totalSalary || 0);
+                const hasPartialPayment = (person.paidAmount || 0) > 0 && !isFullyPaid;
+
+                return (
+                    <div className="flex items-center space-x-2">
+                        {/* View Details - Always visible if canView is true */}
+                        {canView && (
                             <Tippy content="View Details">
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-info btn-sm"
+                                <button 
+                                    type="button" 
+                                    className="btn btn-outline-info btn-sm" 
                                     onClick={() => viewDetails(person)}
                                 >
                                     <IconEye className="w-4 h-4" />
                                 </button>
                             </Tippy>
+                        )}
+
+                        {/* Add Deduction - Only if user has deduction permission */}
+                        {canAddDeduction && (
                             <Tippy content="Add Deduction">
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-danger btn-sm"
+                                <button 
+                                    type="button" 
+                                    className="btn btn-outline-danger btn-sm" 
                                     onClick={() => openDeductionExtraModal(person, 'deduction')}
                                 >
                                     <IconMinus className="w-4 h-4" />
                                 </button>
                             </Tippy>
+                        )}
+
+                        {/* Add Extra - Only if user has extra permission */}
+                        {canAddExtra && (
                             <Tippy content="Add Extra">
-                                <button
-                                    type="button"
-                                    className="btn btn-outline-success btn-sm"
+                                <button 
+                                    type="button" 
+                                    className="btn btn-outline-success btn-sm" 
                                     onClick={() => openDeductionExtraModal(person, 'extra')}
                                 >
                                     <IconPlus className="w-4 h-4" />
                                 </button>
                             </Tippy>
-                            {!isFullyPaid && (
-                                <Tippy content="Make Payment">
-                                    <button
-                                        type="button"
-                                        className="btn btn-success btn-sm"
-                                        onClick={() => openPaymentModal(person)}
-                                    >
-                                        <IconWallet className="w-4 h-4" />
-                                        <span className="ml-1">Pay</span>
-                                    </button>
-                                </Tippy>
-                            )}
-                            {hasPartialPayment && remaining > 0 && (
-                                <Tippy content="Mark as Fully Paid">
-                                    <button
-                                        type="button"
-                                        className="btn btn-outline-success btn-sm"
-                                        onClick={() => markAsFullyPaid(person)}
-                                    >
-                                        <IconCheck className="w-4 h-4" />
-                                        <span className="ml-1">Settle</span>
-                                    </button>
-                                </Tippy>
-                            )}
-                        </div>
-                    );
-                },
-                width: 300,
+                        )}
+
+                        {/* Make Payment - Only if user has pay permission */}
+                        {!isFullyPaid && canPay && (
+                            <Tippy content="Make Payment">
+                                <button 
+                                    type="button" 
+                                    className="btn btn-success btn-sm" 
+                                    onClick={() => openPaymentModal(person)}
+                                >
+                                    <IconWallet className="w-4 h-4" />
+                                    <span className="ml-1">Pay</span>
+                                </button>
+                            </Tippy>
+                        )}
+
+                        {/* Mark as Fully Paid - Only if user has pay permission */}
+                        {hasPartialPayment && remaining > 0 && canPay && (
+                            <Tippy content="Mark as Fully Paid">
+                                <button 
+                                    type="button" 
+                                    className="btn btn-outline-success btn-sm" 
+                                    onClick={() => markAsFullyPaid(person)}
+                                >
+                                    <IconCheck className="w-4 h-4" />
+                                    <span className="ml-1">Settle</span>
+                                </button>
+                            </Tippy>
+                        )}
+                    </div>
+                );
             },
-        ];
+            width: 350,
+        };
+
+        // Only add Actions column if user has any of the action permissions
+        if (canView || canAddDeduction || canAddExtra || canPay) {
+            return [...baseColumns, actionsColumn];
+        }
+
+        return baseColumns;
     };
 
     // Handle pagination
@@ -579,6 +640,25 @@ const SalaryCalculation = () => {
         const endIndex = startIndex + pageSize;
         return employeeData.slice(startIndex, endIndex);
     };
+
+    // If user doesn't have view permission, show access denied
+    if (!canView) {
+        return (
+            <div className="panel">
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <IconX className="w-16 h-16 text-danger mx-auto mb-4" />
+                        <h2 className="text-2xl font-bold text-gray-800 dark:text-white-light mb-2">
+                            Access Denied
+                        </h2>
+                        <p className="text-gray-500 dark:text-gray-400">
+                            You do not have permission to view salary records.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -598,12 +678,12 @@ const SalaryCalculation = () => {
                                 <div className="font-semibold text-lg text-gray-800 dark:text-white min-w-[120px]">
                                     {formatDisplayDate(selectedDate)}
                                 </div>
-                                <input
-                                    type="date"
-                                    className="form-input border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 rounded-md text-gray-800 dark:text-white"
-                                    value={formatInputDate(selectedDate)}
-                                    onChange={handleDateChange}
-                                    title="Select month"
+                                <input 
+                                    type="date" 
+                                    className="form-input border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 rounded-md text-gray-800 dark:text-white" 
+                                    value={formatInputDate(selectedDate)} 
+                                    onChange={handleDateChange} 
+                                    title="Select month" 
                                 />
                             </div>
                         </div>
@@ -636,7 +716,6 @@ const SalaryCalculation = () => {
                         </div>
                     </div>
                 </div>
-
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
                     <div className="flex items-center mb-3">
                         <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center mr-3">
@@ -650,7 +729,6 @@ const SalaryCalculation = () => {
                         </div>
                     </div>
                 </div>
-
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
                     <div className="flex items-center mb-3">
                         <div className="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center mr-3">
@@ -664,7 +742,6 @@ const SalaryCalculation = () => {
                         </div>
                     </div>
                 </div>
-
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
                     <div className="flex items-center mb-3">
                         <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-primary to-primary/80 flex items-center justify-center mr-3">
@@ -686,31 +763,31 @@ const SalaryCalculation = () => {
             {/* Data Table */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="datatables">
-                    <Table
-                        columns={getColumns()}
-                        Title="Employee Salary Records"
-                        data={getPaginatedData()}
-                        pageSize={pageSize}
-                        pageIndex={currentPage}
-                        totalCount={employeeData.length}
-                        totalPages={Math.ceil(employeeData.length / pageSize)}
-                        onPaginationChange={handlePaginationChange}
-                        pagination={true}
-                        isSearchable={true}
-                        isSortable={true}
-                        loading={loading}
+                    <Table 
+                        columns={getColumns()} 
+                        Title="Employee Salary Records" 
+                        data={getPaginatedData()} 
+                        pageSize={pageSize} 
+                        pageIndex={currentPage} 
+                        totalCount={employeeData.length} 
+                        totalPages={Math.ceil(employeeData.length / pageSize)} 
+                        onPaginationChange={handlePaginationChange} 
+                        pagination={true} 
+                        isSearchable={true} 
+                        isSortable={true} 
+                        loading={loading} 
                     />
                 </div>
             </div>
 
             {/* Details Modal */}
-            <ModelViewBox
-                modal={showDetailsModal}
-                modelHeader={`Salary Details - ${selectedPerson?.name || ''}`}
-                isEdit={false}
-                setModel={() => setShowDetailsModal(false)}
-                handleSubmit={() => setShowDetailsModal(false)}
-                modelSize="lg"
+            <ModelViewBox 
+                modal={showDetailsModal} 
+                modelHeader={`Salary Details - ${selectedPerson?.name || ''}`} 
+                isEdit={false} 
+                setModel={() => setShowDetailsModal(false)} 
+                handleSubmit={() => setShowDetailsModal(false)} 
+                modelSize="lg" 
                 saveBtn={false}
             >
                 {selectedPerson && (
@@ -769,12 +846,16 @@ const SalaryCalculation = () => {
                                                         <div className="font-medium text-red-700 dark:text-red-400">{deduction.reason || ''}</div>
                                                         <div className="text-xs text-gray-500">{deduction.adjustment_date || deduction.date || ''}</div>
                                                     </div>
-                                                    <div className="font-bold text-red-600"> - ₹{(deduction.amount || 0).toLocaleString('en-IN')}</div>
+                                                    <div className="font-bold text-red-600">
+                                                        - ₹{(deduction.amount || 0).toLocaleString('en-IN')}
+                                                    </div>
                                                 </div>
                                             ))}
                                             <div className="flex justify-between items-center p-2 bg-red-100 dark:bg-red-900/30 rounded">
                                                 <span className="font-semibold">Total Deductions</span>
-                                                <span className="font-bold text-red-700"> - ₹{(selectedPerson.totalDeductions || 0).toLocaleString('en-IN')}</span>
+                                                <span className="font-bold text-red-700">
+                                                    - ₹{(selectedPerson.totalDeductions || 0).toLocaleString('en-IN')}
+                                                </span>
                                             </div>
                                         </div>
                                     </>
@@ -791,18 +872,21 @@ const SalaryCalculation = () => {
                                                         <div className="font-medium text-green-700 dark:text-green-400">{extra.reason || ''}</div>
                                                         <div className="text-xs text-gray-500">{extra.adjustment_date || extra.date || ''}</div>
                                                     </div>
-                                                    <div className="font-bold text-green-600"> + ₹{(extra.amount || 0).toLocaleString('en-IN')}</div>
+                                                    <div className="font-bold text-green-600">
+                                                        + ₹{(extra.amount || 0).toLocaleString('en-IN')}
+                                                    </div>
                                                 </div>
                                             ))}
                                             <div className="flex justify-between items-center p-2 bg-green-100 dark:bg-green-900/30 rounded">
                                                 <span className="font-semibold">Total Extras</span>
-                                                <span className="font-bold text-green-700"> + ₹{(selectedPerson.totalExtras || 0).toLocaleString('en-IN')}</span>
+                                                <span className="font-bold text-green-700">
+                                                    + ₹{(selectedPerson.totalExtras || 0).toLocaleString('en-IN')}
+                                                </span>
                                             </div>
                                         </div>
                                     </>
                                 )}
                             </div>
-
                             <div>
                                 <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-4">Payment Summary</h6>
                                 <div className="space-y-4">
@@ -833,7 +917,6 @@ const SalaryCalculation = () => {
                                             </div>
                                         </div>
                                     </div>
-
                                     <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                                         <div className="flex justify-between items-center mb-2">
                                             <span className="text-gray-600 dark:text-gray-400">Paid Amount</span>
@@ -850,21 +933,14 @@ const SalaryCalculation = () => {
                                         <div className="flex justify-between items-center">
                                             <span className="text-gray-600 dark:text-gray-400">Payment Status</span>
                                             <span className={`font-bold ${
-                                                selectedPerson.isPaid 
-                                                    ? 'text-success' 
-                                                    : (selectedPerson.paidAmount || 0) > 0 
-                                                        ? 'text-warning' 
-                                                        : 'text-danger'
+                                                selectedPerson.isPaid ? 'text-success' : 
+                                                (selectedPerson.paidAmount || 0) > 0 ? 'text-warning' : 'text-danger'
                                             }`}>
-                                                {selectedPerson.isPaid 
-                                                    ? 'Fully Paid' 
-                                                    : (selectedPerson.paidAmount || 0) > 0 
-                                                        ? 'Partially Paid' 
-                                                        : 'Unpaid'}
+                                                {selectedPerson.isPaid ? 'Fully Paid' : 
+                                                 (selectedPerson.paidAmount || 0) > 0 ? 'Partially Paid' : 'Unpaid'}
                                             </span>
                                         </div>
                                     </div>
-
                                     {selectedPerson.expense && selectedPerson.expense.payments && selectedPerson.expense.payments.length > 0 && (
                                         <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                                             <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Payment History</h6>
@@ -893,14 +969,14 @@ const SalaryCalculation = () => {
             </ModelViewBox>
 
             {/* Deduction/Extra Modal */}
-            <ModelViewBox
-                modal={showDeductionExtraModal}
-                modelHeader={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'} - ${selectedPerson?.name || ''}`}
-                isEdit={false}
-                setModel={() => setShowDeductionExtraModal(false)}
-                handleSubmit={addDeductionExtra}
-                modelSize="md"
-                submitBtnText={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'}`}
+            <ModelViewBox 
+                modal={showDeductionExtraModal} 
+                modelHeader={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'} - ${selectedPerson?.name || ''}`} 
+                isEdit={false} 
+                setModel={() => setShowDeductionExtraModal(false)} 
+                handleSubmit={addDeductionExtra} 
+                modelSize="md" 
+                submitBtnText={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'}`} 
                 submitBtnClass={deductionExtraForm.type === 'deduction' ? 'btn-danger' : 'btn-success'}
             >
                 {selectedPerson && (
@@ -913,74 +989,71 @@ const SalaryCalculation = () => {
                                 <div className="text-sm text-gray-500">for {selectedPerson.name || ''}</div>
                             </div>
                         </div>
-
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Type
                                 </label>
                                 <div className="flex space-x-2">
-                                    <button
-                                        type="button"
+                                    <button 
+                                        type="button" 
                                         className={`btn ${deductionExtraForm.type === 'deduction' ? 'btn-danger' : 'btn-outline-danger'}`}
                                         onClick={() => setDeductionExtraForm(prev => ({ ...prev, type: 'deduction' }))}
+                                        disabled={!canAddDeduction}
                                     >
                                         <IconMinus className="w-4 h-4 mr-1" />
                                         Deduction
                                     </button>
-                                    <button
-                                        type="button"
+                                    <button 
+                                        type="button" 
                                         className={`btn ${deductionExtraForm.type === 'extra' ? 'btn-success' : 'btn-outline-success'}`}
                                         onClick={() => setDeductionExtraForm(prev => ({ ...prev, type: 'extra' }))}
+                                        disabled={!canAddExtra}
                                     >
                                         <IconPlus className="w-4 h-4 mr-1" />
                                         Extra
                                     </button>
                                 </div>
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Amount (₹) *
                                 </label>
-                                <input
-                                    type="number"
-                                    name="amount"
-                                    className="form-input"
-                                    placeholder="Enter amount"
-                                    value={deductionExtraForm.amount}
-                                    onChange={handleDeductionExtraFormChange}
-                                    min="1"
+                                <input 
+                                    type="number" 
+                                    name="amount" 
+                                    className="form-input" 
+                                    placeholder="Enter amount" 
+                                    value={deductionExtraForm.amount} 
+                                    onChange={handleDeductionExtraFormChange} 
+                                    min="1" 
                                 />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Reason *
                                 </label>
-                                <input
-                                    type="text"
-                                    name="reason"
-                                    className="form-input"
-                                    placeholder={`Enter reason for ${deductionExtraForm.type}`}
-                                    value={deductionExtraForm.reason}
-                                    onChange={handleDeductionExtraFormChange}
+                                <input 
+                                    type="text" 
+                                    name="reason" 
+                                    className="form-input" 
+                                    placeholder={`Enter reason for ${deductionExtraForm.type}`} 
+                                    value={deductionExtraForm.reason} 
+                                    onChange={handleDeductionExtraFormChange} 
                                 />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Date
                                 </label>
-                                <input
-                                    type="date"
-                                    name="adjustmentDate"
-                                    className="form-input"
-                                    value={deductionExtraForm.adjustmentDate}
-                                    onChange={handleDeductionExtraFormChange}
+                                <input 
+                                    type="date" 
+                                    name="adjustmentDate" 
+                                    className="form-input" 
+                                    value={deductionExtraForm.adjustmentDate} 
+                                    onChange={handleDeductionExtraFormChange} 
                                 />
                             </div>
-
                             <div className="mt-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                                 <div className="text-sm text-yellow-700 dark:text-yellow-400">
                                     <strong>Note:</strong> {deductionExtraForm.type === 'deduction' 
@@ -994,14 +1067,14 @@ const SalaryCalculation = () => {
             </ModelViewBox>
 
             {/* Payment Modal */}
-            <ModelViewBox
-                modal={showPaymentModal}
-                modelHeader={`Process Payment - ${selectedPerson?.name || ''}`}
-                isEdit={false}
-                setModel={() => setShowPaymentModal(false)}
-                handleSubmit={processPayment}
-                modelSize="md"
-                submitBtnText="Process Payment"
+            <ModelViewBox 
+                modal={showPaymentModal} 
+                modelHeader={`Process Payment - ${selectedPerson?.name || ''}`} 
+                isEdit={false} 
+                setModel={() => setShowPaymentModal(false)} 
+                handleSubmit={processPayment} 
+                modelSize="md" 
+                submitBtnText="Process Payment" 
                 submitBtnClass="btn-success"
             >
                 {selectedPerson && (
@@ -1013,7 +1086,6 @@ const SalaryCalculation = () => {
                                 </div>
                                 <div className="text-sm text-gray-500">Total Salary</div>
                             </div>
-
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="text-center">
                                     <div className="text-lg font-bold text-green-600">
@@ -1029,48 +1101,45 @@ const SalaryCalculation = () => {
                                 </div>
                             </div>
                         </div>
-
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Payment Amount (₹) *
                                 </label>
-                                <input
-                                    type="number"
-                                    name="amount"
-                                    className="form-input"
-                                    placeholder="Enter amount to pay"
-                                    value={paymentForm.amount}
-                                    onChange={handlePaymentFormChange}
-                                    max={(selectedPerson.totalSalary || 0) - (selectedPerson.paidAmount || 0)}
-                                    min="1"
+                                <input 
+                                    type="number" 
+                                    name="amount" 
+                                    className="form-input" 
+                                    placeholder="Enter amount to pay" 
+                                    value={paymentForm.amount} 
+                                    onChange={handlePaymentFormChange} 
+                                    max={(selectedPerson.totalSalary || 0) - (selectedPerson.paidAmount || 0)} 
+                                    min="1" 
                                 />
                                 <div className="text-xs text-gray-500 mt-1">
                                     Maximum: ₹{((selectedPerson.totalSalary || 0) - (selectedPerson.paidAmount || 0)).toLocaleString('en-IN')}
                                 </div>
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Payment Date *
                                 </label>
-                                <input
-                                    type="date"
-                                    name="paymentDate"
-                                    className="form-input"
-                                    value={paymentForm.paymentDate}
-                                    onChange={handlePaymentFormChange}
+                                <input 
+                                    type="date" 
+                                    name="paymentDate" 
+                                    className="form-input" 
+                                    value={paymentForm.paymentDate} 
+                                    onChange={handlePaymentFormChange} 
                                 />
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Payment Type
                                 </label>
-                                <select
-                                    name="paymentType"
-                                    className="form-select"
-                                    value={paymentForm.paymentType}
+                                <select 
+                                    name="paymentType" 
+                                    className="form-select" 
+                                    value={paymentForm.paymentType} 
                                     onChange={handlePaymentFormChange}
                                 >
                                     <option value="cash">Cash</option>
@@ -1080,21 +1149,19 @@ const SalaryCalculation = () => {
                                     <option value="other">Other</option>
                                 </select>
                             </div>
-
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     Payment Note (Optional)
                                 </label>
-                                <input
-                                    type="text"
-                                    name="notes"
-                                    className="form-input"
-                                    placeholder="e.g., Bank transfer, Cash payment"
-                                    value={paymentForm.notes}
-                                    onChange={handlePaymentFormChange}
+                                <input 
+                                    type="text" 
+                                    name="notes" 
+                                    className="form-input" 
+                                    placeholder="e.g., Bank transfer, Cash payment" 
+                                    value={paymentForm.notes} 
+                                    onChange={handlePaymentFormChange} 
                                 />
                             </div>
-
                             <div className="mt-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                                 <div className="text-sm text-yellow-700 dark:text-yellow-400">
                                     <strong>Note:</strong> This payment will be recorded and cannot be modified later. Please verify the amount before proceeding.
