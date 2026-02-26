@@ -7,7 +7,7 @@ import Table from '../../../util/Table';
 import Tippy from '@tippyjs/react';
 import ModelViewBox from '../../../util/ModelViewBox';
 import FormLayout from '../../../util/formLayout';
-import { findArrObj, showMessage } from '../../../util/AllFunction';
+import { findArrObj, showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import _ from 'lodash';
 import { FormContainer } from './formContainer';
 import IconUserPlus from '../../../components/Icon/IconUserPlus';
@@ -19,8 +19,7 @@ let isEdit = false;
 const Index = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Office Centers');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Office Centers');
 
     const dispatch = useDispatch();
 

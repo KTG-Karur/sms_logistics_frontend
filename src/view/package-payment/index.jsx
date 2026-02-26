@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import { useNavigate } from 'react-router-dom';
-import { showMessage } from '../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../util/AllFunction';
 import Table from '../../util/Table';
 import ModelViewBox from '../../util/ModelViewBox';
 import IconUser from '../../components/Icon/IconUser';
@@ -20,6 +20,10 @@ import { getAllCustomersPaymentSummary, getCustomerBookingsAndPayments, resetCus
 import Select from 'react-select';
 
 const PendingPayments = () => {
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Booking Bulk Payment');
+
     const dispatch = useDispatch();
     const navigate = useNavigate();
 

@@ -23,7 +23,7 @@ import IconX from '../../../components/Icon/IconX';
 // Components
 import Table from '../../../util/Table';
 import ModelViewBox from '../../../util/ModelViewBox';
-import { showMessage } from '../../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 
 // Redux actions
 import { getAllBookingsWithDetails, resetBookingsWithDetailsStatus } from '../../../redux/reportSlice';
@@ -31,6 +31,10 @@ import { getOfficeCenters } from '../../../redux/officeCenterSlice';
 import { getCustomers } from '../../../redux/customerSlice';
 
 const BookingReport = () => {
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Package Report');
+
     const dispatch = useDispatch();
     const navigate = useNavigate();
 

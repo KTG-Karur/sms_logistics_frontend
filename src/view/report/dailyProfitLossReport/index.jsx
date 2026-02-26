@@ -21,7 +21,7 @@ import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
 import { getDateRangeProfitLossApi } from '../../../api/ReportApi';
 import { getOfficeCenters } from '../../../redux/officeCenterSlice';
-import { findArrObj, showMessage } from '../../../util/AllFunction';
+import { findArrObj, showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import Select from 'react-select';
 import _ from 'lodash';
 
@@ -32,8 +32,8 @@ const ProfitLossReport = () => {
     // Get login info and permissions
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Reports');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Daily Profit Loss Report');
+
 
     // Get office centers from Redux
     const officeCentersState = useSelector((state) => state.OfficeCenterSlice || {});

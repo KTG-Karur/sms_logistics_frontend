@@ -552,6 +552,26 @@ const removeNullKeyFromObj = (data) => {
     return result;
 };
 
+// Helper function to get access IDs by label
+const getAccessIdsByLabel = (permissions, label) => {
+    for (const item of permissions) {
+        // Check current item
+        if (item.label === label && item.access) {
+            return item.access.split(',').map((id) => id.trim());
+        }
+        
+        // Check children
+        if (item.children && item.children.length > 0) {
+            const child = item.children.find((c) => c.label === label);
+            if (child && child.access) {
+                return child.access.split(',').map((id) => id.trim());
+            }
+        }
+    }
+    return [];
+};
+
+
 function numberToRupeesWords(number) {
     const ones = [
         '',
@@ -617,6 +637,7 @@ function numberToRupeesWords(number) {
 
 export {
     formatGrandTotal,
+    getAccessIdsByLabel,
     inclusiveGst,
     exclusiveGst,
     gstValueInclusive,

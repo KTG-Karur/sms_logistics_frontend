@@ -12,7 +12,6 @@ import {
     //new asf - ev
     Package,
     //new VMS
-    ChecklistSupplier,
     Staff,
     StaffSalary,
     //old
@@ -30,7 +29,6 @@ import {
     PackageReport,
     DailyExpenseEntry,
     PackageReportPrint,
-    AuditReSchedule,
     PdfSubAuditChecklistBarChart,
     PaymentPrintPdf,
     ProfitLossReportPDF,
@@ -284,10 +282,6 @@ const routes = [
         element: <Vehicle />,
     },
     {
-        path: '/master/checklist-supplier',
-        element: <ChecklistSupplier />,
-    },
-    {
         path: '/reports/package-report',
         element: <PackageReport />,
     },
@@ -434,10 +428,6 @@ const routes = [
     {
         path: '/reports/booking-pdf',
         element: <PackageReportPrint />,
-    },
-    {
-        path: '/assign-trip',
-        element: <AuditReSchedule />,
     },
     {
         path: '/report/trip-report',

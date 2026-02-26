@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
-import { showMessage, dateConversion } from '../../../util/AllFunction';
+import { showMessage, dateConversion , getAccessIdsByLabel } from '../../../util/AllFunction';
 import { getEmployee } from '../../../redux/employeeSlice';
 import { 
     getStaffAttendanceList,
@@ -63,6 +63,7 @@ const Attendance = () => {
     // Login info for created_by/updated_by
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = loginInfo ? JSON.parse(loginInfo) : null;
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Staff Attendance');
     const currentUserId = localData?.employeeId || null;
     
     // Holiday form state

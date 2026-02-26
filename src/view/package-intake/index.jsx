@@ -33,7 +33,6 @@ const Booking = () => {
     const localData = JSON.parse(loginInfo);
     const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Booking');
     const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
-    const roleIdforRole = localData?.roleName;
 
     // Redux state
     const packageState = useSelector((state) => state.PackageSlice || {});

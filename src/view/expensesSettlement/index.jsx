@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
-import { showMessage } from '../../util/AllFunction';
+import { showMessage , getAccessIdsByLabel } from '../../util/AllFunction';
 import _ from 'lodash';
 import IconReceipt from '../../components/Icon/IconReceipt';
 import IconCalendar from '../../components/Icon/IconCalendar';
@@ -25,6 +25,9 @@ import { getExpense, setExpenseFilters, clearExpenseFilters } from '../../redux/
 import { createExpensePayment, resetExpensePaymentStatus } from '../../redux/expensePaymentSlice';
 
 const ExpenseSettlement = () => {
+    const loginInfo = localStorage.getItem('loginInfo');
+    const localData = JSON.parse(loginInfo);
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Expenses Payment');
     const dispatch = useDispatch();
 
     // Format date functions

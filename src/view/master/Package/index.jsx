@@ -6,15 +6,14 @@ import IconTrashLines from '../../../components/Icon/IconTrashLines';
 import Table from '../../../util/Table';
 import Tippy from '@tippyjs/react';
 import ModelViewBox from '../../../util/ModelViewBox';
-import { findArrObj, showMessage } from '../../../util/AllFunction';
+import { findArrObj, showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import _ from 'lodash';
 import { getPackageType, createPackageType, updatePackageType, deletePackageType, resetPackageTypeStatus } from '../../../redux/packageTypeSlice';
 
 const PackageTypes = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
-    const pageAccessData = findArrObj(localData?.pagePermission, 'label', 'Package Types');
-    const accessIds = (pageAccessData[0]?.access || '').split(',').map((id) => id.trim());
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Package Types');
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 

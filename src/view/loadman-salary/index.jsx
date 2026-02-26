@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setPageTitle } from '../../redux/themeStore/themeConfigSlice';
 import Tippy from '@tippyjs/react';
-import { showMessage, findArrObj, formatDate } from '../../util/AllFunction';
+import { showMessage, findArrObj, formatDate , getAccessIdsByLabel } from '../../util/AllFunction';
 import Select from 'react-select';
 import ModelViewBox from '../../util/ModelViewBox';
 import IconPlus from '../../components/Icon/IconPlus';
@@ -48,6 +48,7 @@ const LoadmanSalaryManagement = () => {
     const dispatch = useDispatch();
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo || '{}');
+    const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Loadman Salary');
     const employeeId = localData?.employeeId;
 
     // Redux state
