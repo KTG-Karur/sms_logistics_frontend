@@ -68,8 +68,11 @@ const Booking = () => {
     const [newCustomer, setNewCustomer] = useState({ name: '', mobileNo: '' });
     const [newLocation, setNewLocation] = useState({ name: '', officeCenterId: null });
     const [paymentMode, setPaymentMode] = useState('cash');
-    const defaultFromDate = moment().subtract(30, 'days').format('YYYY-MM-DD');
+    const defaultFromDate = moment().format('YYYY-MM-DD');
     const defaultToDate = moment().format('YYYY-MM-DD');
+    const [bookingDate, setBookingDate] = useState(moment().format('YYYY-MM-DD'));
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
     // Filters state
     const [filters, setFilters] = useState({
         fromDate: defaultFromDate,
@@ -80,6 +83,7 @@ const Booking = () => {
 
     // Form states
     const [formData, setFormData] = useState({
+        bookingDate: moment().format('YYYY-MM-DD'),
         fromCenterId: null,
         toCenterId: null,
         fromMobile: '',
@@ -99,6 +103,14 @@ const Booking = () => {
             },
         ],
     });
+
+    useEffect(() => {
+    const timer = setTimeout(() => {
+        setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => clearTimeout(timer);
+}, [searchTerm]);
 
     // We'll store locations separately since they depend on centers
     const [selectedLocations, setSelectedLocations] = useState({
@@ -193,7 +205,11 @@ const Booking = () => {
 
     const fetchInitialData = async () => {
         try {
-            await Promise.all([dispatch(getPackage({})).unwrap(), dispatch(getPackageType({})).unwrap(), dispatch(getCustomers({})).unwrap(), dispatch(getOfficeCentersWithLocations()).unwrap()]);
+            await Promise.all([
+                dispatch(getPackageType({})).unwrap(), 
+                dispatch(getCustomers({})).unwrap(), 
+                dispatch(getOfficeCentersWithLocations()).unwrap()
+            ]);
         } catch (error) {
             showMessage('error', 'Failed to load initial data');
         }
@@ -205,14 +221,14 @@ const Booking = () => {
         if (filters.toDate) filterParams.toDate = filters.toDate;
         if (filters.deliveryStatus) filterParams.deliveryStatus = filters.deliveryStatus;
         if (filters.paymentStatus) filterParams.paymentStatus = filters.paymentStatus;
-        if (searchTerm) filterParams.search = searchTerm;
+        if (debouncedSearchTerm) filterParams.search = debouncedSearchTerm;
 
         dispatch(getPackage(filterParams));
     };
 
     useEffect(() => {
         fetchPackages();
-    }, [filters, searchTerm]);
+    }, [filters, debouncedSearchTerm]);
 
     // Get office center options (all active centers)
     const getOfficeCenterOptions = () => {
@@ -585,6 +601,7 @@ const Booking = () => {
         }
 
         const requestData = {
+            bookingDate: formData.bookingDate, // Add this line
             fromCenterId: formData.fromCenterId,
             toCenterId: formData.toCenterId,
             fromLocationId: selectedLocations.fromLocationId,
@@ -622,6 +639,7 @@ const Booking = () => {
     // Reset form
     const resetForm = () => {
         setFormData({
+            bookingDate: moment().format('YYYY-MM-DD'), // Add this line
             fromCenterId: null,
             toCenterId: null,
             fromMobile: '',
@@ -663,6 +681,7 @@ const Booking = () => {
         setShowForm(true);
 
         setFormData({
+            bookingDate: pkg.booking_date ? moment(pkg.booking_date).format('YYYY-MM-DD') : moment().format('YYYY-MM-DD'), // Add this line
             fromCenterId: pkg.from_center_id,
             toCenterId: pkg.to_center_id,
             fromMobile: pkg.fromCustomer?.customer_number || '',
@@ -718,8 +737,8 @@ const Booking = () => {
 
     const clearFilters = () => {
         setFilters({
-            fromDate: '',
-            toDate: '',
+            fromDate: moment().format('YYYY-MM-DD'), 
+            toDate: moment().format('YYYY-MM-DD'),
             deliveryStatus: '',
             paymentStatus: '',
         });
@@ -1142,10 +1161,24 @@ const Booking = () => {
             {showForm && (
                 <div className="bg-white rounded-lg shadow-lg border border-gray-200 mb-4 sm:mb-6 animate-fadeIn">
                     <div className="p-3 sm:p-4 border-b border-gray-200">
-                        <h2 className="text-base sm:text-lg font-bold text-gray-800 flex items-center">
-                            <IconPackage className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" />
-                            {isEdit ? 'Edit Booking' : 'Create New Booking'}
-                        </h2>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <h2 className="text-base sm:text-lg font-bold text-gray-800 flex items-center">
+                                <IconPackage className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" />
+                                {isEdit ? 'Edit Booking' : 'Create New Booking'}
+                            </h2>
+
+                            {/* Add Booking Date Field */}
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Booking Date:</label>
+                                <input
+                                    type="date"
+                                    value={formData.bookingDate || moment().format('YYYY-MM-DD')}
+                                    onChange={(e) => setFormData((prev) => ({ ...prev, bookingDate: e.target.value }))}
+                                    className="form-input text-sm w-auto"
+                                    max={moment().format('YYYY-MM-DD')} // Optional: Prevent future dates
+                                />
+                            </div>
+                        </div>
                     </div>
 
                     <form onSubmit={handleSubmit} className="p-3 sm:p-4">
