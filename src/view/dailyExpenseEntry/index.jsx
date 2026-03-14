@@ -873,7 +873,7 @@ const ExpenseCalculation = () => {
                             </button>
                         </Tippy>
                     )}
-                    {canDelete && (
+                    {/* {canDelete && (
                         <Tippy content="Delete">
                             <button
                                 type="button"
@@ -883,7 +883,7 @@ const ExpenseCalculation = () => {
                                 <IconTrashLines className="w-4 h-4" />
                             </button>
                         </Tippy>
-                    )}
+                    )} */}
                     {!canEdit && !canDelete && (
                         <span className="text-xs text-gray-400 italic">No actions</span>
                     )}
