@@ -109,7 +109,7 @@ const ResponsiveTable = ({ columns, data, pageSize = 10, pageIndex = 0, onPagina
                                 className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm bg-white"
                             >
                                 <option value="all">All Status</option>
-                                <option value="not_started">Not Started</option>
+                                <option value="not_delivered">Not Delivered</option>
                                 <option value="pickup_assigned">Pickup Assigned</option>
                                 <option value="picked_up">Picked Up</option>
                                 <option value="in_transit">In Transit</option>
@@ -413,7 +413,7 @@ const DeliveryManagement = () => {
     const statusCounts = useMemo(() => {
         const counts = {
             total: deliveries.length,
-            not_started: deliveries.filter(d => d.delivery_status === 'not_started').length,
+            not_delivered: deliveries.filter(d => d.delivery_status === 'not_delivered').length,
             pickup_assigned: deliveries.filter(d => d.delivery_status === 'pickup_assigned').length,
             picked_up: deliveries.filter(d => d.delivery_status === 'picked_up').length,
             in_transit: deliveries.filter(d => d.delivery_status === 'in_transit').length,
@@ -438,7 +438,7 @@ const DeliveryManagement = () => {
     // Handle status update
     const handleStatusUpdate = (delivery) => {
         setSelectedDelivery(delivery);
-        setUpdateStatus(delivery.delivery_status || 'not_started');
+        setUpdateStatus(delivery.delivery_status || 'not_delivered');
         setDeliveryNotes(delivery.special_instructions || '');
         setActualDeliveryDate(delivery.actual_delivery_date || new Date().toISOString().split('T')[0]);
         setShowUpdateModal(true);
@@ -489,7 +489,7 @@ const DeliveryManagement = () => {
     // Get status color
     const getStatusColor = (status) => {
         switch (status) {
-            case 'not_started': return 'bg-gray-100 text-gray-800';
+            case 'not_delivered': return 'bg-gray-100 text-gray-800';
             case 'pickup_assigned': return 'bg-blue-100 text-blue-800';
             case 'picked_up': return 'bg-purple-100 text-purple-800';
             case 'in_transit': return 'bg-yellow-100 text-yellow-800';
@@ -503,7 +503,7 @@ const DeliveryManagement = () => {
     // Get status icon
     const getStatusIcon = (status) => {
         switch (status) {
-            case 'not_started': return '⏳';
+            case 'not_delivered': return '⏳';
             case 'pickup_assigned': return '📋';
             case 'picked_up': return '📦';
             case 'in_transit': return '🚚';
@@ -517,7 +517,7 @@ const DeliveryManagement = () => {
     // Get status label
     const getStatusLabel = (status) => {
         switch (status) {
-            case 'not_started': return 'Not Started';
+            case 'not_delivered': return 'Not Delivered';
             case 'pickup_assigned': return 'Pickup Assigned';
             case 'picked_up': return 'Picked Up';
             case 'in_transit': return 'In Transit';
@@ -530,7 +530,7 @@ const DeliveryManagement = () => {
 
     // Get status options for dropdown
     const statusOptions = [
-        { value: 'not_started', label: 'Not Started', icon: '⏳' },
+        { value: 'not_delivered', label: 'Not Delivered', icon: '⏳' },
         { value: 'pickup_assigned', label: 'Pickup Assigned', icon: '📋' },
         { value: 'picked_up', label: 'Picked Up', icon: '📦' },
         { value: 'in_transit', label: 'In Transit', icon: '🚚' },
@@ -659,7 +659,7 @@ const DeliveryManagement = () => {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-600">Actual Delivery Date:</span>
-                                <span className="font-medium">{delivery.actual_delivery_date ? new Date(delivery.actual_delivery_date).toLocaleDateString() : 'Not delivered'}</span>
+                                <span className="font-medium">{delivery.actual_delivery_date ? new Date(delivery.actual_delivery_date).toLocaleDateString() : 'Not Delivered'}</span>
                             </div>
                             {delivery.special_instructions && (
                                 <div className="mt-2 pt-2 border-t border-gray-100">
@@ -934,8 +934,8 @@ const DeliveryManagement = () => {
                     </div>
                     <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">
                         <div className="text-center">
-                            <p className="text-xs font-medium text-gray-600">Not Started</p>
-                            <p className="text-lg font-bold text-gray-800">{statusCounts.not_started}</p>
+                            <p className="text-xs font-medium text-gray-600">Not Delivered</p>
+                            <p className="text-lg font-bold text-gray-800">{statusCounts.not_delivered}</p>
                         </div>
                     </div>
                     <div className="bg-white rounded-lg shadow-sm p-2 sm:p-3 border border-gray-200">

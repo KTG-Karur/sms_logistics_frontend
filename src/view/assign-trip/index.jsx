@@ -1934,13 +1934,13 @@ const AssignTrip = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                                     <div>
                                         <label className="block text-xs sm:text-sm lg:text-base font-medium text-gray-700 mb-2">Trip Date *</label>
-                                        <input
-                                            type="date"
-                                            value={tripMode === 'addon' ? addonTripDate : tripDate}
-                                            onChange={(e) => tripMode === 'addon' ? setAddonTripDate(e.target.value) : setTripDate(e.target.value)}
-                                            className={`form-input w-full ${errors.date ? 'border-red-500' : ''}`}
-                                            min={tripMode === 'addon' ? selectedParentTrip?.trip_date : new Date().toISOString().split('T')[0]}
-                                        />
+                                       <input 
+                                      type="date" 
+                                         value={tripMode === 'addon' ? addonTripDate : tripDate}
+                                        onChange={(e) => tripMode === 'addon' ? setAddonTripDate(e.target.value) : setTripDate(e.target.value)}
+                                       className={`form-input w-full ${errors.date ? 'border-red-500' : ''}`}
+ 
+                                     />
                                         {errors.date && <p className="mt-2 text-xs sm:text-sm text-red-600">{errors.date}</p>}
                                     </div>
                                     <div>
