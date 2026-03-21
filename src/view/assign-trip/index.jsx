@@ -686,17 +686,28 @@ const AssignTrip = () => {
         return filteredAvailableBookings.map(booking => {
             // Safely access nested properties
             const fromCenterName = booking.fromCenter?.office_center_name || 
-                                  booking.from_center?.office_center_name || 
-                                  'N/A';
+                                booking.from_center?.office_center_name || 
+                                'N/A';
             const toCenterName = booking.toCenter?.office_center_name || 
                                 booking.to_center?.office_center_name || 
                                 'N/A';
+            
+            // Get customer names
+            const fromCustomerName = booking.fromCustomer?.customer_name || 
+                                    booking.sender?.name || 
+                                    booking.from_customer?.customer_name ||
+                                    'N/A';
+            const toCustomerName = booking.toCustomer?.customer_name || 
+                                booking.receiver?.name || 
+                                booking.to_customer?.customer_name ||
+                                'N/A';
+            
             const bookingNumber = booking.booking_number || 'N/A';
             const totalAmount = booking.total_amount || 0;
             
             return {
                 value: booking.booking_id,
-                label: `#${bookingNumber}: ${fromCenterName} → ${toCenterName} (₹${totalAmount})`,
+                label: `#${bookingNumber}: ${fromCustomerName} → ${toCustomerName} (${fromCenterName} → ${toCenterName}) - ₹${totalAmount}`,
                 data: booking,
                 from_center_id: booking.from_center_id,
                 to_center_id: booking.to_center_id
@@ -714,17 +725,28 @@ const AssignTrip = () => {
         
         return availableAddonBookings.map(booking => {
             const fromCenterName = booking.fromCenter?.office_center_name || 
-                                  booking.from_center?.office_center_name || 
-                                  'N/A';
+                                booking.from_center?.office_center_name || 
+                                'N/A';
             const toCenterName = booking.toCenter?.office_center_name || 
                                 booking.to_center?.office_center_name || 
                                 'N/A';
+            
+            // Get customer names
+            const fromCustomerName = booking.fromCustomer?.customer_name || 
+                                    booking.sender?.name || 
+                                    booking.from_customer?.customer_name ||
+                                    'N/A';
+            const toCustomerName = booking.toCustomer?.customer_name || 
+                                booking.receiver?.name || 
+                                booking.to_customer?.customer_name ||
+                                'N/A';
+            
             const bookingNumber = booking.booking_number || 'N/A';
             const totalAmount = booking.total_amount || 0;
             
             return {
                 value: booking.booking_id,
-                label: `#${bookingNumber}: ${fromCenterName} → ${toCenterName} (₹${totalAmount})`,
+                label: `#${bookingNumber}: ${fromCustomerName} → ${toCustomerName} (${fromCenterName} → ${toCenterName}) - ₹${totalAmount}`,
                 data: booking,
                 from_center_id: booking.from_center_id,
                 to_center_id: booking.to_center_id
