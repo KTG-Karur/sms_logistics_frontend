@@ -375,7 +375,7 @@ const routes = [
         element: <PaymentPrintPdf />,
     },
     {
-        path: '/documents/audit-report-pdf',
+        path: '/documents/profit-loss-pdf',
         element: <ProfitLossReportPDF />,
     },
     // pages
@@ -461,7 +461,7 @@ const dontCkeckRouts = [
         element: <PaymentPrintPdf />,
     },
     {
-        path: '/documents/audit-report-pdf',
+        path: '/documents/profit-loss-pdf',
         element: <ProfitLossReportPDF />,
     },
     {

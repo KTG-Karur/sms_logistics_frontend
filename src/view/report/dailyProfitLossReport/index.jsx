@@ -340,7 +340,7 @@ const ProfitLossReport = () => {
             centerName: reportData.center?.name || 'All Centers',
         };
 
-        navigate('/documents/audit-report-pdf', { state: pdfData });
+        navigate('/documents/profit-loss-pdf', { state: pdfData });
     };
 
     const getProfitLossBadge = () => {
