@@ -94,8 +94,6 @@ const Booking = () => {
       {
         packageTypeId: null,
         quantity: '1',
-        pickupCharge: 0,
-        dropCharge: 0,
         handlingCharge: '',
       },
     ],
@@ -288,8 +286,6 @@ const Booking = () => {
       value: pkg.package_type_id,
       label: pkg.package_type_name,
       data: pkg,
-      pickupPrice: parseFloat(pkg.package_pickup_price) || 0,
-      dropPrice: parseFloat(pkg.package_drop_price) || 0,
     }));
   };
 
@@ -435,20 +431,10 @@ const Booking = () => {
   const handlePackageDetailChange = (index, field, value) => {
     const updatedPackages = [...formData.packages];
     if (field === 'packageTypeId') {
-      const selectedPackage = packageTypeData.find((pkg) => pkg.package_type_id === value);
-      if (selectedPackage) {
-        updatedPackages[index] = {
-          ...updatedPackages[index],
-          packageTypeId: value,
-          pickupCharge: parseFloat(selectedPackage.package_pickup_price) || 0,
-          dropCharge: parseFloat(selectedPackage.package_drop_price) || 0,
-        };
-      } else {
-        updatedPackages[index] = {
-          ...updatedPackages[index],
-          packageTypeId: value,
-        };
-      }
+      updatedPackages[index] = {
+        ...updatedPackages[index],
+        packageTypeId: value,
+      };
     } else if (field === 'quantity') {
       // Allow empty string or numbers only
       if (value === '' || /^\d*$/.test(value)) {
@@ -477,8 +463,6 @@ const Booking = () => {
         {
           packageTypeId: null,
           quantity: '1',
-          pickupCharge: 0,
-          dropCharge: 0,
           handlingCharge: '',
         },
       ],
@@ -511,13 +495,11 @@ const Booking = () => {
     return num.toFixed(digits);
   };
 
-  // Calculate totals
+  // Calculate totals - only handling charge
   const calculatePackageTotal = (pkg) => {
     const quantity = safeParseInt(pkg.quantity);
-    const pickupCharge = safeParseFloat(pkg.pickupCharge);
-    const dropCharge = safeParseFloat(pkg.dropCharge);
     const handlingCharge = safeParseFloat(pkg.handlingCharge);
-    return (pickupCharge + dropCharge + handlingCharge) * quantity;
+    return handlingCharge * quantity;
   };
 
   const calculateTotalAmount = () => {
@@ -607,8 +589,6 @@ const Booking = () => {
       packages: formData.packages.map((pkg) => ({
         packageTypeId: pkg.packageTypeId,
         quantity: safeParseInt(pkg.quantity),
-        pickupCharge: safeParseFloat(pkg.pickupCharge),
-        dropCharge: safeParseFloat(pkg.dropCharge),
         handlingCharge: safeParseFloat(pkg.handlingCharge),
       })),
     };
@@ -644,8 +624,6 @@ const Booking = () => {
         {
           packageTypeId: null,
           quantity: '1',
-          pickupCharge: 0,
-          dropCharge: 0,
           handlingCharge: '',
         },
       ],
@@ -664,7 +642,7 @@ const Booking = () => {
 
   // Edit package
   const handleEdit = (pkg) => {
-    if (pkg.delivery_status !== 'not_started') {
+    if (pkg.delivery_status !== 'not_started' && pkg.delivery_status !== 'not_delivered') {
       showMessage('error', 'Cannot edit booking that is already in delivery process');
       return;
     }
@@ -683,8 +661,6 @@ const Booking = () => {
       packages: (pkg.packages || []).map((p) => ({
         packageTypeId: p.package_type_id,
         quantity: p.quantity?.toString() || '1',
-        pickupCharge: parseFloat(p.pickup_charge) || 0,
-        dropCharge: parseFloat(p.drop_charge) || 0,
         handlingCharge: p.handling_charge?.toString() || '',
       })),
     });
@@ -698,7 +674,7 @@ const Booking = () => {
 
   // Delete package
   const handleDelete = (pkg) => {
-    if (pkg.delivery_status !== 'not_started') {
+    if (pkg.delivery_status !== 'not_started' && pkg.delivery_status !== 'not_delivered') {
       showMessage('error', 'Cannot delete booking that is already in delivery process');
       return;
     }
@@ -887,7 +863,7 @@ const Booking = () => {
       accessor: 'delivery_status',
       Cell: ({ value }) => {
         const statusConfig = {
-          not_started: { color: 'bg-gray-100 text-gray-800', label: 'Not Started' },
+          not_delivered: { color: 'bg-gray-100 text-gray-800', label: 'Not Delivered' },
           pickup_assigned: { color: 'bg-blue-100 text-blue-800', label: 'Pickup Assigned' },
           picked_up: { color: 'bg-purple-100 text-purple-800', label: 'Picked Up' },
           in_transit: { color: 'bg-indigo-100 text-indigo-800', label: 'In Transit' },
@@ -895,7 +871,7 @@ const Booking = () => {
           delivered: { color: 'bg-green-100 text-green-800', label: 'Delivered' },
           cancelled: { color: 'bg-red-100 text-red-800', label: 'Cancelled' },
         };
-        const config = statusConfig[value] || statusConfig.not_started;
+        const config = statusConfig[value] || statusConfig.not_delivered;
         return <span className={`px-3 py-1 rounded-full text-xs font-medium ${config.color}`}>{config.label}</span>;
       },
     },
@@ -911,7 +887,7 @@ const Booking = () => {
               </button>
             </Tippy>
           )}
-          {row.original.delivery_status === 'not_started' && (
+          {row.original.delivery_status === 'not_delivered' && (
             <>
               {_.includes(accessIds, '4') && (
                 <Tippy content="Delete">
@@ -1113,7 +1089,7 @@ const Booking = () => {
                     className="form-select"
                   >
                     <option value="">All</option>
-                    <option value="not_started">Not Started</option>
+                    <option value="not_delivered">Not Delivered</option>
                     <option value="pickup_assigned">Pickup Assigned</option>
                     <option value="picked_up">Picked Up</option>
                     <option value="in_transit">In Transit</option>
@@ -1359,7 +1335,7 @@ const Booking = () => {
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                           {/* Package Type */}
-                          <div className="md:col-span-5">
+                          <div className="md:col-span-6">
                             <label className="block text-xs font-medium text-gray-700 mb-1">Package Type *</label>
                             <Select
                               options={getPackageTypeOptions(index)}
@@ -1385,7 +1361,7 @@ const Booking = () => {
                           </div>
 
                           {/* Quantity */}
-                          <div className="md:col-span-2">
+                          <div className="md:col-span-3">
                             <label className="block text-xs font-medium text-gray-700 mb-1">Qty *</label>
                             <input
                               type="text"
@@ -1397,34 +1373,26 @@ const Booking = () => {
                             {errors[`quantity_${index}`] && <p className="mt-1 text-xs text-red-600">{errors[`quantity_${index}`]}</p>}
                           </div>
 
-                          {/* Handling Charge */}
-                          <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Rate</label>
+                          {/* Rate/Handling Charge */}
+                          <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Rate (₹)</label>
                             <input
                               type="text"
                               value={pkg.handlingCharge}
                               onChange={(e) => handlePackageDetailChange(index, 'handlingCharge', e.target.value)}
                               className="form-input w-full text-sm"
-                              placeholder="₹"
+                              placeholder="Enter rate"
                             />
                           </div>
+                        </div>
 
-                          {/* Package Total */}
-                          <div className="md:col-span-3">
-                            <label className="block text-xs font-medium text-gray-700 mb-1">Total</label>
-                            <div className="bg-blue-50 border border-blue-200 rounded p-1.5 text-center">
-                              <div className="text-sm font-bold text-primary">₹{safeToFixed(calculatePackageTotal(pkg))}</div>
-                            </div>
+                        {/* Package Total */}
+                        <div className="mt-2 flex justify-end">
+                          <div className="bg-blue-50 border border-blue-200 rounded p-1.5">
+                            <span className="text-xs font-medium text-gray-600">Total: </span>
+                            <span className="text-sm font-bold text-primary">₹{safeToFixed(calculatePackageTotal(pkg))}</span>
                           </div>
                         </div>
-                        {/* Show pickup/drop prices below */}
-                        {selectedPkg && (
-                          <div className="mt-1 text-xs text-gray-500">
-                            <span>
-                              Pickup: ₹{safeToFixed(selectedPkg.package_pickup_price)} | Drop: ₹{safeToFixed(selectedPkg.package_drop_price)}
-                            </span>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
@@ -1740,7 +1708,7 @@ const Booking = () => {
                     selectedViewPackage.delivery_status === 'in_transit' ? 'bg-blue-100 text-blue-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {selectedViewPackage.delivery_status || 'not_started'}
+                    {selectedViewPackage.delivery_status === 'not_delivered' ? 'Not Delivered' : (selectedViewPackage.delivery_status || 'Not Delivered')}
                   </div>
                 </div>
               </div>
@@ -1835,9 +1803,7 @@ const Booking = () => {
                     <tr className="bg-gray-50">
                       <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">Package Type</th>
                       <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">Quantity</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">Pickup</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">Drop</th>
-                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">Handling</th>
+                      <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">Rate</th>
                       <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                     </tr>
                   </thead>
@@ -1846,8 +1812,6 @@ const Booking = () => {
                       <tr key={index}>
                         <td className="px-2 py-1 text-xs">{pkg.packageType?.package_type_name || 'N/A'}</td>
                         <td className="px-2 py-1 text-xs">{pkg.quantity}</td>
-                        <td className="px-2 py-1 text-xs">₹{formatNumber(pkg.pickup_charge)}</td>
-                        <td className="px-2 py-1 text-xs">₹{formatNumber(pkg.drop_charge)}</td>
                         <td className="px-2 py-1 text-xs">₹{formatNumber(pkg.handling_charge)}</td>
                         <td className="px-2 py-1 text-xs font-medium">₹{formatNumber(pkg.total_package_charge)}</td>
                       </tr>
@@ -1855,7 +1819,7 @@ const Booking = () => {
                   </tbody>
                   <tfoot className="bg-gray-50">
                     <tr>
-                      <td colSpan="5" className="px-2 py-1 text-xs font-medium text-gray-900 text-right">
+                      <td colSpan="3" className="px-2 py-1 text-xs font-medium text-gray-900 text-right">
                         Total Amount:
                       </td>
                       <td className="px-2 py-1 text-base font-bold text-primary">₹{formatNumber(selectedViewPackage.total_amount)}</td>

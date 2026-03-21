@@ -7,21 +7,16 @@ import IconCalendar from '../../../components/Icon/IconCalendar';
 import IconMoney from '../../../components/Icon/IconCreditCard';
 import IconTrendingUp from '../../../components/Icon/IconTrendingUp';
 import IconTrendingDown from '../../../components/Icon/IconTrendingDown';
-import IconPackage from '../../../components/Icon/IconBox';
-import IconTruck from '../../../components/Icon/IconTruck';
 import IconUsers from '../../../components/Icon/IconUsers';
 import IconReceipt from '../../../components/Icon/IconReceipt';
-import IconCheckCircle from '../../../components/Icon/IconCheckCircle';
-import IconClock from '../../../components/Icon/IconClock';
 import IconBuilding from '../../../components/Icon/IconBuilding';
 import IconX from '../../../components/Icon/IconX';
-import Table from '../../../util/Table';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
 import { getDateRangeProfitLossApi } from '../../../api/ReportApi';
 import { getOfficeCenters } from '../../../redux/officeCenterSlice';
-import { findArrObj, showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
+import { showMessage, getAccessIdsByLabel } from '../../../util/AllFunction';
 import Select from 'react-select';
 import _ from 'lodash';
 
@@ -34,7 +29,6 @@ const ProfitLossReport = () => {
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Daily Profit Loss Report');
 
-
     // Get office centers from Redux
     const officeCentersState = useSelector((state) => state.OfficeCenterSlice || {});
     const { officeCentersData = [], loading: centersLoading = false } = officeCentersState;
@@ -43,7 +37,6 @@ const ProfitLossReport = () => {
     const [selectedDate, setSelectedDate] = useState(moment().format('YYYY-MM-DD'));
     const [selectedCenter, setSelectedCenter] = useState(null);
     const [reportData, setReportData] = useState(null);
-    const [viewMode, setViewMode] = useState('payments'); // 'payments', 'expenses', 'summary', 'customers'
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -53,7 +46,6 @@ const ProfitLossReport = () => {
 
     useEffect(() => {
         dispatch(setPageTitle('Profit & Loss Report'));
-        // Fetch office centers for dropdown
         dispatch(getOfficeCenters({}));
     }, []);
 
@@ -71,7 +63,7 @@ const ProfitLossReport = () => {
             const request = {
                 startDate: selectedDate,
                 endDate: selectedDate,
-                centerId: selectedCenter?.value || null, // Send null for all centers
+                centerId: selectedCenter?.value || null,
             };
 
             const response = await getDateRangeProfitLossApi(request);
@@ -91,11 +83,12 @@ const ProfitLossReport = () => {
     };
 
     const formatCurrency = (amount) => {
+        const num = parseFloat(amount) || 0;
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
-            maximumFractionDigits: 0,
-        }).format(amount || 0);
+            maximumFractionDigits: 2,
+        }).format(num);
     };
 
     const handleDateChange = (e) => {
@@ -121,7 +114,6 @@ const ProfitLossReport = () => {
     const handleViewCustomerPayments = (customer) => {
         if (!customer) return;
 
-        // Ensure all required properties exist
         const customerWithPayments = {
             customer_name: customer.customer_name || 'Unknown',
             customer_number: customer.customer_number || 'N/A',
@@ -148,101 +140,230 @@ const ProfitLossReport = () => {
         setSelectedCustomer(null);
     };
 
+    // Prepare ledger entries for the report (only individual transactions)
+    const prepareLedgerEntries = () => {
+        if (!reportData) return [];
+
+        const entries = [];
+
+        // Add all customer payments
+        if (reportData.transactions?.payments?.length > 0) {
+            reportData.transactions.payments.forEach((payment) => {
+                entries.push({
+                    name: payment.customer?.name || 'Customer Payment',
+                    credit: parseFloat(payment.amount),
+                    debit: 0,
+                    remarks: `${payment.mode?.toUpperCase()} | Booking: ${payment.booking?.number || 'N/A'}`,
+                    payment_number: payment.payment_number,
+                });
+            });
+        }
+
+        // Add all expenses
+        if (reportData.transactions?.expenses?.length > 0) {
+            reportData.transactions.expenses.forEach((expense) => {
+                entries.push({
+                    name: expense.type || 'Expense',
+                    credit: 0,
+                    debit: parseFloat(expense.amount),
+                    remarks: expense.description || expense.notes || '',
+                });
+            });
+        }
+
+        // Add Investments
+        const investments = reportData.transactions?.investments?.filter(inv => inv.type === 'IN') || [];
+        if (investments.length > 0) {
+            investments.forEach((investment) => {
+                entries.push({
+                    name: 'Investment',
+                    credit: parseFloat(investment.amount),
+                    debit: 0,
+                    remarks: investment.center?.name || '',
+                });
+            });
+        }
+
+        // Add Withdrawals
+        const withdrawals = reportData.transactions?.investments?.filter(inv => inv.type === 'OUT') || [];
+        if (withdrawals.length > 0) {
+            withdrawals.forEach((withdrawal) => {
+                entries.push({
+                    name: 'Withdrawal',
+                    credit: 0,
+                    debit: parseFloat(withdrawal.amount),
+                    remarks: withdrawal.center?.name || '',
+                });
+            });
+        }
+
+        return entries;
+    };
+
+    // Get summary data for footer
+    const getSummaryData = () => {
+        if (!reportData) return [];
+        
+        const summary = [];
+        
+        // Total Payments
+        const totalPayments = parseFloat(reportData.summary?.total_payment_amount || 0);
+        summary.push({
+            name: 'TOTAL PAYMENTS',
+            credit: totalPayments,
+            debit: 0,
+            remarks: '-',
+            isBold: true,
+        });
+        
+        // Total Expenses
+        const totalExpenses = parseFloat(reportData.summary?.total_expense_amount || 0);
+        summary.push({
+            name: 'TOTAL EXPENSES',
+            credit: 0,
+            debit: totalExpenses,
+            remarks: '-',
+            isBold: true,
+        });
+        
+        // Operational Profit/Loss
+        const operationalProfitLoss = Math.abs(parseFloat(reportData.summary?.operational_profit_loss || 0));
+        const isOperationalProfit = operationalProfitLoss >= 0;
+        summary.push({
+            name: 'OPERATIONAL PROFIT/LOSS',
+            credit: isOperationalProfit ? operationalProfitLoss : 0,
+            debit: !isOperationalProfit ? operationalProfitLoss : 0,
+            remarks: '-',
+            isBold: true,
+        });
+        
+        // Net Investment Change
+        const totalInvestments = parseFloat(reportData.summary?.total_investments || 0);
+        const totalWithdrawals = parseFloat(reportData.summary?.total_withdrawals || 0);
+        const netInvestmentChange = totalInvestments - totalWithdrawals;
+        
+        summary.push({
+            name: 'NET INVESTMENT CHANGE',
+            credit: netInvestmentChange > 0 ? netInvestmentChange : 0,
+            debit: netInvestmentChange < 0 ? Math.abs(netInvestmentChange) : 0,
+            remarks: '-',
+            isBold: true,
+        });
+        
+        // Total Profit/Loss (Overall)
+        const totalProfitLoss = parseFloat(reportData.summary?.total_profit_loss || 0);
+        const isTotalProfit = totalProfitLoss >= 0;
+        
+        summary.push({
+            name: 'NET PROFIT/LOSS (Overall)',
+            credit: isTotalProfit ? Math.abs(totalProfitLoss) : 0,
+            debit: !isTotalProfit ? Math.abs(totalProfitLoss) : 0,
+            remarks: '-',
+            isBold: true,
+            isHighlight: true,
+        });
+        
+        return summary;
+    };
+
     const onDownloadExcel = () => {
         if (!reportData) return;
 
         const wb = XLSX.utils.book_new();
+        const entries = prepareLedgerEntries();
+        const summaryData = getSummaryData();
+        const openingBalance = parseFloat(reportData.opening_balance?.total || 0);
+        const closingBalance = parseFloat(reportData.summary?.closing_balance || 0);
 
-        // Summary Sheet
-        const summaryHeader = [
-            ['PROFIT & LOSS REPORT'],
+        // Ledger Sheet
+        const ledgerHeader = [
+            ['PROFIT & LOSS LEDGER REPORT'],
             [`Date: ${moment(selectedDate).format('DD/MM/YYYY')}`],
             [`Center: ${reportData.center?.name || 'All Centers'}`],
-            [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
+            [`Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
             [],
-            ['SUMMARY'],
-            ['Opening Balance', reportData.opening_balance?.total || '0.00'],
-            ['Total Payments', reportData.summary?.total_payment_amount || '0.00'],
-            ['Total Expenses', reportData.summary?.total_expense_amount || '0.00'],
-            ['Net Profit/Loss', reportData.summary?.total_profit_loss || '0.00'],
-            ['Closing Balance', reportData.summary?.closing_balance || '0.00'],
-            ['Status', reportData.summary?.profit_loss_status?.toUpperCase() || 'N/A'],
-            ['Unique Customers', reportData.summary?.unique_customers || 0],
+            ['Opening Balance', formatCurrency(openingBalance), `As of ${reportData.opening_balance?.as_of_date || 'previous day'}`],
+            [],
+            ['Particulars', 'Credit (₹)', 'Debit (₹)', 'Remarks'],
+            [],
         ];
 
-        const summaryRows = [...summaryHeader];
-        const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
-
-        // Payments Sheet
-        const paymentHeader = [['PAYMENTS DETAILS'], [], ['Date', 'Payment Number', 'Customer', 'Amount', 'Mode', 'Type', 'Booking Number', 'Description']];
-
-        const paymentData = (reportData.transactions?.payments || []).map((p) => [
-            p.date,
-            p.payment_number,
-            p.customer?.name || 'N/A',
-            p.amount,
-            p.mode,
-            p.type,
-            p.booking?.number || 'N/A',
-            p.description || '',
+        const ledgerRows = entries.map(entry => [
+            entry.name,
+            entry.credit > 0 ? entry.credit.toFixed(2) : '',
+            entry.debit > 0 ? entry.debit.toFixed(2) : '',
+            entry.remarks || '',
         ]);
 
-        const paymentRows = [...paymentHeader, ...paymentData];
-        const paymentWs = XLSX.utils.aoa_to_sheet(paymentRows);
+        const summaryRows = summaryData.map(summary => [
+            summary.name,
+            summary.credit > 0 ? summary.credit.toFixed(2) : '',
+            summary.debit > 0 ? summary.debit.toFixed(2) : '',
+            summary.remarks || '',
+        ]);
 
-        // Expenses Sheet
-        const expenseHeader = [['EXPENSES DETAILS'], [], ['Date', 'Type', 'Amount', 'Description', 'Notes']];
+        const closingRow = [
+            'Closing Balance',
+            closingBalance.toFixed(2),
+            '',
+            `As of ${reportData.summary?.closing_balance_as_of || selectedDate}`,
+        ];
 
-        const expenseData = (reportData.transactions?.expenses || []).map((e) => [e.date, e.type, e.amount, e.description, e.notes]);
+        const allRows = [...ledgerHeader, ...ledgerRows, [], ...summaryRows, [], closingRow];
+        const ledgerWs = XLSX.utils.aoa_to_sheet(allRows);
 
-        const expenseRows = [...expenseHeader, ...expenseData];
-        const expenseWs = XLSX.utils.aoa_to_sheet(expenseRows);
+        // Set column widths
+        ledgerWs['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
 
-        // Customers Sheet
-        const customerHeader = [['CUSTOMER PAYMENT SUMMARY'], [], ['Customer', 'Phone', 'Total Amount', 'Payment Count']];
+        XLSX.utils.book_append_sheet(wb, ledgerWs, 'Profit & Loss Ledger');
 
-        const customerData = (reportData.breakdown?.by_customer || []).map((c) => [c.customer_name, c.customer_number, c.total_amount, c.payment_count]);
-
-        const customerRows = [...customerHeader, ...customerData];
-        const customerWs = XLSX.utils.aoa_to_sheet(customerRows);
-
-        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
-        XLSX.utils.book_append_sheet(wb, paymentWs, 'Payments');
-        XLSX.utils.book_append_sheet(wb, expenseWs, 'Expenses');
-        XLSX.utils.book_append_sheet(wb, customerWs, 'Customers');
-
-        const fileName = `Profit-Loss-Report-${moment(selectedDate).format('DD-MM-YYYY')}-${(reportData.center?.name || 'All-Centers').replace(/\s+/g, '-')}.xlsx`;
+        const fileName = `Profit-Loss-Ledger-${moment(selectedDate).format('DD-MM-YYYY')}-${(reportData.center?.name || 'All-Centers').replace(/\s+/g, '-')}.xlsx`;
         XLSX.writeFile(wb, fileName);
     };
 
     const onGeneratePDF = async () => {
         if (!reportData) return;
 
+        const entries = prepareLedgerEntries();
+        const summaryData = getSummaryData();
+        const openingBalance = parseFloat(reportData.opening_balance?.total || 0);
+        const closingBalance = parseFloat(reportData.summary?.closing_balance || 0);
+
         const pdfData = {
             reportData: reportData,
+            entries: entries,
+            summaryData: summaryData,
+            openingBalance: openingBalance,
+            closingBalance: closingBalance,
             generatedDate: moment().format('DD/MM/YYYY HH:mm'),
             date: moment(selectedDate).format('DD/MM/YYYY'),
             centerName: reportData.center?.name || 'All Centers',
-            viewMode: viewMode,
         };
 
         navigate('/documents/audit-report-pdf', { state: pdfData });
     };
 
-    const getStatusBadge = (status) => {
-        const statusConfig = {
-            paid: { color: 'bg-green-100 text-green-800', icon: <IconCheckCircle className="w-3 h-3 mr-1" /> },
-            partial: { color: 'bg-yellow-100 text-yellow-800', icon: <IconClock className="w-3 h-3 mr-1" /> },
-            pending: { color: 'bg-red-100 text-red-800', icon: <IconClock className="w-3 h-3 mr-1" /> },
-        };
-
-        const config = statusConfig[status] || statusConfig['pending'];
-        return (
-            <span className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center ${config.color}`}>
-                {config.icon}
-                {status?.toUpperCase()}
-            </span>
-        );
+    const getProfitLossBadge = () => {
+        if (!reportData) return null;
+        
+        const status = reportData.summary?.profit_loss_status;
+        const amount = Math.abs(parseFloat(reportData.summary?.total_profit_loss || 0));
+        
+        if (status === 'profit') {
+            return (
+                <div className="inline-flex items-center px-4 py-2 rounded-lg bg-green-100 text-green-800">
+                    <IconTrendingUp className="w-4 h-4 mr-2" />
+                    <span className="font-semibold">PROFIT: {formatCurrency(amount)}</span>
+                </div>
+            );
+        } else {
+            return (
+                <div className="inline-flex items-center px-4 py-2 rounded-lg bg-red-100 text-red-800">
+                    <IconTrendingDown className="w-4 h-4 mr-2" />
+                    <span className="font-semibold">LOSS: {formatCurrency(amount)}</span>
+                </div>
+            );
+        }
     };
 
     // Transform office centers for react-select
@@ -254,7 +375,6 @@ const ProfitLossReport = () => {
         })),
     ];
 
-    // Custom styles for react-select
     const selectStyles = {
         control: (provided) => ({
             ...provided,
@@ -269,163 +389,12 @@ const ProfitLossReport = () => {
             backgroundColor: state.isSelected ? '#3b82f6' : state.isFocused ? '#e2e8f0' : 'white',
             color: state.isSelected ? 'white' : '#1e293b',
             cursor: 'pointer',
-            '&:active': {
-                backgroundColor: state.isSelected ? '#2563eb' : '#cbd5e0',
-            },
         }),
         menu: (provided) => ({
             ...provided,
             zIndex: 50,
         }),
     };
-
-    // Payment Columns
-    const paymentColumns = [
-        {
-            Header: 'Payment No',
-            accessor: 'payment_number',
-            width: 120,
-            Cell: ({ value }) => <span className="font-bold text-blue-600">{value}</span>,
-        },
-        {
-            Header: 'Customer Details',
-            accessor: 'customer',
-            Cell: ({ row }) => (
-                <div>
-                    <div className="font-medium">{row.original.customer?.name || 'N/A'}</div>
-                    <div className="text-xs text-gray-500">{row.original.customer?.number || ''}</div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Booking',
-            accessor: 'booking',
-            Cell: ({ row }) => <span className="text-sm text-gray-600">{row.original.booking?.number || 'N/A'}</span>,
-        },
-        {
-            Header: 'Amount',
-            accessor: 'amount',
-            Cell: ({ value }) => <div className="font-bold text-green-700">{formatCurrency(value)}</div>,
-        },
-        {
-            Header: 'Mode',
-            accessor: 'mode',
-            Cell: ({ value }) => <span className="capitalize px-2 py-1 bg-gray-100 rounded-lg text-xs">{value}</span>,
-        },
-        {
-            Header: 'Type',
-            accessor: 'type',
-            Cell: ({ value }) => <span className={`capitalize px-2 py-1 rounded-lg text-xs ${value === 'full' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{value}</span>,
-        },
-        {
-            Header: 'Date',
-            accessor: 'date',
-            Cell: ({ value }) => <span className="text-sm text-gray-600">{moment(value).format('DD/MM/YYYY')}</span>,
-        },
-    ];
-
-    // Expense Columns
-    const expenseColumns = [
-        {
-            Header: 'Type',
-            accessor: 'type',
-            Cell: ({ value }) => <span className="font-medium text-red-600">{value}</span>,
-        },
-        {
-            Header: 'Description',
-            accessor: 'description',
-            Cell: ({ value, row }) => (
-                <div>
-                    <div className="font-medium">{value}</div>
-                    {row.original.notes && <div className="text-xs text-gray-500">{row.original.notes}</div>}
-                </div>
-            ),
-        },
-        {
-            Header: 'Amount',
-            accessor: 'amount',
-            Cell: ({ value }) => <div className="font-bold text-red-700">{formatCurrency(value)}</div>,
-        },
-        {
-            Header: 'Date',
-            accessor: 'date',
-            Cell: ({ value }) => <span className="text-sm text-gray-600">{moment(value).format('DD/MM/YYYY')}</span>,
-        },
-    ];
-
-    // Customer Columns with View Action
-    const customerColumns = [
-        {
-            Header: 'Customer',
-            accessor: 'customer_name',
-            Cell: ({ value, row }) => (
-                <div>
-                    <div className="font-medium text-blue-600">{value}</div>
-                    <div className="text-xs text-gray-500">{row.original.customer_number}</div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Total Amount',
-            accessor: 'total_amount',
-            Cell: ({ value }) => <div className="font-bold text-green-700">{formatCurrency(value)}</div>,
-        },
-        {
-            Header: 'Payments',
-            accessor: 'payment_count',
-            Cell: ({ value }) => (
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs">
-                    {value} payment{value !== 1 ? 's' : ''}
-                </span>
-            ),
-        },
-        {
-            Header: 'Actions',
-            accessor: 'actions',
-            Cell: ({ row }) => (
-                <button
-                    onClick={() => handleViewCustomerPayments(row.original)}
-                    className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs font-medium transition-colors duration-200"
-                >
-                    View Payments
-                </button>
-            ),
-        },
-    ];
-
-    // Customer Payment Details Columns for Modal
-    const customerPaymentColumns = [
-        {
-            Header: 'Payment No',
-            accessor: 'payment_number',
-            Cell: ({ value }) => <span className="font-bold text-blue-600">{value || 'N/A'}</span>,
-        },
-        {
-            Header: 'Amount',
-            accessor: 'amount',
-            Cell: ({ value }) => <div className="font-bold text-green-700">{formatCurrency(value || 0)}</div>,
-        },
-        {
-            Header: 'Mode',
-            accessor: 'mode',
-            Cell: ({ value }) => <span className="capitalize px-2 py-1 bg-gray-100 rounded-lg text-xs">{value || 'N/A'}</span>,
-        },
-        {
-            Header: 'Booking No',
-            accessor: 'booking_number',
-            Cell: ({ value }) => value || 'N/A',
-        },
-        {
-            Header: 'Booking Center',
-            accessor: 'booking_center',
-            Cell: ({ value }) => value || 'N/A',
-        },
-        {
-            Header: 'Date',
-            accessor: 'date',
-            Cell: ({ value }) => <span className="text-sm text-gray-600">{value ? moment(value).format('DD/MM/YYYY') : 'N/A'}</span>,
-        },
-    ];
 
     if (loading || centersLoading) {
         return (
@@ -452,11 +421,16 @@ const ProfitLossReport = () => {
         );
     }
 
+    const entries = reportData ? prepareLedgerEntries() : [];
+    const summaryData = reportData ? getSummaryData() : [];
+    const openingBalance = reportData ? parseFloat(reportData.opening_balance?.total || 0) : 0;
+    const closingBalance = reportData ? parseFloat(reportData.summary?.closing_balance || 0) : 0;
+
     return (
         <div className="p-4 sm:p-6">
             <div className="text-center mb-6">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Profit & Loss Report</h1>
-                <p className="text-gray-600 mt-1 sm:mt-2">Daily financial summary with payments and expenses</p>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800">Profit & Loss Ledger Report</h1>
+                <p className="text-gray-600 mt-1 sm:mt-2">Credit and Debit statement with opening and closing balance</p>
             </div>
 
             {/* Date Selection, Center Filter and Export */}
@@ -477,7 +451,7 @@ const ProfitLossReport = () => {
                         />
                     </div>
 
-                    {/* Center Filter - React Select */}
+                    {/* Center Filter */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                             <IconBuilding className="inline w-4 h-4 mr-1" />
@@ -490,8 +464,6 @@ const ProfitLossReport = () => {
                             placeholder="Select a center..."
                             isClearable
                             styles={selectStyles}
-                            className="react-select-container"
-                            classNamePrefix="react-select"
                         />
                     </div>
 
@@ -520,377 +492,111 @@ const ProfitLossReport = () => {
 
                 {/* Export Buttons */}
                 <div className="flex flex-wrap justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
-                {_.includes(accessIds, '5') && (
-                    <button
-                        onClick={onDownloadExcel}
-                        disabled={!reportData}
-                        className={`px-4 py-2 rounded-lg font-medium shadow-sm flex items-center text-sm ${
-                            reportData ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                    >
-                        <IconDownload className="mr-2 w-4 h-4" />
-                        Export Excel
-                    </button>
+                    {_.includes(accessIds, '5') && (
+                        <button
+                            onClick={onDownloadExcel}
+                            disabled={!reportData}
+                            className={`px-4 py-2 rounded-lg font-medium shadow-sm flex items-center text-sm ${
+                                reportData ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
+                        >
+                            <IconDownload className="mr-2 w-4 h-4" />
+                            Export Excel
+                        </button>
                     )}
                     {_.includes(accessIds, '9') && (
-                    <button
-                        onClick={onGeneratePDF}
-                        disabled={!reportData}
-                        className={`px-4 py-2 rounded-lg font-medium shadow-sm flex items-center text-sm ${
-                            reportData ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                    >
-                        <IconPrinter className="mr-2 w-4 h-4" />
-                        Generate PDF
-                    </button>
+                        <button
+                            onClick={onGeneratePDF}
+                            disabled={!reportData}
+                            className={`px-4 py-2 rounded-lg font-medium shadow-sm flex items-center text-sm ${
+                                reportData ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
+                        >
+                            <IconPrinter className="mr-2 w-4 h-4" />
+                            Generate PDF
+                        </button>
                     )}
                 </div>
 
                 {/* Report Info */}
                 {reportData && (
-                    <div className="text-center mt-4">
+                    <div className="text-center mt-4 flex flex-col sm:flex-row justify-between items-center gap-2">
                         <h3 className="text-lg font-semibold text-gray-800">
-                            {moment(reportData.date_range?.start_date).format('DD MMMM YYYY')} - {reportData.center?.name || 'All Centers'}
+                            {moment(selectedDate).format('DD MMMM YYYY')} - {reportData.center?.name || 'All Centers'}
                         </h3>
+                        {getProfitLossBadge()}
                     </div>
                 )}
             </div>
 
-            {/* Summary Cards - Only show if data exists */}
+            {/* Ledger Report Table */}
             {reportData && (
-                <>
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        {/* Opening Balance Card */}
-                        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-gray-800">Opening Balance</h3>
-                                <div className="p-2 bg-gray-100 rounded-full">
-                                    <IconMoney className="w-5 h-5 text-gray-600" />
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-2xl font-bold text-gray-700 mb-2">{formatCurrency(reportData.opening_balance?.total)}</div>
-                            </div>
-                        </div>
-
-                        {/* Total Payments Card */}
-                        <div className="bg-white rounded-lg shadow-sm p-4 border border-green-200">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-gray-800">Total Payments</h3>
-                                <div className="p-2 bg-green-100 rounded-full">
-                                    <IconMoney className="w-5 h-5 text-green-600" />
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-2xl font-bold text-green-700 mb-2">{formatCurrency(reportData.summary?.total_payment_amount)}</div>
-                                <div className="text-sm text-gray-600">{reportData.summary?.total_payments} payments</div>
-                            </div>
-                        </div>
-
-                        {/* Total Expenses Card */}
-                        <div className="bg-white rounded-lg shadow-sm p-4 border border-red-200">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-gray-800">Total Expenses</h3>
-                                <div className="p-2 bg-red-100 rounded-full">
-                                    <IconReceipt className="w-5 h-5 text-red-600" />
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-2xl font-bold text-red-700 mb-2">{formatCurrency(reportData.summary?.total_expense_amount)}</div>
-                                <div className="text-sm text-gray-600">{reportData.summary?.total_expense_payments} expenses</div>
-                            </div>
-                        </div>
-
-                        {/* Net Profit/Loss Card */}
-                        <div className={`bg-white rounded-lg shadow-sm p-4 border ${reportData.summary?.profit_loss_status === 'profit' ? 'border-green-200' : 'border-red-200'}`}>
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="font-bold text-gray-800">Net Profit/Loss</h3>
-                                <div className={`p-2 rounded-full ${reportData.summary?.profit_loss_status === 'profit' ? 'bg-green-100' : 'bg-red-100'}`}>
-                                    {reportData.summary?.profit_loss_status === 'profit' ? (
-                                        <IconTrendingUp className="w-5 h-5 text-green-600" />
-                                    ) : (
-                                        <IconTrendingDown className="w-5 h-5 text-red-600" />
-                                    )}
-                                </div>
-                            </div>
-                            <div className="text-center">
-                                <div className={`text-2xl font-bold mb-2 ${reportData.summary?.profit_loss_status === 'profit' ? 'text-green-700' : 'text-red-700'}`}>
-                                    {formatCurrency(reportData.summary?.total_profit_loss)}
-                                </div>
-                                <div className="text-sm text-gray-600">Closing: {formatCurrency(reportData.summary?.closing_balance)}</div>
-                            </div>
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800 mb-1">Ledger Statement</h2>
+                            <p className="text-gray-600 text-sm">Transaction details for {moment(selectedDate).format('DD MMM YYYY')}</p>
                         </div>
                     </div>
 
-                    {/* View Mode Toggle */}
-                    <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
-                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <div className="flex flex-wrap gap-2">
-                                <button
-                                    onClick={() => setViewMode('payments')}
-                                    className={`px-4 py-2 rounded-lg flex items-center ${
-                                        viewMode === 'payments' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    <IconMoney className="w-4 h-4 mr-2" />
-                                    Payments ({reportData.transactions?.payments?.length || 0})
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('expenses')}
-                                    className={`px-4 py-2 rounded-lg flex items-center ${
-                                        viewMode === 'expenses' ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    <IconReceipt className="w-4 h-4 mr-2" />
-                                    Expenses ({reportData.transactions?.expenses?.length || 0})
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('customers')}
-                                    className={`px-4 py-2 rounded-lg flex items-center ${
-                                        viewMode === 'customers' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    <IconUsers className="w-4 h-4 mr-2" />
-                                    Customers ({reportData.breakdown?.by_customer?.length || 0})
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('summary')}
-                                    className={`px-4 py-2 rounded-lg flex items-center ${
-                                        viewMode === 'summary' ? 'bg-purple-100 text-purple-700 border border-purple-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    <IconPackage className="w-4 h-4 mr-2" />
-                                    Summary
-                                </button>
-                            </div>
-
-                            <div className="text-sm text-gray-600">
-                                {reportData.breakdown?.daily?.[0]?.payments || 0} payments • {reportData.breakdown?.daily?.[0]?.expenses || 0} expenses
-                            </div>
-                        </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Particulars</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit (₹)</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit (₹)</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {entries.map((entry, index) => (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                        <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                                            {entry.name}
+                                            {entry.payment_number && (
+                                                <div className="text-xs text-gray-500">#{entry.payment_number}</div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-right text-green-700">
+                                            {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-right text-red-700">
+                                            {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-gray-500">
+                                            {entry.remarks || '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                {summaryData.map((summary, index) => (
+                                    <tr 
+                                        key={index} 
+                                        className={`${summary.isHighlight ? 'bg-yellow-50' : ''}`}
+                                    >
+                                        <td className={`px-6 py-3 text-sm ${summary.isBold ? 'font-bold' : 'font-medium'} text-gray-900`}>
+                                            {summary.name}
+                                        </td>
+                                        <td className={`px-6 py-3 text-sm text-right ${summary.isBold ? 'font-bold' : 'font-medium'} text-green-700`}>
+                                            {summary.credit > 0 ? formatCurrency(summary.credit) : '-'}
+                                        </td>
+                                        <td className={`px-6 py-3 text-sm text-right ${summary.isBold ? 'font-bold' : 'font-medium'} text-red-700`}>
+                                            {summary.debit > 0 ? formatCurrency(summary.debit) : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-gray-500">
+                                            {summary.remarks || '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tfoot>
+                        </table>
                     </div>
-
-                    {/* Content based on view mode */}
-                    {viewMode === 'payments' && (
-                        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                            <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                    <div>
-                                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Payment Details</h3>
-                                        <p className="text-gray-600 text-sm">
-                                            {reportData.transactions?.payments?.length || 0} payments received on {moment(selectedDate).format('DD MMM YYYY')}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                            <span className="text-gray-600">Total: </span>
-                                            <span className="font-semibold text-green-600">{formatCurrency(reportData.summary?.total_payment_amount)}</span>
-                                        </div>
-                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                            <span className="text-gray-600">Avg per payment: </span>
-                                            <span className="font-semibold text-blue-600">
-                                                {formatCurrency(reportData.summary?.total_payment_amount / (reportData.transactions?.payments?.length || 1))}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-2 sm:p-4">
-                                <Table
-                                    columns={paymentColumns}
-                                    data={reportData.transactions?.payments || []}
-                                    Title=""
-                                    pageSize={10}
-                                    pageIndex={0}
-                                    totalCount={reportData.transactions?.payments?.length || 0}
-                                    totalPages={Math.ceil((reportData.transactions?.payments?.length || 0) / 10)}
-                                    onPaginationChange={(page, size) => {}}
-                                    isSortable={true}
-                                    pagination={true}
-                                    isSearchable={true}
-                                    tableClass="min-w-full rounded-lg overflow-hidden"
-                                    theadClass="bg-gray-50"
-                                    responsive={true}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {viewMode === 'expenses' && (
-                        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                            <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                    <div>
-                                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Expense Details</h3>
-                                        <p className="text-gray-600 text-sm">
-                                            {reportData.transactions?.expenses?.length || 0} expenses on {moment(selectedDate).format('DD MMM YYYY')}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                            <span className="text-gray-600">Total: </span>
-                                            <span className="font-semibold text-red-600">{formatCurrency(reportData.summary?.total_expense_amount)}</span>
-                                        </div>
-                                        <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                            <span className="text-gray-600">Avg per expense: </span>
-                                            <span className="font-semibold text-orange-600">
-                                                {formatCurrency(reportData.summary?.total_expense_amount / (reportData.transactions?.expenses?.length || 1))}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-2 sm:p-4">
-                                <Table
-                                    columns={expenseColumns}
-                                    data={reportData.transactions?.expenses || []}
-                                    Title=""
-                                    pageSize={10}
-                                    pageIndex={0}
-                                    totalCount={reportData.transactions?.expenses?.length || 0}
-                                    totalPages={Math.ceil((reportData.transactions?.expenses?.length || 0) / 10)}
-                                    onPaginationChange={(page, size) => {}}
-                                    isSortable={true}
-                                    pagination={true}
-                                    isSearchable={true}
-                                    tableClass="min-w-full rounded-lg overflow-hidden"
-                                    theadClass="bg-gray-50"
-                                    responsive={true}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {viewMode === 'customers' && (
-                        <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                            <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                                    <div>
-                                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Customer Payment Summary</h3>
-                                        <p className="text-gray-600 text-sm">{reportData.breakdown?.by_customer?.length || 0} unique customers made payments</p>
-                                    </div>
-                                    <div className="text-sm bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                        <span className="text-gray-600">Unique Customers: </span>
-                                        <span className="font-semibold text-purple-600">{reportData.breakdown?.by_customer?.length || 0}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="p-2 sm:p-4">
-                                <Table
-                                    columns={customerColumns}
-                                    data={reportData.breakdown?.by_customer || []}
-                                    Title=""
-                                    pageSize={10}
-                                    pageIndex={0}
-                                    totalCount={reportData.breakdown?.by_customer?.length || 0}
-                                    totalPages={Math.ceil((reportData.breakdown?.by_customer?.length || 0) / 10)}
-                                    onPaginationChange={(page, size) => {}}
-                                    isSortable={true}
-                                    pagination={true}
-                                    isSearchable={true}
-                                    tableClass="min-w-full rounded-lg overflow-hidden"
-                                    theadClass="bg-gray-50"
-                                    responsive={true}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {viewMode === 'summary' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            {/* Payment Mode Breakdown */}
-                            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">Payment Mode Breakdown</h3>
-                                <div className="space-y-4">
-                                    {(reportData.breakdown?.by_payment_mode || []).map((mode, index) => (
-                                        <div key={index} className="border-l-4 border-green-500 pl-4">
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    <div className="font-semibold text-gray-800 capitalize">{mode.mode}</div>
-                                                    <div className="text-sm text-gray-600">{mode.count} payments</div>
-                                                </div>
-                                                <div className="text-green-700 font-bold">{formatCurrency(mode.total)}</div>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                                <div
-                                                    className="bg-green-600 h-2 rounded-full"
-                                                    style={{
-                                                        width: `${(mode.total / reportData.summary?.total_payment_amount) * 100}%`,
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">{((mode.total / reportData.summary?.total_payment_amount) * 100).toFixed(1)}% of total payments</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Expense Type Breakdown */}
-                            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">Expense Type Breakdown</h3>
-                                <div className="space-y-4">
-                                    {(reportData.breakdown?.by_expense_type || []).map((expense, index) => (
-                                        <div key={index} className="border-l-4 border-red-500 pl-4">
-                                            <div className="flex justify-between items-center">
-                                                <div>
-                                                    <div className="font-semibold text-gray-800">{expense.type}</div>
-                                                    <div className="text-sm text-gray-600">{expense.count} expenses</div>
-                                                </div>
-                                                <div className="text-red-700 font-bold">{formatCurrency(expense.total)}</div>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                                                <div
-                                                    className="bg-red-600 h-2 rounded-full"
-                                                    style={{
-                                                        width: `${(expense.total / reportData.summary?.total_expense_amount) * 100}%`,
-                                                    }}
-                                                ></div>
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">{((expense.total / reportData.summary?.total_expense_amount) * 100).toFixed(1)}% of total expenses</div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Daily Summary */}
-                            <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200 md:col-span-2">
-                                <h3 className="text-lg font-bold text-gray-800 mb-4">Daily Summary</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    {(reportData.breakdown?.daily || []).map((day, index) => (
-                                        <div key={index} className="bg-gray-50 rounded-lg p-4">
-                                            <div className="text-sm text-gray-600 mb-2">{moment(day.date).format('DD MMM YYYY')}</div>
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between">
-                                                    <span>Payments:</span>
-                                                    <span className="font-semibold text-green-600">
-                                                        {day.payments} ({formatCurrency(day.payment_total)})
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between">
-                                                    <span>Expenses:</span>
-                                                    <span className="font-semibold text-red-600">
-                                                        {day.expenses} ({formatCurrency(day.expense_total)})
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between pt-2 border-t">
-                                                    <span>Net:</span>
-                                                    <span className={`font-bold ${parseFloat(day.net_change) >= 0 ? 'text-green-700' : 'text-red-700'}`}>{formatCurrency(day.net_change)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </>
+                </div>
             )}
 
-            {/* Customer Payment Details Modal */}
+                {/* Customer Payment Details Modal */}
             {showCustomerModal && selectedCustomer && (
                 <div className="fixed inset-0 z-50 overflow-y-auto">
                     <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -919,22 +625,30 @@ const ProfitLossReport = () => {
 
                                 <div className="mt-4">
                                     {selectedCustomer.payments && selectedCustomer.payments.length > 0 ? (
-                                        <Table
-                                            columns={customerPaymentColumns}
-                                            data={selectedCustomer.payments}
-                                            Title=""
-                                            pageSize={5}
-                                            pageIndex={0}
-                                            totalCount={selectedCustomer.payments.length}
-                                            totalPages={Math.ceil(selectedCustomer.payments.length / 5)}
-                                            onPaginationChange={(page, size) => {}}
-                                            isSortable={true}
-                                            pagination={true}
-                                            isSearchable={true}
-                                            tableClass="min-w-full rounded-lg overflow-hidden"
-                                            theadClass="bg-gray-50"
-                                            responsive={true}
-                                        />
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Payment No</th>
+                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Mode</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Booking No</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                    {selectedCustomer.payments.map((payment, idx) => (
+                                                        <tr key={idx} className="hover:bg-gray-50">
+                                                            <td className="px-4 py-2 text-sm font-medium text-blue-600">{payment.payment_number}</td>
+                                                            <td className="px-4 py-2 text-sm text-right font-bold text-green-700">{formatCurrency(payment.amount)}</td>
+                                                            <td className="px-4 py-2 text-sm capitalize">{payment.mode}</td>
+                                                            <td className="px-4 py-2 text-sm">{payment.booking_number}</td>
+                                                            <td className="px-4 py-2 text-sm">{payment.date ? moment(payment.date).format('DD/MM/YYYY') : '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     ) : (
                                         <div className="text-center py-12 bg-gray-50 rounded-lg">
                                             <IconReceipt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
