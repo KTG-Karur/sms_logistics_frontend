@@ -42,6 +42,7 @@ const Index = () => {
     const [selectedIndex, setSelectedIndex] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [searchTerm, setSearchTerm] = useState(''); // Add search term state
 
     useEffect(() => {
         dispatch(setPageTitle('Office Centers Management'));
@@ -87,11 +88,40 @@ const Index = () => {
         originalData: item // Keep original data for reference
     }));
 
+    // Filter data based on search term
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return transformedOfficeCenters;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return transformedOfficeCenters.filter((officeCenter) => {
+            return (
+                officeCenter.office_center_name?.toLowerCase().includes(searchLower)
+            );
+        });
+    };
+
+    // Get paginated data from filtered results
+    const getPaginatedData = () => {
+        const filteredData = getFilteredData();
+        const startIndex = currentPage * pageSize;
+        const endIndex = startIndex + pageSize;
+        return filteredData.slice(startIndex, endIndex);
+    };
+
+    const getTotalCount = () => {
+        return getFilteredData().length;
+    };
+
+    const handleSearch = (searchValue) => {
+        setSearchTerm(searchValue);
+        setCurrentPage(0); // Reset to first page when searching
+    };
+
     const columns = [
         {
             Header: 'S.No',
             accessor: 'id',
-            Cell: (row) => <div>{row?.row?.index + 1}</div>,
+            Cell: (row) => <div>{row?.row?.index + 1 + currentPage * pageSize}</div>,
             width: 80,
         },
         {
@@ -105,7 +135,9 @@ const Index = () => {
             Cell: ({ value }) => (
                 <span
                     className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                        value === 'Active' ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
+                        value === 'Active' 
+                            ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' 
+                            : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
                     }`}
                 >
                     {value}
@@ -173,9 +205,10 @@ const Index = () => {
             return;
         }
 
-        // Check for duplicate office center name
+        // Check for duplicate office center name (case insensitive)
         const duplicateOfficeCenter = transformedOfficeCenters.find(
             (officeCenter) => 
+                officeCenter.office_center_name && 
                 officeCenter.office_center_name.toLowerCase() === state.officeCenterName.toLowerCase() && 
                 officeCenter.id !== selectedItem.id
         );
@@ -215,6 +248,7 @@ const Index = () => {
     };
 
     const handleDeleteOfficeCenter = (officeCenterId) => {
+        // Check if office center has locations before deleting (optional)
         showMessage('warning', 'Are you sure you want to delete this office center?', () => {
             dispatch(deleteOfficeCenters(officeCenterId));
         });
@@ -223,12 +257,6 @@ const Index = () => {
     const handlePaginationChange = (pageIndex, newPageSize) => {
         setCurrentPage(pageIndex);
         setPageSize(newPageSize);
-    };
-
-    const getPaginatedData = () => {
-        const startIndex = currentPage * pageSize;
-        const endIndex = startIndex + pageSize;
-        return transformedOfficeCenters.slice(startIndex, endIndex);
     };
 
     return (
@@ -241,15 +269,23 @@ const Index = () => {
                     data={getPaginatedData()}
                     pageSize={pageSize}
                     pageIndex={currentPage}
-                    totalCount={transformedOfficeCenters.length}
-                    totalPages={Math.ceil(transformedOfficeCenters.length / pageSize)}
+                    totalCount={getTotalCount()}
+                    totalPages={Math.ceil(getTotalCount() / pageSize)}
                     onPaginationChange={handlePaginationChange}
                     pagination={true}
                     isSearchable={true}
                     isSortable={true}
                     btnName="Add Office Center"
                     loading={loading}
+                    onSearch={handleSearch}
                 />
+                
+                {/* Optional: Show message when no results found */}
+                {!loading && getTotalCount() === 0 && searchTerm && (
+                    <div className="text-center py-4 text-gray-500">
+                        No office centers found matching "{searchTerm}"
+                    </div>
+                )}
             </div>
 
             <ModelViewBox

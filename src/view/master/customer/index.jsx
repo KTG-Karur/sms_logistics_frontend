@@ -8,7 +8,6 @@ import { showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import IconX from '../../../components/Icon/IconX';
 import IconPlus from '../../../components/Icon/IconPlus';
 import IconPencil from '../../../components/Icon/IconPencil';
-import IconFilter from '../../../components/Icon/IconSearch';
 import IconSearch from '../../../components/Icon/IconSearch';
 import { getCustomers, createCustomers, updateCustomers, deleteCustomers } from '../../../redux/customerSlice';
 import _ from 'lodash';
@@ -18,46 +17,28 @@ const Customers = () => {
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Customer');
     const dispatch = useDispatch();
-
+    
     // Get customers state from Redux
     const customersState = useSelector((state) => state.CustomerSlice || {});
     const { customersData = [], loading = false, error = null } = customersState;
-
+    
     const [showForm, setShowForm] = useState(false);
-    const [state, setState] = useState({
-        customerName: '',
-        customerNumber: '',
-        isActive: true
-    });
+    const [state, setState] = useState({ customerName: '', customerNumber: '', isActive: true });
     const [errors, setErrors] = useState({});
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [isEdit, setIsEdit] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState({
-        customerNumber: '',
-        customerName: ''
-    });
 
     useEffect(() => {
         dispatch(setPageTitle('Customer Management'));
         fetchCustomers();
     }, []);
 
-    useEffect(() => {
-        fetchCustomers();
-    }, [filters]);
-
     const fetchCustomers = async () => {
         try {
-            // Apply filters
-            const filterParams = {};
-            if (filters.customerNumber) filterParams.customerNumber = filters.customerNumber;
-            if (filters.customerName) filterParams.customerName = filters.customerName;
-            
-            await dispatch(getCustomers(filterParams)).unwrap();
+            await dispatch(getCustomers({})).unwrap();
         } catch (error) {
             console.error('Error fetching customers:', error);
             showMessage('error', error.message || 'Failed to load customers');
@@ -69,16 +50,29 @@ const Customers = () => {
         setPageSize(newPageSize);
     };
 
-    // Get paginated data
+    // Filter data based on search term (searches both name and number)
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return customersData || [];
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return (customersData || []).filter((customer) => {
+            return (
+                customer.customer_name?.toLowerCase().includes(searchLower) ||
+                customer.customer_number?.toLowerCase().includes(searchLower)
+            );
+        });
+    };
+
+    // Get paginated data from filtered results
     const getPaginatedData = () => {
-        const dataArray = customersData || [];
+        const filteredData = getFilteredData();
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
-        return dataArray.slice(startIndex, endIndex);
+        return filteredData.slice(startIndex, endIndex);
     };
 
     const getTotalCount = () => {
-        return (customersData || []).length;
+        return getFilteredData().length;
     };
 
     const validateForm = () => {
@@ -91,7 +85,6 @@ const Customers = () => {
         } else if (!/^\d{10}$/.test(state.customerNumber.trim())) {
             newErrors.customerNumber = 'Customer number must be 10 digits';
         }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -108,17 +101,13 @@ const Customers = () => {
         try {
             if (isEdit && selectedCustomer) {
                 await dispatch(
-                    updateCustomers({
-                        request: request,
-                        customerId: selectedCustomer.customer_id 
-                    })
+                    updateCustomers({ request: request, customerId: selectedCustomer.customer_id })
                 ).unwrap();
                 showMessage('success', 'Customer updated successfully');
             } else {
                 await dispatch(createCustomers(request)).unwrap();
                 showMessage('success', 'Customer added successfully');
             }
-
             onFormClear();
             fetchCustomers();
         } catch (error) {
@@ -153,11 +142,7 @@ const Customers = () => {
     };
 
     const onFormClear = () => {
-        setState({
-            customerName: '',
-            customerNumber: '',
-            isActive: true
-        });
+        setState({ customerName: '', customerNumber: '', isActive: true });
         setSelectedCustomer(null);
         setIsEdit(false);
         setErrors({});
@@ -181,19 +166,14 @@ const Customers = () => {
         setIsEdit(false);
     };
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(0); // Reset to first page when searching
     };
 
-    const clearFilters = () => {
-        setFilters({
-            customerNumber: '',
-            customerName: ''
-        });
+    const clearSearch = () => {
+        setSearchTerm('');
+        setCurrentPage(0);
     };
 
     // Format date for display
@@ -202,7 +182,6 @@ const Customers = () => {
         try {
             const date = new Date(dateString);
             if (isNaN(date.getTime())) return dateString;
-            
             const day = String(date.getDate()).padStart(2, '0');
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const year = date.getFullYear();
@@ -211,17 +190,6 @@ const Customers = () => {
             return dateString;
         }
     };
-
-    // Filter data based on search term
-    const filteredData = customersData.filter((customer) => {
-        if (!searchTerm) return true;
-
-        const searchLower = searchTerm.toLowerCase();
-        return (
-            customer.customer_name?.toLowerCase().includes(searchLower) ||
-            customer.customer_number?.toLowerCase().includes(searchLower)
-        );
-    });
 
     const columns = [
         {
@@ -290,38 +258,38 @@ const Customers = () => {
         }
     ];
 
-    // Helper function
-    function findArrObj(arr, key, value) {
-        if (!arr || !Array.isArray(arr)) return [];
-        return arr.filter((item) => item[key] === value);
-    }
-
     return (
         <div>
-            {/* Search and Filter Bar */}
+            {/* Search Bar */}
             <div className="panel mb-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="relative flex-1">
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Search customers by name or number..."
-                                className="form-input w-full pl-10"
+                                placeholder="Search by customer name or number..."
+                                className="form-input w-full pl-10 pr-10"
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={handleSearch}
                             />
                             <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={clearSearch}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <IconX className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
+                        {searchTerm && (
+                            <div className="text-sm text-gray-500 mt-1">
+                                Found {getTotalCount()} result(s)
+                            </div>
+                        )}
                     </div>
                     <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="btn btn-outline-primary"
-                        >
-                            <IconFilter className="w-4 h-4 mr-2" />
-                            Filters
-                        </button>
                         {_.includes(accessIds, '2') && (
                             <button
                                 type="button"
@@ -334,56 +302,6 @@ const Customers = () => {
                         )}
                     </div>
                 </div>
-
-                {/* Filter Panel */}
-                {showFilters && (
-                    <div className="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block mb-1 text-sm font-medium">
-                                    Customer Name
-                                </label>
-                                <input
-                                    type="text"
-                                    name="customerName"
-                                    value={filters.customerName}
-                                    onChange={handleFilterChange}
-                                    placeholder="Filter by customer name"
-                                    className="form-input"
-                                />
-                            </div>
-                            <div>
-                                <label className="block mb-1 text-sm font-medium">
-                                    Customer Number
-                                </label>
-                                <input
-                                    type="text"
-                                    name="customerNumber"
-                                    value={filters.customerNumber}
-                                    onChange={handleFilterChange}
-                                    placeholder="Filter by customer number"
-                                    className="form-input"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end mt-4">
-                            <button
-                                type="button"
-                                onClick={clearFilters}
-                                className="btn btn-outline-secondary mr-2"
-                            >
-                                Clear Filters
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowFilters(false)}
-                                className="btn btn-primary"
-                            >
-                                Apply Filters
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Customer Form */}
@@ -401,7 +319,6 @@ const Customers = () => {
                             <IconX className="w-5 h-5" />
                         </button>
                     </div>
-
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Customer Name */}
@@ -424,7 +341,6 @@ const Customers = () => {
                                     </div>
                                 )}
                             </div>
-
                             {/* Customer Number */}
                             <div>
                                 <label className="block mb-1">
@@ -449,7 +365,6 @@ const Customers = () => {
                                 </p>
                             </div>
                         </div>
-
                         {/* Form Actions */}
                         <div className="flex justify-end space-x-2 mt-6">
                             <button
@@ -490,9 +405,24 @@ const Customers = () => {
                     <div className="text-center py-8 text-danger">
                         Error loading customers: {error}
                     </div>
-                ) : customersData.length === 0 ? (
+                ) : getTotalCount() === 0 ? (
                     <div className="text-center py-8 text-gray-500">
-                        No customers found. {_.includes(accessIds, '2') && 'Click "Add Customer" to get started.'}
+                        {searchTerm ? (
+                            <>
+                                No customers found matching "{searchTerm}".
+                                <button
+                                    onClick={clearSearch}
+                                    className="ml-2 text-primary hover:underline"
+                                >
+                                    Clear search
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                No customers found.
+                                {_.includes(accessIds, '2') && ' Click "Add Customer" to get started.'}
+                            </>
+                        )}
                     </div>
                 ) : (
                     <Table

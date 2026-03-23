@@ -17,12 +17,12 @@ import ModelViewBox from '../../util/ModelViewBox';
 import Tippy from '@tippyjs/react';
 
 // Import Redux actions
-import {
-    calculateSalary,
-    getEmployeeSalaryDetail,
-    processSalaryPayment,
-    createSalaryAdjustment,
-    resetSalaryStatus
+import { 
+    calculateSalary, 
+    getEmployeeSalaryDetail, 
+    processSalaryPayment, 
+    createSalaryAdjustment, 
+    resetSalaryStatus 
 } from '../../redux/salarySlice';
 
 const SalaryCalculation = () => {
@@ -30,11 +30,10 @@ const SalaryCalculation = () => {
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Staff Salary');
     console.log('Access IDs:', accessIds); // For debugging
-    
+
     const dispatch = useDispatch();
-    
+
     // Map access IDs to permissions
-    // Assuming: 1=View, 2=Create, 3=Update, 4=Delete, 10=Pay, 11=Add Extra, 12=Add Deduction
     const canView = accessIds?.includes('1') || false;
     const canCreate = accessIds?.includes('2') || false;
     const canUpdate = accessIds?.includes('3') || false;
@@ -42,28 +41,17 @@ const SalaryCalculation = () => {
     const canPay = accessIds?.includes('10') || false;
     const canAddExtra = accessIds?.includes('11') || false;
     const canAddDeduction = accessIds?.includes('12') || false;
-    
-    // Debug log to verify permissions
-    console.log('Salary Permissions:', { 
-        canView, 
-        canCreate, 
-        canUpdate, 
-        canDelete,
-        canPay,
-        canAddExtra,
-        canAddDeduction 
-    });
 
     // Redux state
     const { 
         salaryCalculation, 
         loading, 
         calculateSalarySuccess, 
-        calculateSalaryFailed, 
-        processSalaryPaymentSuccess, 
-        processSalaryPaymentFailed, 
-        createSalaryAdjustmentSuccess, 
-        createSalaryAdjustmentFailed, 
+        calculateSalaryFailed,
+        processSalaryPaymentSuccess,
+        processSalaryPaymentFailed,
+        createSalaryAdjustmentSuccess,
+        createSalaryAdjustmentFailed,
         error 
     } = useSelector((state) => state.SalarySlice);
 
@@ -100,6 +88,7 @@ const SalaryCalculation = () => {
     const [employeeData, setEmployeeData] = useState([]);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [searchTerm, setSearchTerm] = useState(''); // Add search term state
 
     // Modal states
     const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -113,7 +102,7 @@ const SalaryCalculation = () => {
         paymentDate: formatInputDate(new Date()),
         notes: '',
         paymentType: 'cash',
-        officeCenterId: '1' // This should come from user context or selection
+        officeCenterId: '1'
     });
 
     const [deductionExtraForm, setDeductionExtraForm] = useState({
@@ -123,6 +112,38 @@ const SalaryCalculation = () => {
         adjustmentDate: formatInputDate(new Date()),
         salaryMonth: getYearMonth(new Date())
     });
+
+    // Filter data based on search term
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return employeeData;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return employeeData.filter((employee) => {
+            return (
+                employee.name?.toLowerCase().includes(searchLower) ||
+                employee.role?.toLowerCase().includes(searchLower) ||
+                employee.salaryType?.toLowerCase().includes(searchLower)
+            );
+        });
+    };
+
+    // Get paginated data from filtered results
+    const getPaginatedData = () => {
+        const filteredData = getFilteredData();
+        const startIndex = currentPage * pageSize;
+        const endIndex = startIndex + pageSize;
+        return filteredData.slice(startIndex, endIndex);
+    };
+
+    const getTotalCount = () => {
+        return getFilteredData().length;
+    };
+
+    // Handle search
+    const handleSearch = (searchValue) => {
+        setSearchTerm(searchValue);
+        setCurrentPage(0); // Reset to first page when searching
+    };
 
     // Fetch salary data on component mount and when date changes
     useEffect(() => {
@@ -198,7 +219,6 @@ const SalaryCalculation = () => {
             absentDays: emp.absentDays || 0,
             halfDays: emp.halfDays || 0,
             expenseId: emp.expenseId,
-            // Add role information if available from employee data
             role: emp.role || (emp.salaryType === 'daily' ? 'Daily Worker' : 'Employee')
         }));
 
@@ -221,7 +241,7 @@ const SalaryCalculation = () => {
         setSelectedDate(newDate);
     };
 
-    // Calculate totals for employees
+    // Calculate totals for data (using filtered data for display, but totals from all data)
     const calculateTotals = (data) => {
         const totalSalary = data.reduce((sum, person) => sum + (person.totalSalary || 0), 0);
         const totalPaid = data.reduce((sum, person) => sum + (person.paidAmount || 0), 0);
@@ -237,16 +257,16 @@ const SalaryCalculation = () => {
         const partiallyPaid = data.filter(person => (person.paidAmount || 0) > 0 && (person.paidAmount || 0) < (person.totalSalary || 0)).length;
         const unpaid = data.filter(person => (person.paidAmount || 0) === 0).length;
 
-        return { 
-            totalSalary, 
-            totalPaid, 
-            totalDeductions, 
-            totalExtras, 
-            totalRemaining, 
-            fullyPaid, 
-            partiallyPaid, 
-            unpaid, 
-            totalCount: data.length 
+        return {
+            totalSalary,
+            totalPaid,
+            totalDeductions,
+            totalExtras,
+            totalRemaining,
+            fullyPaid,
+            partiallyPaid,
+            unpaid,
+            totalCount: data.length
         };
     };
 
@@ -266,7 +286,6 @@ const SalaryCalculation = () => {
 
     // Open deduction/extra modal
     const openDeductionExtraModal = (person, type = 'deduction') => {
-        // Check permission based on type
         if (type === 'deduction' && !canAddDeduction) {
             showMessage('error', 'You do not have permission to add deductions');
             return;
@@ -275,7 +294,6 @@ const SalaryCalculation = () => {
             showMessage('error', 'You do not have permission to add extras');
             return;
         }
-
         setSelectedPerson(person);
         setDeductionExtraForm({
             type: type,
@@ -299,13 +317,11 @@ const SalaryCalculation = () => {
             showMessage('error', `Please enter amount and reason for ${deductionExtraForm.type}`);
             return;
         }
-
         const amount = parseFloat(deductionExtraForm.amount);
         if (isNaN(amount) || amount <= 0) {
             showMessage('error', 'Please enter a valid amount');
             return;
         }
-
         const adjustmentData = {
             employeeId: selectedPerson.id,
             type: deductionExtraForm.type,
@@ -314,7 +330,6 @@ const SalaryCalculation = () => {
             adjustmentDate: deductionExtraForm.adjustmentDate,
             salaryMonth: deductionExtraForm.salaryMonth
         };
-
         dispatch(createSalaryAdjustment(adjustmentData));
     };
 
@@ -324,14 +339,13 @@ const SalaryCalculation = () => {
             showMessage('error', 'You do not have permission to process payments');
             return;
         }
-
         setSelectedPerson(person);
         setPaymentForm({
             amount: '',
             paymentDate: formatInputDate(new Date()),
             notes: '',
             paymentType: 'cash',
-            officeCenterId: '1' // This should come from user context
+            officeCenterId: '1'
         });
         setShowPaymentModal(true);
     };
@@ -348,36 +362,30 @@ const SalaryCalculation = () => {
             showMessage('error', 'You do not have permission to process payments');
             return;
         }
-
         if (!paymentForm.amount || isNaN(paymentForm.amount) || parseFloat(paymentForm.amount) <= 0) {
             showMessage('error', 'Please enter a valid payment amount');
             return;
         }
-
         const paymentAmount = parseFloat(paymentForm.amount);
         const remaining = (selectedPerson.totalSalary || 0) - (selectedPerson.paidAmount || 0);
-
         if (paymentAmount > remaining) {
             showMessage('error', `Payment amount cannot exceed remaining balance of ₹${remaining.toLocaleString('en-IN')}`);
             return;
         }
 
         // Show warning before processing payment
-        showMessage('warning', 
-            `Are you sure you want to process payment of ₹${paymentAmount.toLocaleString('en-IN')} to ${selectedPerson.name}?`, 
-            () => {
-                const paymentData = {
-                    employeeId: selectedPerson.id,
-                    salaryMonth: getYearMonth(selectedDate),
-                    amount: paymentAmount,
-                    paymentDate: paymentForm.paymentDate,
-                    officeCenterId: paymentForm.officeCenterId,
-                    paymentType: paymentForm.paymentType,
-                    notes: paymentForm.notes || `Salary payment for ${getYearMonth(selectedDate)}`
-                };
-                dispatch(processSalaryPayment(paymentData));
-            }
-        );
+        showMessage('warning', `Are you sure you want to process payment of ₹${paymentAmount.toLocaleString('en-IN')} to ${selectedPerson.name}?`, () => {
+            const paymentData = {
+                employeeId: selectedPerson.id,
+                salaryMonth: getYearMonth(selectedDate),
+                amount: paymentAmount,
+                paymentDate: paymentForm.paymentDate,
+                officeCenterId: paymentForm.officeCenterId,
+                paymentType: paymentForm.paymentType,
+                notes: paymentForm.notes || `Salary payment for ${getYearMonth(selectedDate)}`
+            };
+            dispatch(processSalaryPayment(paymentData));
+        });
     };
 
     // Mark as fully paid
@@ -386,23 +394,19 @@ const SalaryCalculation = () => {
             showMessage('error', 'You do not have permission to process payments');
             return;
         }
-
         const remaining = (person.totalSalary || 0) - (person.paidAmount || 0);
-        showMessage('warning', 
-            `Mark ${person.name} as fully paid with remaining amount of ₹${remaining.toLocaleString('en-IN')}?`, 
-            () => {
-                const paymentData = {
-                    employeeId: person.id,
-                    salaryMonth: getYearMonth(selectedDate),
-                    amount: remaining,
-                    paymentDate: formatInputDate(new Date()),
-                    officeCenterId: '1', // This should come from user context
-                    paymentType: 'cash',
-                    notes: 'Full settlement'
-                };
-                dispatch(processSalaryPayment(paymentData));
-            }
-        );
+        showMessage('warning', `Mark ${person.name} as fully paid with remaining amount of ₹${remaining.toLocaleString('en-IN')}?`, () => {
+            const paymentData = {
+                employeeId: person.id,
+                salaryMonth: getYearMonth(selectedDate),
+                amount: remaining,
+                paymentDate: formatInputDate(new Date()),
+                officeCenterId: '1',
+                paymentType: 'cash',
+                notes: 'Full settlement'
+            };
+            dispatch(processSalaryPayment(paymentData));
+        });
     };
 
     // Get columns for the table
@@ -411,21 +415,29 @@ const SalaryCalculation = () => {
             { 
                 Header: 'S.No', 
                 accessor: 'id', 
-                Cell: ({ row }) => <div>{row.index + 1}</div>, 
+                Cell: ({ row }) => <div>{row.index + 1 + currentPage * pageSize}</div>, 
                 width: 80,
             },
             { 
                 Header: 'Employee Name', 
                 accessor: 'name', 
-                sort: true, 
+                sort: true,
                 Cell: ({ value }) => (
                     <div className="font-semibold text-gray-800 dark:text-gray-200">{value || ''}</div>
                 ),
             },
             { 
+                Header: 'Role', 
+                accessor: 'role', 
+                sort: true,
+                Cell: ({ value }) => (
+                    <div className="capitalize">{value || 'N/A'}</div>
+                ),
+            },
+            { 
                 Header: 'Salary Type', 
                 accessor: 'salaryType', 
-                sort: true, 
+                sort: true,
                 Cell: ({ value }) => (
                     <div className="capitalize">{value || 'N/A'}</div>
                 ),
@@ -433,7 +445,7 @@ const SalaryCalculation = () => {
             { 
                 Header: 'Rate', 
                 accessor: 'rate', 
-                sort: true, 
+                sort: true,
                 Cell: ({ row }) => {
                     const person = row.original;
                     const rate = person.salaryType === 'monthly' ? person.monthlyRate : person.dailyRate;
@@ -449,7 +461,7 @@ const SalaryCalculation = () => {
             },
             { 
                 Header: 'Attendance', 
-                accessor: 'attendance', 
+                accessor: 'attendance',
                 Cell: ({ row }) => {
                     const person = row.original;
                     return (
@@ -467,14 +479,14 @@ const SalaryCalculation = () => {
             { 
                 Header: 'Base Salary', 
                 accessor: 'baseSalary', 
-                sort: true, 
+                sort: true,
                 Cell: ({ value }) => (
                     <div className="text-blue-600 font-medium">₹{(value || 0).toLocaleString('en-IN')}</div>
                 ),
             },
             { 
                 Header: 'Adjustments', 
-                accessor: 'adjustments', 
+                accessor: 'adjustments',
                 Cell: ({ row }) => {
                     const person = row.original;
                     return (
@@ -495,7 +507,7 @@ const SalaryCalculation = () => {
             { 
                 Header: 'Net Salary', 
                 accessor: 'totalSalary', 
-                sort: true, 
+                sort: true,
                 Cell: ({ value }) => (
                     <div className="text-success font-bold text-lg">₹{(value || 0).toLocaleString('en-IN')}</div>
                 ),
@@ -503,7 +515,7 @@ const SalaryCalculation = () => {
             { 
                 Header: 'Paid Amount', 
                 accessor: 'paidAmount', 
-                sort: true, 
+                sort: true,
                 Cell: ({ value, row }) => {
                     const remaining = (row.original.totalSalary || 0) - (value || 0);
                     return (
@@ -520,7 +532,7 @@ const SalaryCalculation = () => {
             },
             { 
                 Header: 'Status', 
-                accessor: 'status', 
+                accessor: 'status',
                 Cell: ({ row }) => {
                     const person = row.original;
                     const isFullyPaid = (person.paidAmount || 0) >= (person.totalSalary || 0);
@@ -546,7 +558,6 @@ const SalaryCalculation = () => {
                 const remaining = (person.totalSalary || 0) - (person.paidAmount || 0);
                 const isFullyPaid = (person.paidAmount || 0) >= (person.totalSalary || 0);
                 const hasPartialPayment = (person.paidAmount || 0) > 0 && !isFullyPaid;
-
                 return (
                     <div className="flex items-center space-x-2">
                         {/* View Details - Always visible if canView is true */}
@@ -554,46 +565,43 @@ const SalaryCalculation = () => {
                             <Tippy content="View Details">
                                 <button 
                                     type="button" 
-                                    className="btn btn-outline-info btn-sm" 
+                                    className="btn btn-outline-info btn-sm"
                                     onClick={() => viewDetails(person)}
                                 >
                                     <IconEye className="w-4 h-4" />
                                 </button>
                             </Tippy>
                         )}
-
                         {/* Add Deduction - Only if user has deduction permission */}
                         {canAddDeduction && (
                             <Tippy content="Add Deduction">
                                 <button 
                                     type="button" 
-                                    className="btn btn-outline-danger btn-sm" 
+                                    className="btn btn-outline-danger btn-sm"
                                     onClick={() => openDeductionExtraModal(person, 'deduction')}
                                 >
                                     <IconMinus className="w-4 h-4" />
                                 </button>
                             </Tippy>
                         )}
-
                         {/* Add Extra - Only if user has extra permission */}
                         {canAddExtra && (
                             <Tippy content="Add Extra">
                                 <button 
                                     type="button" 
-                                    className="btn btn-outline-success btn-sm" 
+                                    className="btn btn-outline-success btn-sm"
                                     onClick={() => openDeductionExtraModal(person, 'extra')}
                                 >
                                     <IconPlus className="w-4 h-4" />
                                 </button>
                             </Tippy>
                         )}
-
                         {/* Make Payment - Only if user has pay permission */}
                         {!isFullyPaid && canPay && (
                             <Tippy content="Make Payment">
                                 <button 
                                     type="button" 
-                                    className="btn btn-success btn-sm" 
+                                    className="btn btn-success btn-sm"
                                     onClick={() => openPaymentModal(person)}
                                 >
                                     <IconWallet className="w-4 h-4" />
@@ -601,13 +609,12 @@ const SalaryCalculation = () => {
                                 </button>
                             </Tippy>
                         )}
-
                         {/* Mark as Fully Paid - Only if user has pay permission */}
                         {hasPartialPayment && remaining > 0 && canPay && (
                             <Tippy content="Mark as Fully Paid">
                                 <button 
                                     type="button" 
-                                    className="btn btn-outline-success btn-sm" 
+                                    className="btn btn-outline-success btn-sm"
                                     onClick={() => markAsFullyPaid(person)}
                                 >
                                     <IconCheck className="w-4 h-4" />
@@ -618,14 +625,13 @@ const SalaryCalculation = () => {
                     </div>
                 );
             },
-            width: 350,
+            width: 400,
         };
 
         // Only add Actions column if user has any of the action permissions
         if (canView || canAddDeduction || canAddExtra || canPay) {
             return [...baseColumns, actionsColumn];
         }
-
         return baseColumns;
     };
 
@@ -633,12 +639,6 @@ const SalaryCalculation = () => {
     const handlePaginationChange = (pageIndex, newPageSize) => {
         setCurrentPage(pageIndex);
         setPageSize(newPageSize);
-    };
-
-    const getPaginatedData = () => {
-        const startIndex = currentPage * pageSize;
-        const endIndex = startIndex + pageSize;
-        return employeeData.slice(startIndex, endIndex);
     };
 
     // If user doesn't have view permission, show access denied
@@ -680,10 +680,10 @@ const SalaryCalculation = () => {
                                 </div>
                                 <input 
                                     type="date" 
-                                    className="form-input border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 rounded-md text-gray-800 dark:text-white" 
+                                    className="form-input border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 rounded-md text-gray-800 dark:text-white"
                                     value={formatInputDate(selectedDate)} 
-                                    onChange={handleDateChange} 
-                                    title="Select month" 
+                                    onChange={handleDateChange}
+                                    title="Select month"
                                 />
                             </div>
                         </div>
@@ -760,34 +760,60 @@ const SalaryCalculation = () => {
                 </div>
             </div>
 
+            {/* Search Info */}
+            {searchTerm && (
+                <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex justify-between items-center">
+                        <span className="text-sm">
+                            Searching for: <strong>"{searchTerm}"</strong> - Found {getTotalCount()} result(s)
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => handleSearch('')}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                        >
+                            Clear Search
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Data Table */}
             <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="datatables">
                     <Table 
                         columns={getColumns()} 
-                        Title="Employee Salary Records" 
-                        data={getPaginatedData()} 
-                        pageSize={pageSize} 
-                        pageIndex={currentPage} 
-                        totalCount={employeeData.length} 
-                        totalPages={Math.ceil(employeeData.length / pageSize)} 
-                        onPaginationChange={handlePaginationChange} 
-                        pagination={true} 
-                        isSearchable={true} 
-                        isSortable={true} 
-                        loading={loading} 
+                        Title="Employee Salary Records"
+                        data={getPaginatedData()}
+                        pageSize={pageSize}
+                        pageIndex={currentPage}
+                        totalCount={getTotalCount()}
+                        totalPages={Math.ceil(getTotalCount() / pageSize)}
+                        onPaginationChange={handlePaginationChange}
+                        onSearch={handleSearch}
+                        pagination={true}
+                        isSearchable={true}
+                        isSortable={true}
+                        loading={loading}
                     />
+                    
+                    {/* No results message */}
+                    {!loading && getTotalCount() === 0 && searchTerm && (
+                        <div className="text-center py-8 text-gray-500">
+                            No employees found matching "{searchTerm}"
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* Details Modal */}
             <ModelViewBox 
                 modal={showDetailsModal} 
-                modelHeader={`Salary Details - ${selectedPerson?.name || ''}`} 
-                isEdit={false} 
-                setModel={() => setShowDetailsModal(false)} 
-                handleSubmit={() => setShowDetailsModal(false)} 
-                modelSize="lg" 
+                modelHeader={`Salary Details - ${selectedPerson?.name || ''}`}
+                isEdit={false}
+                setModel={() => setShowDetailsModal(false)}
+                handleSubmit={() => setShowDetailsModal(false)}
+                modelSize="lg"
                 saveBtn={false}
             >
                 {selectedPerson && (
@@ -799,6 +825,10 @@ const SalaryCalculation = () => {
                                     <div className="flex justify-between items-center pb-2 border-b border-gray-200 dark:border-gray-700">
                                         <span className="text-gray-600 dark:text-gray-400">Name</span>
                                         <span className="font-semibold">{selectedPerson.name || ''}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pb-2 border-b border-gray-200 dark:border-gray-700">
+                                        <span className="text-gray-600 dark:text-gray-400">Role</span>
+                                        <span className="font-semibold capitalize">{selectedPerson.role || 'N/A'}</span>
                                     </div>
                                     <div className="flex justify-between items-center pb-2 border-b border-gray-200 dark:border-gray-700">
                                         <span className="text-gray-600 dark:text-gray-400">Salary Type</span>
@@ -971,12 +1001,12 @@ const SalaryCalculation = () => {
             {/* Deduction/Extra Modal */}
             <ModelViewBox 
                 modal={showDeductionExtraModal} 
-                modelHeader={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'} - ${selectedPerson?.name || ''}`} 
-                isEdit={false} 
-                setModel={() => setShowDeductionExtraModal(false)} 
-                handleSubmit={addDeductionExtra} 
-                modelSize="md" 
-                submitBtnText={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'}`} 
+                modelHeader={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'} - ${selectedPerson?.name || ''}`}
+                isEdit={false}
+                setModel={() => setShowDeductionExtraModal(false)}
+                handleSubmit={addDeductionExtra}
+                modelSize="md"
+                submitBtnText={`Add ${deductionExtraForm.type === 'deduction' ? 'Deduction' : 'Extra'}`}
                 submitBtnClass={deductionExtraForm.type === 'deduction' ? 'btn-danger' : 'btn-success'}
             >
                 {selectedPerson && (
@@ -995,8 +1025,8 @@ const SalaryCalculation = () => {
                                     Type
                                 </label>
                                 <div className="flex space-x-2">
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         className={`btn ${deductionExtraForm.type === 'deduction' ? 'btn-danger' : 'btn-outline-danger'}`}
                                         onClick={() => setDeductionExtraForm(prev => ({ ...prev, type: 'deduction' }))}
                                         disabled={!canAddDeduction}
@@ -1004,8 +1034,8 @@ const SalaryCalculation = () => {
                                         <IconMinus className="w-4 h-4 mr-1" />
                                         Deduction
                                     </button>
-                                    <button 
-                                        type="button" 
+                                    <button
+                                        type="button"
                                         className={`btn ${deductionExtraForm.type === 'extra' ? 'btn-success' : 'btn-outline-success'}`}
                                         onClick={() => setDeductionExtraForm(prev => ({ ...prev, type: 'extra' }))}
                                         disabled={!canAddExtra}
@@ -1024,9 +1054,9 @@ const SalaryCalculation = () => {
                                     name="amount" 
                                     className="form-input" 
                                     placeholder="Enter amount" 
-                                    value={deductionExtraForm.amount} 
-                                    onChange={handleDeductionExtraFormChange} 
-                                    min="1" 
+                                    value={deductionExtraForm.amount}
+                                    onChange={handleDeductionExtraFormChange}
+                                    min="1"
                                 />
                             </div>
                             <div>
@@ -1037,9 +1067,9 @@ const SalaryCalculation = () => {
                                     type="text" 
                                     name="reason" 
                                     className="form-input" 
-                                    placeholder={`Enter reason for ${deductionExtraForm.type}`} 
-                                    value={deductionExtraForm.reason} 
-                                    onChange={handleDeductionExtraFormChange} 
+                                    placeholder={`Enter reason for ${deductionExtraForm.type}`}
+                                    value={deductionExtraForm.reason}
+                                    onChange={handleDeductionExtraFormChange}
                                 />
                             </div>
                             <div>
@@ -1050,15 +1080,15 @@ const SalaryCalculation = () => {
                                     type="date" 
                                     name="adjustmentDate" 
                                     className="form-input" 
-                                    value={deductionExtraForm.adjustmentDate} 
-                                    onChange={handleDeductionExtraFormChange} 
+                                    value={deductionExtraForm.adjustmentDate}
+                                    onChange={handleDeductionExtraFormChange}
                                 />
                             </div>
                             <div className="mt-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                                 <div className="text-sm text-yellow-700 dark:text-yellow-400">
-                                    <strong>Note:</strong> {deductionExtraForm.type === 'deduction' 
-                                        ? 'Deductions will be subtracted from the total salary.' 
-                                        : 'Extras will be added to the total salary.'}
+                                    <strong>Note:</strong> {deductionExtraForm.type === 'deduction' ? 
+                                        'Deductions will be subtracted from the total salary.' : 
+                                        'Extras will be added to the total salary.'}
                                 </div>
                             </div>
                         </div>
@@ -1069,12 +1099,12 @@ const SalaryCalculation = () => {
             {/* Payment Modal */}
             <ModelViewBox 
                 modal={showPaymentModal} 
-                modelHeader={`Process Payment - ${selectedPerson?.name || ''}`} 
-                isEdit={false} 
-                setModel={() => setShowPaymentModal(false)} 
-                handleSubmit={processPayment} 
-                modelSize="md" 
-                submitBtnText="Process Payment" 
+                modelHeader={`Process Payment - ${selectedPerson?.name || ''}`}
+                isEdit={false}
+                setModel={() => setShowPaymentModal(false)}
+                handleSubmit={processPayment}
+                modelSize="md"
+                submitBtnText="Process Payment"
                 submitBtnClass="btn-success"
             >
                 {selectedPerson && (
@@ -1111,10 +1141,10 @@ const SalaryCalculation = () => {
                                     name="amount" 
                                     className="form-input" 
                                     placeholder="Enter amount to pay" 
-                                    value={paymentForm.amount} 
-                                    onChange={handlePaymentFormChange} 
-                                    max={(selectedPerson.totalSalary || 0) - (selectedPerson.paidAmount || 0)} 
-                                    min="1" 
+                                    value={paymentForm.amount}
+                                    onChange={handlePaymentFormChange}
+                                    max={(selectedPerson.totalSalary || 0) - (selectedPerson.paidAmount || 0)}
+                                    min="1"
                                 />
                                 <div className="text-xs text-gray-500 mt-1">
                                     Maximum: ₹{((selectedPerson.totalSalary || 0) - (selectedPerson.paidAmount || 0)).toLocaleString('en-IN')}
@@ -1128,8 +1158,8 @@ const SalaryCalculation = () => {
                                     type="date" 
                                     name="paymentDate" 
                                     className="form-input" 
-                                    value={paymentForm.paymentDate} 
-                                    onChange={handlePaymentFormChange} 
+                                    value={paymentForm.paymentDate}
+                                    onChange={handlePaymentFormChange}
                                 />
                             </div>
                             <div>
@@ -1139,7 +1169,7 @@ const SalaryCalculation = () => {
                                 <select 
                                     name="paymentType" 
                                     className="form-select" 
-                                    value={paymentForm.paymentType} 
+                                    value={paymentForm.paymentType}
                                     onChange={handlePaymentFormChange}
                                 >
                                     <option value="cash">Cash</option>
@@ -1157,9 +1187,9 @@ const SalaryCalculation = () => {
                                     type="text" 
                                     name="notes" 
                                     className="form-input" 
-                                    placeholder="e.g., Bank transfer, Cash payment" 
-                                    value={paymentForm.notes} 
-                                    onChange={handlePaymentFormChange} 
+                                    placeholder="e.g., Bank transfer, Cash payment"
+                                    value={paymentForm.notes}
+                                    onChange={handlePaymentFormChange}
                                 />
                             </div>
                             <div className="mt-6 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">

@@ -835,7 +835,7 @@ const RoutePayments = () => {
                                     type="text"
                                     name="search"
                                     className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Search by booking number, customer name, mobile..."
+                                    placeholder="Search by booking number"
                                     value={filters.search}
                                     onChange={handleInputChange}
                                 />

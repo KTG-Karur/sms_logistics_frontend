@@ -50,20 +50,20 @@ const PackageTypes = () => {
         if (createPackageTypeSuccess) {
             showMessage('success', 'Package type created successfully');
             closeModel();
+            fetchPackageData();
             dispatch(resetPackageTypeStatus());
         }
-
         if (updatePackageTypeSuccess) {
             showMessage('success', 'Package type updated successfully');
             closeModel();
+            fetchPackageData();
             dispatch(resetPackageTypeStatus());
         }
-
         if (deletePackageTypeSuccess) {
             showMessage('success', 'Package type deleted successfully');
+            fetchPackageData();
             dispatch(resetPackageTypeStatus());
         }
-
         if (error) {
             showMessage('error', error);
             dispatch(resetPackageTypeStatus());
@@ -86,40 +86,41 @@ const PackageTypes = () => {
         pickupPrice: item.package_pickup_price,
         dropPrice: item.package_drop_price,
         is_active: item.is_active ? 'Active' : 'Inactive',
-        originalData: item, // Keep original data for reference
+        originalData: item,
     }));
 
-    const handlePaginationChange = (pageIndex, newPageSize) => {
-        setCurrentPage(pageIndex);
-        setPageSize(newPageSize);
+    // Filter data based on search term
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return transformedPackageTypes;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return transformedPackageTypes.filter((pkg) => {
+            return (
+                pkg.packageName?.toLowerCase().includes(searchLower)
+            );
+        });
     };
 
+    // Get paginated data from filtered results
     const getPaginatedData = () => {
-        let filteredData = transformedPackageTypes;
-
-        // Apply search filter
-        if (searchTerm) {
-            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
-        }
-
+        const filteredData = getFilteredData();
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
         return filteredData.slice(startIndex, endIndex);
     };
 
     const getTotalCount = () => {
-        let filteredData = transformedPackageTypes;
-
-        if (searchTerm) {
-            filteredData = filteredData.filter((pkg) => pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()));
-        }
-
-        return filteredData.length;
+        return getFilteredData().length;
     };
 
-    const handleSearch = (term) => {
-        setSearchTerm(term);
-        setCurrentPage(0); // Reset to first page on search
+    const handleSearch = (searchValue) => {
+        setSearchTerm(searchValue);
+        setCurrentPage(0); // Reset to first page when searching
+    };
+
+    const handlePaginationChange = (pageIndex, newPageSize) => {
+        setCurrentPage(pageIndex);
+        setPageSize(newPageSize);
     };
 
     const columns = [
@@ -164,11 +165,11 @@ const PackageTypes = () => {
             Header: 'Status',
             accessor: 'is_active',
             Cell: ({ value }) => (
-                <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                        value === 'Active' ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
-                    }`}
-                >
+                <span className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
+                    value === 'Active' 
+                        ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' 
+                        : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
+                }`}>
                     {value}
                 </span>
             ),
@@ -182,16 +183,20 @@ const PackageTypes = () => {
                 <div className="flex items-center justify-center space-x-2">
                     {_.includes(accessIds, '3') && (
                         <Tippy content="Edit">
-                            <button type="button" onClick={() => onEditForm(row.original)} className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200">
+                            <button 
+                                type="button" 
+                                onClick={() => onEditForm(row.original)} 
+                                className="btn btn-outline-primary btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200"
+                            >
                                 <IconPencil className="w-4 h-4" />
                             </button>
                         </Tippy>
                     )}
                     {_.includes(accessIds, '4') && (
                         <Tippy content="Delete">
-                            <button
-                                type="button"
-                                onClick={() => handleDeletePackage(row.original)}
+                            <button 
+                                type="button" 
+                                onClick={() => handleDeletePackage(row.original)} 
                                 className="btn btn-outline-danger btn-sm p-1.5 rounded-full hover:shadow-md transition-all duration-200"
                             >
                                 <IconTrashLines className="w-4 h-4" />
@@ -240,61 +245,65 @@ const PackageTypes = () => {
 
     const validateForm = () => {
         const newErrors = {};
-
+        
         if (!state.package_type_name.trim()) {
             newErrors.package_type_name = 'Package name is required';
         } else if (state.package_type_name.trim().length < 2) {
             newErrors.package_type_name = 'Package name must be at least 2 characters';
         }
-
+        
         if (state.package_pickup_price === '' || state.package_pickup_price === null || state.package_pickup_price === undefined) {
             newErrors.package_pickup_price = 'Pickup price is required';
         } else if (isNaN(state.package_pickup_price) || parseFloat(state.package_pickup_price) < 0) {
             newErrors.package_pickup_price = 'Pickup price must be a valid number (0 or positive)';
         }
-
+        
         if (state.package_drop_price === '' || state.package_drop_price === null || state.package_drop_price === undefined) {
             newErrors.package_drop_price = 'Drop price is required';
         } else if (isNaN(state.package_drop_price) || parseFloat(state.package_drop_price) < 0) {
             newErrors.package_drop_price = 'Drop price must be a valid number (0 or positive)';
         }
-
+        
         // Check for duplicate package name (excluding current item in edit mode)
-        const duplicatePackage = transformedPackageTypes.find((pkg) => pkg.packageName.toLowerCase() === state.package_type_name.toLowerCase() && (!isEdit || pkg.id !== selectedItem?.id));
-
+        const duplicatePackage = transformedPackageTypes.find(
+            (pkg) => 
+                pkg.packageName && 
+                pkg.packageName.toLowerCase() === state.package_type_name.toLowerCase() && 
+                (!isEdit || pkg.id !== selectedItem?.id)
+        );
+        
         if (duplicatePackage) {
             newErrors.package_type_name = 'Package name already exists';
         }
-
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
     const onFormSubmit = async (e) => {
         if (e) e.preventDefault();
-
+        
         if (!validateForm()) {
             return;
         }
-
+        
         const requestData = {
             package_type_name: state.package_type_name.trim(),
             package_pickup_price: parseFloat(state.package_pickup_price),
             package_drop_price: parseFloat(state.package_drop_price),
         };
-
+        
         try {
             if (isEdit) {
                 await dispatch(
-                    updatePackageType({
-                        request: requestData,
+                    updatePackageType({ 
+                        request: requestData, 
                         packageTypeId: selectedItem.id,
-                    }),
+                    })
                 ).unwrap();
             } else {
                 await dispatch(createPackageType(requestData)).unwrap();
             }
-
             // Refresh data after successful operation
             fetchPackageData();
         } catch (error) {
@@ -325,7 +334,7 @@ const PackageTypes = () => {
             ...prev,
             [name]: value,
         }));
-
+        
         // Clear error for this field when user starts typing
         if (errors[name]) {
             setErrors((prev) => ({
@@ -344,6 +353,18 @@ const PackageTypes = () => {
                         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Package Types</h1>
                         <p className="text-gray-600 dark:text-gray-400 mt-1">Manage package types and their associated pickup/drop prices for load men</p>
                     </div>
+                    {_.includes(accessIds, '2') && (
+                        <button
+                            type="button"
+                            onClick={createModel}
+                            className="btn btn-primary flex items-center gap-2"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Package Type
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -358,44 +379,33 @@ const PackageTypes = () => {
                     <div className="p-4">
                         <Table
                             columns={columns}
-                            Title={' '}
-                            description=""
-                            toggle={_.includes(accessIds, '2') ? createModel : null}
+                            Title={''}
+                            toggle={null}
                             data={getPaginatedData()}
                             pageSize={pageSize}
                             pageIndex={currentPage}
                             totalCount={getTotalCount()}
                             totalPages={Math.ceil(getTotalCount() / pageSize)}
                             onPaginationChange={handlePaginationChange}
-                            onSearchChange={handleSearch}
+                            onSearch={handleSearch}
                             pagination={true}
                             isSearchable={true}
                             isSortable={true}
                             searchPlaceholder="Search package types..."
                             showPageSize={true}
                             responsive={true}
+                            loading={loading}
                         />
+                        
+                        {/* No Results Message */}
+                        {!loading && getTotalCount() === 0 && searchTerm && (
+                            <div className="text-center py-8 text-gray-500">
+                                No package types found matching "{searchTerm}"
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
-
-            {/* Empty State */}
-            {!loading && transformedPackageTypes.length === 0 && (
-                <div className="text-center py-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 mb-4">
-                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No Package Types Found</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">Get started by adding your first package type with pickup and drop prices.</p>
-                    {_.includes(accessIds, '2') && (
-                        <button type="button" onClick={createModel} className="btn btn-primary">
-                            Add First Package Type
-                        </button>
-                    )}
-                </div>
-            )}
 
             {/* Modal */}
             <ModelViewBox
@@ -427,11 +437,7 @@ const PackageTypes = () => {
                         {errors.package_type_name && (
                             <p className="mt-1 text-sm text-red-600 flex items-center">
                                 <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                        clipRule="evenodd"
-                                    />
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                 </svg>
                                 {errors.package_type_name}
                             </p>
@@ -463,11 +469,7 @@ const PackageTypes = () => {
                             {errors.package_pickup_price && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center">
                                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            fillRule="evenodd"
-                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                            clipRule="evenodd"
-                                        />
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                     </svg>
                                     {errors.package_pickup_price}
                                 </p>
@@ -498,11 +500,7 @@ const PackageTypes = () => {
                             {errors.package_drop_price && (
                                 <p className="mt-1 text-sm text-red-600 flex items-center">
                                     <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path
-                                            fillRule="evenodd"
-                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                            clipRule="evenodd"
-                                        />
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                     </svg>
                                     {errors.package_drop_price}
                                 </p>
@@ -557,11 +555,7 @@ const PackageTypes = () => {
                         <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
                             <div className="flex items-start">
                                 <svg className="w-5 h-5 text-red-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                        fillRule="evenodd"
-                                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                        clipRule="evenodd"
-                                    />
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                                 </svg>
                                 <div>
                                     <h4 className="font-medium text-red-800 dark:text-red-300 mb-1">Please fix the following errors:</h4>

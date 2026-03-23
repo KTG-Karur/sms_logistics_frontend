@@ -977,7 +977,7 @@ const DeliveryManagement = () => {
                             <div className="relative">
                                 <input
                                     type="text"
-                                    placeholder="Search by booking number, customer name, phone..."
+                                    placeholder="Search by booking number"
                                     className="form-input w-full pl-10"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}

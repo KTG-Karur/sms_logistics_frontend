@@ -27,6 +27,7 @@ const Roles = () => {
     // Add pagination state
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [searchTerm, setSearchTerm] = useState(''); // Add search term state
 
     // Safe selector with default values
     const { pagesData = [], loading: pagesLoading = false } = useSelector((state) => state.PageSlice || {});
@@ -46,23 +47,41 @@ const Roles = () => {
     const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
     const errorHandle = useRef();
 
+    // Filter data based on search term
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return parentList;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return parentList.filter((role) => {
+            return (
+                role.roleName?.toLowerCase().includes(searchLower)
+            );
+        });
+    };
+
     // Add pagination handler function
     const handlePaginationChange = (pageIndex, newPageSize) => {
         setCurrentPage(pageIndex);
         setPageSize(newPageSize);
     };
 
-    // Add function to get paginated data
+    // Add function to get paginated data from filtered results
     const getPaginatedData = () => {
-        const dataArray = parentList || [];
+        const filteredData = getFilteredData();
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
-        return dataArray.slice(startIndex, endIndex);
+        return filteredData.slice(startIndex, endIndex);
     };
 
-    // Add function to get total count
+    // Add function to get total count from filtered results
     const getTotalCount = () => {
-        return (parentList || []).length;
+        return getFilteredData().length;
+    };
+
+    // Handle search
+    const handleSearch = (searchValue) => {
+        setSearchTerm(searchValue);
+        setCurrentPage(0); // Reset to first page when searching
     };
 
     // Reset to first page when data changes
@@ -138,11 +157,13 @@ const Roles = () => {
         {
             Header: 'S.No',
             accessor: 'id',
-            Cell: (row) => <div>{row?.row?.index + 1}</div>,
+            Cell: (row) => <div>{row?.row?.index + 1 + currentPage * pageSize}</div>,
+            width: 80,
         },
         {
             Header: 'Name',
             accessor: 'roleName',
+            sort: true,
         },
         roleIdforRole === 'Super Admin'
             ? {
@@ -349,20 +370,36 @@ const Roles = () => {
                         columns={columns}
                         Title={'Role List'}
                         toggle={roleIdforRole == 'Super Admin' ? createModel : false}
-                        data={getPaginatedData()} // Use paginated data
+                        data={getPaginatedData()} // Use paginated filtered data
                         pageSize={pageSize}
                         pageIndex={currentPage}
                         totalCount={getTotalCount()}
                         totalPages={Math.ceil(getTotalCount() / pageSize)}
                         onPaginationChange={handlePaginationChange}
+                        onSearch={handleSearch}
                         pagination={true}
                         isSearchable={true}
                         isSortable={true}
+                        btnName="Add Role"
                     />
+                    
+                    {/* Optional: Show message when no results found */}
+                    {!isLoading && getTotalCount() === 0 && searchTerm && (
+                        <div className="text-center py-4 text-gray-500 mt-4">
+                            No roles found matching "{searchTerm}"
+                        </div>
+                    )}
                 </div>
             )}
 
-            <ModelViewBox modal={modal} modelHeader={isEdit ? 'Edit Role' : 'Add Role'} isEdit={isEdit} setModel={closeModel} handleSubmit={onFormSubmit} modelSize="xl">
+            <ModelViewBox 
+                modal={modal} 
+                modelHeader={isEdit ? 'Edit Role' : 'Add Role'} 
+                isEdit={isEdit} 
+                setModel={closeModel} 
+                handleSubmit={onFormSubmit} 
+                modelSize="xl"
+            >
                 <FormLayout
                     dynamicForm={formContain}
                     handleSubmit={onFormSubmit}
@@ -382,10 +419,16 @@ const Roles = () => {
                                 <p className="text-gray-500 dark:text-gray-400 mt-2">Loading permissions...</p>
                             </div>
                         ) : Array.isArray(pagesData) && pagesData.length > 0 ? (
-                            <RoleTreeView data={pagesData} selectedPermissions={selectedPermissions} onPermissionsChange={handlePermissionsChange} />
+                            <RoleTreeView 
+                                data={pagesData} 
+                                selectedPermissions={selectedPermissions} 
+                                onPermissionsChange={handlePermissionsChange} 
+                            />
                         ) : (
                             <div className="text-center p-4 border rounded bg-gray-50 dark:bg-gray-800">
-                                <p className="text-gray-500 dark:text-gray-400">{pagesLoading ? 'Loading pages...' : 'No pages available for permission assignment'}</p>
+                                <p className="text-gray-500 dark:text-gray-400">
+                                    {pagesLoading ? 'Loading pages...' : 'No pages available for permission assignment'}
+                                </p>
                             </div>
                         )}
                     </div>

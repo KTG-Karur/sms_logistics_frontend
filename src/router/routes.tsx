@@ -43,6 +43,7 @@ import {
     VehicleType,
     ExpensesSettlement,
     ProfitLossReport,
+    ExpenseReport,
     PackageDelivery,
     LoadmanSalary,
     LoadmanAssign,
@@ -51,6 +52,7 @@ import {
     Customer,
     Location,
     ExpenceType,
+    ExpenseReportPdf
 } from './Route_Menu';
 import path from 'path';
 
@@ -291,6 +293,10 @@ const routes = [
         path: '/reports/daily-profit-loss-report',
         element: <DailyProfitLossReport />,
     },
+      {
+        path: '/report/expense',
+        element: <ExpenseReport/>,
+    },
     //old
     {
         path: '/master/staff',
@@ -439,6 +445,12 @@ const routes = [
         path: '/report/trip-report',
         element: <TripReport />,
     },
+      {
+        path: '/expense-report-pdf',
+        element: <ExpenseReportPdf />,
+    },
+    
+
 ];
 
 const dontCkeckRouts = [

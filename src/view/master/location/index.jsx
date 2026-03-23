@@ -8,7 +8,6 @@ import { showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
 import IconX from '../../../components/Icon/IconX';
 import IconPlus from '../../../components/Icon/IconPlus';
 import IconPencil from '../../../components/Icon/IconPencil';
-import IconFilter from '../../../components/Icon/IconSearch';
 import IconSearch from '../../../components/Icon/IconSearch';
 import Select from 'react-select';
 import { getLocations, createLocations, updateLocations, deleteLocations } from '../../../redux/locationSlice';
@@ -20,42 +19,29 @@ const Locations = () => {
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Location');
     const dispatch = useDispatch();
-
+    
     // Get locations state from Redux
     const locationsState = useSelector((state) => state.LocationSlice || {});
     const { locationsData = [], loading = false, error = null } = locationsState;
-
+    
     // Get office centers state from Redux for dropdown
     const officeCenterState = useSelector((state) => state.OfficeCenterSlice || {});
     const { officeCentersData = [], loading: officeCentersLoading = false } = officeCenterState;
-
+    
     const [showForm, setShowForm] = useState(false);
-    const [state, setState] = useState({
-        locationName: '',
-        officeCenterId: null
-    });
+    const [state, setState] = useState({ locationName: '', officeCenterId: null });
     const [errors, setErrors] = useState({});
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
     const [selectedLocation, setSelectedLocation] = useState(null);
     const [isEdit, setIsEdit] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [showFilters, setShowFilters] = useState(false);
-    const [filters, setFilters] = useState({
-        locationName: '',
-        officeCenterId: null,
-        status: ''
-    });
 
     useEffect(() => {
         dispatch(setPageTitle('Location Management'));
         fetchLocations();
         fetchOfficeCenters();
     }, []);
-
-    useEffect(() => {
-        fetchLocations();
-    }, [filters]);
 
     const fetchOfficeCenters = async () => {
         try {
@@ -68,13 +54,7 @@ const Locations = () => {
 
     const fetchLocations = async () => {
         try {
-            // Apply filters
-            const filterParams = {};
-            if (filters.locationName) filterParams.locationName = filters.locationName;
-            if (filters.officeCenterId) filterParams.officeCenterId = filters.officeCenterId.value;
-            if (filters.status) filterParams.isActive = filters.status === 'Active' ? true : false;
-            
-            await dispatch(getLocations(filterParams)).unwrap();
+            await dispatch(getLocations({})).unwrap();
         } catch (error) {
             console.error('Error fetching locations:', error);
             showMessage('error', error.message || 'Failed to load locations');
@@ -86,16 +66,36 @@ const Locations = () => {
         setPageSize(newPageSize);
     };
 
-    // Get paginated data
+    // Get office center name by ID
+    const getOfficeCenterName = (officeCenterId) => {
+        const officeCenter = officeCentersData.find(oc => oc.id === officeCenterId);
+        return officeCenter ? officeCenter.officeCentersName : officeCenterId;
+    };
+
+    // Filter data based on search term (searches both location name and office center)
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return locationsData || [];
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return (locationsData || []).filter((location) => {
+            const officeCenterName = getOfficeCenterName(location.office_center_id);
+            return (
+                location.location_name?.toLowerCase().includes(searchLower) ||
+                officeCenterName?.toLowerCase().includes(searchLower)
+            );
+        });
+    };
+
+    // Get paginated data from filtered results
     const getPaginatedData = () => {
-        const dataArray = locationsData || [];
+        const filteredData = getFilteredData();
         const startIndex = currentPage * pageSize;
         const endIndex = startIndex + pageSize;
-        return dataArray.slice(startIndex, endIndex);
+        return filteredData.slice(startIndex, endIndex);
     };
 
     const getTotalCount = () => {
-        return (locationsData || []).length;
+        return getFilteredData().length;
     };
 
     const validateForm = () => {
@@ -106,7 +106,6 @@ const Locations = () => {
         if (!state.officeCenterId) {
             newErrors.officeCenterId = 'Office center is required';
         }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -123,17 +122,13 @@ const Locations = () => {
         try {
             if (isEdit && selectedLocation) {
                 await dispatch(
-                    updateLocations({
-                        request: request,
-                        locationsId: selectedLocation.location_id
-                    })
+                    updateLocations({ request: request, locationsId: selectedLocation.location_id })
                 ).unwrap();
                 showMessage('success', 'Location updated successfully');
             } else {
                 await dispatch(createLocations(request)).unwrap();
                 showMessage('success', 'Location added successfully');
             }
-
             onFormClear();
             fetchLocations();
         } catch (error) {
@@ -165,7 +160,6 @@ const Locations = () => {
             ...prev,
             [name]: value,
         }));
-        
         // Clear error for this field
         if (errors[name]) {
             setErrors((prev) => ({
@@ -180,7 +174,6 @@ const Locations = () => {
             ...prev,
             officeCenterId: selectedOption
         }));
-        
         if (errors.officeCenterId) {
             setErrors((prev) => ({
                 ...prev,
@@ -190,10 +183,7 @@ const Locations = () => {
     };
 
     const onFormClear = () => {
-        setState({
-            locationName: '',
-            officeCenterId: null
-        });
+        setState({ locationName: '', officeCenterId: null });
         setSelectedLocation(null);
         setIsEdit(false);
         setErrors({});
@@ -205,7 +195,6 @@ const Locations = () => {
             value: location.office_center_id,
             label: getOfficeCenterName(location.office_center_id)
         };
-
         setState({
             locationName: location.location_name || '',
             officeCenterId: officeCenterOption
@@ -221,40 +210,14 @@ const Locations = () => {
         setIsEdit(false);
     };
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters((prev) => ({
-            ...prev,
-            [name]: value,
-        }));
+    const handleSearch = (e) => {
+        setSearchTerm(e.target.value);
+        setCurrentPage(0); // Reset to first page when searching
     };
 
-    const handleFilterOfficeCenterChange = (selectedOption) => {
-        setFilters((prev) => ({
-            ...prev,
-            officeCenterId: selectedOption
-        }));
-    };
-
-    const handleFilterStatusChange = (selectedOption) => {
-        setFilters((prev) => ({
-            ...prev,
-            status: selectedOption ? selectedOption.value : ''
-        }));
-    };
-
-    const clearFilters = () => {
-        setFilters({
-            locationName: '',
-            officeCenterId: null,
-            status: ''
-        });
-    };
-
-    // Get office center name by ID
-    const getOfficeCenterName = (officeCenterId) => {
-        const officeCenter = officeCentersData.find(oc => oc.id === officeCenterId);
-        return officeCenter ? officeCenter.officeCentersName : officeCenterId;
+    const clearSearch = () => {
+        setSearchTerm('');
+        setCurrentPage(0);
     };
 
     // Prepare office center options for React Select
@@ -266,23 +229,6 @@ const Locations = () => {
                 label: center.officeCentersName
             }));
     };
-
-    // Status options for filter
-    const statusOptions = [
-        { value: 'Active', label: 'Active' },
-        { value: 'Inactive', label: 'Inactive' }
-    ];
-
-    // Filter data based on search term
-    const filteredData = locationsData.filter((location) => {
-        if (!searchTerm) return true;
-
-        const searchLower = searchTerm.toLowerCase();
-        return (
-            location.location_name?.toLowerCase().includes(searchLower) ||
-            getOfficeCenterName(location.office_center_id)?.toLowerCase().includes(searchLower)
-        );
-    });
 
     const columns = [
         {
@@ -342,12 +288,6 @@ const Locations = () => {
         }
     ];
 
-    // Helper function
-    function findArrObj(arr, key, value) {
-        if (!arr || !Array.isArray(arr)) return [];
-        return arr.filter((item) => item[key] === value);
-    }
-
     const customSelectStyles = {
         control: (provided) => ({
             ...provided,
@@ -365,7 +305,7 @@ const Locations = () => {
 
     return (
         <div>
-            {/* Search and Filter Bar */}
+            {/* Search Bar */}
             <div className="panel mb-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="relative flex-1">
@@ -373,22 +313,23 @@ const Locations = () => {
                             <input
                                 type="text"
                                 placeholder="Search locations by name or office center..."
-                                className="form-input w-full pl-10"
+                                className="form-input w-full pl-10 pr-10"
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={handleSearch}
                             />
                             <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    onClick={clearSearch}
+                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <IconX className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     </div>
                     <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="btn btn-outline-primary"
-                        >
-                            <IconFilter className="w-4 h-4 mr-2" />
-                            Filters
-                        </button>
                         {_.includes(accessIds, '2') && (
                             <button
                                 type="button"
@@ -401,75 +342,6 @@ const Locations = () => {
                         )}
                     </div>
                 </div>
-
-                {/* Filter Panel */}
-                {showFilters && (
-                    <div className="mt-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-800">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
-                                <label className="block mb-1 text-sm font-medium">
-                                    Location Name
-                                </label>
-                                <input
-                                    type="text"
-                                    name="locationName"
-                                    value={filters.locationName}
-                                    onChange={handleFilterChange}
-                                    placeholder="Filter by location name"
-                                    className="form-input"
-                                />
-                            </div>
-                            <div>
-                                <label className="block mb-1 text-sm font-medium">
-                                    Office Center
-                                </label>
-                                <Select
-                                    name="officeCenterId"
-                                    value={filters.officeCenterId}
-                                    onChange={handleFilterOfficeCenterChange}
-                                    options={getOfficeCenterOptions()}
-                                    placeholder="Select Office Center"
-                                    isClearable
-                                    styles={customSelectStyles}
-                                    className="react-select"
-                                    classNamePrefix="select"
-                                />
-                            </div>
-                            <div>
-                                <label className="block mb-1 text-sm font-medium">
-                                    Status
-                                </label>
-                                <Select
-                                    name="status"
-                                    value={statusOptions.find(option => option.value === filters.status)}
-                                    onChange={handleFilterStatusChange}
-                                    options={statusOptions}
-                                    placeholder="Select Status"
-                                    isClearable
-                                    styles={customSelectStyles}
-                                    className="react-select"
-                                    classNamePrefix="select"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end mt-4">
-                            <button
-                                type="button"
-                                onClick={clearFilters}
-                                className="btn btn-outline-secondary mr-2"
-                            >
-                                Clear Filters
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowFilters(false)}
-                                className="btn btn-primary"
-                            >
-                                Apply Filters
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Location Form */}
@@ -487,7 +359,6 @@ const Locations = () => {
                             <IconX className="w-5 h-5" />
                         </button>
                     </div>
-
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Office Center Dropdown - React Select */}
@@ -513,7 +384,6 @@ const Locations = () => {
                                     </div>
                                 )}
                             </div>
-
                             {/* Location Name */}
                             <div>
                                 <label className="block mb-1">
@@ -535,7 +405,6 @@ const Locations = () => {
                                 )}
                             </div>
                         </div>
-
                         {/* Form Actions */}
                         <div className="flex justify-end space-x-2 mt-6">
                             <button
@@ -576,9 +445,24 @@ const Locations = () => {
                     <div className="text-center py-8 text-danger">
                         Error loading locations: {error}
                     </div>
-                ) : locationsData.length === 0 ? (
+                ) : getTotalCount() === 0 ? (
                     <div className="text-center py-8 text-gray-500">
-                        No locations found. {_.includes(accessIds, '2') && 'Click "Add Location" to get started.'}
+                        {searchTerm ? (
+                            <>
+                                No locations found matching "{searchTerm}".
+                                <button
+                                    onClick={clearSearch}
+                                    className="ml-2 text-primary hover:underline"
+                                >
+                                    Clear search
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                No locations found.
+                                {_.includes(accessIds, '2') && ' Click "Add Location" to get started.'}
+                            </>
+                        )}
                     </div>
                 ) : (
                     <Table

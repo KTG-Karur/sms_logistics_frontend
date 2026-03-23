@@ -36,6 +36,7 @@ const Employees = () => {
     const [showForm, setShowForm] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
     const [isEdit, setIsEdit] = useState(false);
+    const [searchTerm, setSearchTerm] = useState(''); // Add search term state
     const [state, setState] = useState({
         employeeName: '',
         mobileNo: '',
@@ -75,11 +76,7 @@ const Employees = () => {
     // Salary type options
     const salaryTypeOptions = [
         { value: 'daily', label: 'Daily' },
-        // { value: 'weekly', label: 'Weekly' },
         { value: 'monthly', label: 'Monthly' },
-        // { value: 'yearly', label: 'Yearly' },
-        // { value: 'hourly', label: 'Hourly' },
-        // { value: 'per_hour', label: 'Per Hour' },
     ];
     
     // Filter options
@@ -94,6 +91,38 @@ const Employees = () => {
         { value: '0', label: 'Inactive' },
         { value: '', label: 'All' }
     ];
+    
+    // Filter data based on search term
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return parentList;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return parentList.filter((employee) => {
+            return (
+                employee.employeeName?.toLowerCase().includes(searchLower) ||
+                employee.mobileNo?.toLowerCase().includes(searchLower) ||
+                employee.roleName?.toLowerCase().includes(searchLower)
+            );
+        });
+    };
+    
+    // Get paginated data from filtered results
+    const getPaginatedData = () => {
+        const filteredData = getFilteredData();
+        const startIndex = currentPage * pageSize;
+        const endIndex = startIndex + pageSize;
+        return filteredData.slice(startIndex, endIndex);
+    };
+    
+    const getTotalCount = () => {
+        return getFilteredData().length;
+    };
+    
+    // Handle search
+    const handleSearch = (searchValue) => {
+        setSearchTerm(searchValue);
+        setCurrentPage(0); // Reset to first page when searching
+    };
     
     useEffect(() => {
         dispatch(setPageTitle('Staff Management'));
@@ -120,17 +149,6 @@ const Employees = () => {
     const handlePaginationChange = (pageIndex, newPageSize) => {
         setCurrentPage(pageIndex);
         setPageSize(newPageSize);
-    };
-    
-    const getPaginatedData = () => {
-        const dataArray = parentList || [];
-        const startIndex = currentPage * pageSize;
-        const endIndex = startIndex + pageSize;
-        return dataArray.slice(startIndex, endIndex);
-    };
-    
-    const getTotalCount = () => {
-        return (parentList || []).length;
     };
     
     const fetchDropdownData = async () => {
@@ -191,10 +209,15 @@ const Employees = () => {
     
     // Columns for table
     const columns = [
-        { Header: 'S.No', accessor: 'id', Cell: (row) => <div>{row?.row?.index + 1}</div> },
-        { Header: 'Name', accessor: 'employeeName' },
-        { Header: 'Mobile No', accessor: 'mobileNo' },
-        { Header: 'Role', accessor: 'roleName' },
+        { 
+            Header: 'S.No', 
+            accessor: 'id', 
+            Cell: (row) => <div>{row?.row?.index + 1 + currentPage * pageSize}</div>,
+            width: 80,
+        },
+        { Header: 'Name', accessor: 'employeeName', sort: true },
+        { Header: 'Mobile No', accessor: 'mobileNo', sort: true },
+        { Header: 'Role', accessor: 'roleName', sort: true },
         { 
             Header: 'Driver', 
             accessor: 'isDriver',
@@ -576,6 +599,8 @@ const Employees = () => {
         dispatch(setFilters(apiFilters));
         dispatch(getEmployee(apiFilters));
         setShowFilter(false);
+        setSearchTerm(''); // Clear search term when applying filters
+        setCurrentPage(0); // Reset to first page
     };
     
     const handleFilterClear = () => {
@@ -588,6 +613,8 @@ const Employees = () => {
         dispatch(clearFilters());
         dispatch(getEmployee({}));
         setShowFilter(false);
+        setSearchTerm(''); // Clear search term when clearing filters
+        setCurrentPage(0); // Reset to first page
     };
     
     // Get selected value for React Select
@@ -1084,25 +1111,53 @@ const Employees = () => {
                     </div>
                 )}
                 
+                {/* Show search term info */}
+                {searchTerm && (
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm">
+                                Searching for: <strong>"{searchTerm}"</strong> - Found {getTotalCount()} result(s)
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => handleSearch('')}
+                                className="text-blue-600 hover:text-blue-800 text-sm"
+                            >
+                                Clear Search
+                            </button>
+                        </div>
+                    </div>
+                )}
+                
                 {loading ? (
                     <div className="flex items-center justify-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
                     </div>
                 ) : (
-                    <Table
-                        columns={columns}
-                        Title={''}
-                        toggle={false}
-                        data={getPaginatedData()}
-                        pageSize={pageSize}
-                        pageIndex={currentPage}
-                        totalCount={getTotalCount()}
-                        totalPages={Math.ceil(getTotalCount() / pageSize)}
-                        onPaginationChange={handlePaginationChange}
-                        pagination={true}
-                        isSearchable={true}
-                        isSortable={true}
-                    />
+                    <>
+                        <Table
+                            columns={columns}
+                            Title={''}
+                            toggle={false}
+                            data={getPaginatedData()}
+                            pageSize={pageSize}
+                            pageIndex={currentPage}
+                            totalCount={getTotalCount()}
+                            totalPages={Math.ceil(getTotalCount() / pageSize)}
+                            onPaginationChange={handlePaginationChange}
+                            onSearch={handleSearch}
+                            pagination={true}
+                            isSearchable={true}
+                            isSortable={true}
+                        />
+                        
+                        {/* No results message */}
+                        {getTotalCount() === 0 && searchTerm && (
+                            <div className="text-center py-8 text-gray-500">
+                                No staff members found matching "{searchTerm}"
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

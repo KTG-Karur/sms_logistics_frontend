@@ -130,6 +130,7 @@ export const PakagePaymentScreen = lazy(() => import('../view/package-payment-sc
 export const PackageReportPrint = lazy(() => import('../view/documents/packageReportPrint'));
 export const PaymentPrintPdf = lazy(() => import('../view/documents/package-payment-print'));
 export const ProfitLossReport = lazy(() => import('../view/report/monthlyProfitLossReport'));
+export const ExpenseReport = lazy(() => import('../view/report/expenseReport'));
 export const AttendanceReport = lazy(() => import('../view/report/attendanceReport'));
 export const VehicleType = lazy(() => import('../view/master/vehicleType'));
 export const ExpenceType = lazy(() => import('../view/master/expenceType'));
@@ -140,3 +141,4 @@ export const TripReport = lazy(() => import('../view/report/tripReport'));
 export const OfficeCenter = lazy(() => import('../view/master/officeCenter'));
 export const Customer = lazy(() => import('../view/master/customer'));
 export const Location = lazy(() => import('../view/master/location'));
+export const ExpenseReportPdf =lazy(() => import('../view/documents/expenseReportPdf'));

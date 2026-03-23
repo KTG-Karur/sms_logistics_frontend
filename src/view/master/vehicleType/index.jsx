@@ -11,7 +11,6 @@ import { findArrObj, showMessage , getAccessIdsByLabel } from '../../../util/All
 import _ from 'lodash';
 import { FormContainer } from './formContainer';
 import IconUserPlus from '../../../components/Icon/IconUserPlus';
-
 import { getVehicleType, createVehicleType, updateVehicleType, deleteVehicleType, resetVehicleTypeStatus } from '../../../redux/vehicleTypeSlice';
 
 let isEdit = false;
@@ -20,7 +19,6 @@ const Index = () => {
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Vehicle Type');
-
     const dispatch = useDispatch();
 
     const vehicleTypeState = useSelector((state) => state.VehicleTypeSlice || {});
@@ -42,6 +40,7 @@ const Index = () => {
     const [selectedIndex, setSelectedIndex] = useState(null);
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [searchTerm, setSearchTerm] = useState(''); // Add search term state
 
     useEffect(() => {
         dispatch(setPageTitle('VehicleType Management'));
@@ -52,23 +51,20 @@ const Index = () => {
         if (createVehicleTypeSuccess) {
             showMessage('success', 'VehicleType created successfully');
             closeModel();
-            fetchVehicleTypes(); 
+            fetchVehicleTypes();
             dispatch(resetVehicleTypeStatus());
         }
-
         if (updateVehicleTypeSuccess) {
             showMessage('success', 'VehicleType updated successfully');
             closeModel();
-            fetchVehicleTypes(); 
+            fetchVehicleTypes();
             dispatch(resetVehicleTypeStatus());
         }
-
         if (deleteVehicleTypeSuccess) {
             showMessage('success', 'VehicleType deleted successfully');
-            fetchVehicleTypes(); 
+            fetchVehicleTypes();
             dispatch(resetVehicleTypeStatus());
         }
-
         if (error) {
             showMessage('error', error);
             dispatch(resetVehicleTypeStatus());
@@ -76,7 +72,7 @@ const Index = () => {
     }, [createVehicleTypeSuccess, updateVehicleTypeSuccess, deleteVehicleTypeSuccess, error]);
 
     const fetchVehicleTypes = () => {
-        dispatch(getVehicleType({})); 
+        dispatch(getVehicleType({}));
     };
 
     // Transform API data for the table
@@ -87,15 +83,44 @@ const Index = () => {
         originalData: item // Keep original data for reference
     }));
 
+    // Filter data based on search term
+    const getFilteredData = () => {
+        if (!searchTerm.trim()) return transformedVehicleTypes;
+        
+        const searchLower = searchTerm.toLowerCase().trim();
+        return transformedVehicleTypes.filter((vehicleType) => {
+            return (
+                vehicleType.vehicle_type_name?.toLowerCase().includes(searchLower)
+            );
+        });
+    };
+
+    // Get paginated data from filtered results
+    const getPaginatedData = () => {
+        const filteredData = getFilteredData();
+        const startIndex = currentPage * pageSize;
+        const endIndex = startIndex + pageSize;
+        return filteredData.slice(startIndex, endIndex);
+    };
+
+    const getTotalCount = () => {
+        return getFilteredData().length;
+    };
+
+    const handleSearch = (searchValue) => {
+        setSearchTerm(searchValue);
+        setCurrentPage(0); // Reset to first page when searching
+    };
+
     const columns = [
         {
             Header: 'S.No',
             accessor: 'id',
-            Cell: (row) => <div>{row?.row?.index + 1}</div>,
+            Cell: (row) => <div>{row?.row?.index + 1 + currentPage * pageSize}</div>,
             width: 80,
         },
         {
-            Header: 'VehicleType Name',
+            Header: 'Vehicle Type Name',
             accessor: 'vehicle_type_name',
             sort: true,
         },
@@ -103,11 +128,11 @@ const Index = () => {
             Header: 'Status',
             accessor: 'is_active',
             Cell: ({ value }) => (
-                <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
-                        value === 'Active' ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
-                    }`}
-                >
+                <span className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-300 ${
+                    value === 'Active' 
+                        ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-lg' 
+                        : 'bg-gradient-to-r from-red-400 to-red-600 text-white shadow-lg'
+                }`}>
                     {value}
                 </span>
             ),
@@ -167,29 +192,30 @@ const Index = () => {
 
     const onFormSubmit = async (e) => {
         if (e) e.preventDefault();
-
+        
         if (!state.vehicleTypeName || state.vehicleTypeName.trim() === '') {
-            showMessage('error', 'Please enter vehicleType name');
+            showMessage('error', 'Please enter vehicle type name');
             return;
         }
-
-        // Check for duplicate vehicle type name
+        
+        // Check for duplicate vehicle type name (case insensitive)
         const duplicateVehicleType = transformedVehicleTypes.find(
             (vehicleType) => 
+                vehicleType.vehicle_type_name && 
                 vehicleType.vehicle_type_name.toLowerCase() === state.vehicleTypeName.toLowerCase() && 
                 vehicleType.id !== selectedItem.id
         );
-
+        
         if (duplicateVehicleType) {
-            showMessage('error', 'VehicleType name already exists');
+            showMessage('error', 'Vehicle type name already exists');
             return;
         }
-
+        
         try {
             const requestData = {
                 vehicleTypeName: state.vehicleTypeName.trim(),
             };
-
+            
             if (isEdit) {
                 dispatch(
                     updateVehicleType({
@@ -208,14 +234,15 @@ const Index = () => {
     const handleInputChange = (e, name) => {
         const value = e.target.value;
         setState((prev) => ({ ...prev, [name]: value }));
-
+        
         if (errors.length > 0) {
             setErrors(errors.filter((error) => error.field !== name));
         }
     };
 
     const handleDeleteVehicleType = (vehicleTypeId) => {
-        showMessage('warning', 'Are you sure you want to delete this vehicleType?', () => {
+        // Check if vehicle type is being used elsewhere (optional)
+        showMessage('warning', 'Are you sure you want to delete this vehicle type?', () => {
             dispatch(deleteVehicleType(vehicleTypeId));
         });
     };
@@ -225,14 +252,8 @@ const Index = () => {
         setPageSize(newPageSize);
     };
 
-    const getPaginatedData = () => {
-        const startIndex = currentPage * pageSize;
-        const endIndex = startIndex + pageSize;
-        return transformedVehicleTypes.slice(startIndex, endIndex);
-    };
-
     return (
-        <div >
+        <div>
             <div className="datatables">
                 <Table
                     columns={columns}
@@ -241,20 +262,28 @@ const Index = () => {
                     data={getPaginatedData()}
                     pageSize={pageSize}
                     pageIndex={currentPage}
-                    totalCount={transformedVehicleTypes.length}
-                    totalPages={Math.ceil(transformedVehicleTypes.length / pageSize)}
+                    totalCount={getTotalCount()}
+                    totalPages={Math.ceil(getTotalCount() / pageSize)}
                     onPaginationChange={handlePaginationChange}
+                    onSearch={handleSearch}
                     pagination={true}
                     isSearchable={true}
                     isSortable={true}
                     btnName="Add Vehicle Type"
                     loading={loading}
                 />
+                
+                {/* Optional: Show message when no results found */}
+                {!loading && getTotalCount() === 0 && searchTerm && (
+                    <div className="text-center py-4 text-gray-500">
+                        No vehicle types found matching "{searchTerm}"
+                    </div>
+                )}
             </div>
 
             <ModelViewBox
                 modal={modal}
-                modelHeader={isEdit?'Edit Vehicle Type':'Add Vehicle Type'}
+                modelHeader={isEdit ? 'Edit Vehicle Type' : 'Add Vehicle Type'}
                 isEdit={isEdit}
                 setModel={closeModel}
                 handleSubmit={onFormSubmit}
