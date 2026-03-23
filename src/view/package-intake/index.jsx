@@ -122,9 +122,11 @@ const Booking = () => {
   // Fetch success/error handling
   useEffect(() => {
     if (createPackageSuccess) {
-      showMessage('success', 'Booking created successfully');
+      showMessage('success', isEdit ? 'Booking updated successfully' : 'Booking created successfully');
       resetForm();
       setShowForm(false);
+      setIsEdit(false);
+      setEditId(null);
       dispatch(resetPackageStatus());
       fetchPackages();
     }
@@ -132,6 +134,8 @@ const Booking = () => {
       showMessage('success', 'Booking updated successfully');
       resetForm();
       setShowForm(false);
+      setIsEdit(false);
+      setEditId(null);
       dispatch(resetPackageStatus());
       fetchPackages();
     }
@@ -158,13 +162,13 @@ const Booking = () => {
           const newCust = customersData.find((c) => c.customer_number === newCustomer.mobileNo);
           if (newCust) {
             setFormData((prev) => ({ ...prev, fromCustomerId: newCust.customer_id }));
-            setSenderSearchInput(''); // Clear search input
+            setSenderSearchInput('');
           }
         } else if (customerField === 'to') {
           const newCust = customersData.find((c) => c.customer_number === newCustomer.mobileNo);
           if (newCust) {
             setFormData((prev) => ({ ...prev, toCustomerId: newCust.customer_id }));
-            setReceiverSearchInput(''); // Clear search input
+            setReceiverSearchInput('');
           }
         }
       }, 500);
@@ -245,20 +249,13 @@ const Booking = () => {
         label: loc.location_name,
         data: loc,
       }));
-    // Add "Add New" option
-    options.push({
-      value: 'new',
-      label: '+ Add New Location',
-      data: { id: 'new', name: 'New Location' },
-    });
+    options.push({ value: 'new', label: '+ Add New Location', data: { id: 'new', name: 'New Location' } });
     return options;
   };
 
   // Custom filter for location options to always show "Add New"
   const locationFilterOption = (option, inputValue) => {
-    if (option.value === 'new') {
-      return true;
-    }
+    if (option.value === 'new') return true;
     return option.label.toLowerCase().includes(inputValue.toLowerCase());
   };
 
@@ -275,9 +272,7 @@ const Booking = () => {
     const availablePackageTypes = (packageTypeData || []).filter((pkg) => pkg.is_active);
     const selectedPackageTypeIds = formData.packages
       .map((pkg, index) => {
-        if (currentIndex !== null && index === currentIndex) {
-          return null;
-        }
+        if (currentIndex !== null && index === currentIndex) return null;
         return pkg.packageTypeId;
       })
       .filter((id) => id !== null && id !== undefined);
@@ -361,55 +356,39 @@ const Booking = () => {
       setNewCustomer({ name: '', mobileNo: selected.mobileNo });
       setCustomerModal(true);
     } else if (selected?.value !== 'invalid' && selected?.value !== 'no-results' && selected?.value !== 'placeholder') {
-      setFormData((prev) => ({
-        ...prev,
-        fromCustomerId: selected ? selected.value : null,
-      }));
+      setFormData((prev) => ({ ...prev, fromCustomerId: selected ? selected.value : null }));
       setErrors((prev) => ({ ...prev, fromCustomerId: null }));
-      setSenderSearchInput(''); // Clear search input after selection
+      setSenderSearchInput('');
     }
   };
 
-  // Handle receiver customer selection
   const handleToCustomerSelect = (selected, actionMeta) => {
     if (selected?.value === 'new') {
       setCustomerField('to');
       setNewCustomer({ name: '', mobileNo: selected.mobileNo });
       setCustomerModal(true);
     } else if (selected?.value !== 'invalid' && selected?.value !== 'no-results' && selected?.value !== 'placeholder') {
-      setFormData((prev) => ({
-        ...prev,
-        toCustomerId: selected ? selected.value : null,
-      }));
+      setFormData((prev) => ({ ...prev, toCustomerId: selected ? selected.value : null }));
       setErrors((prev) => ({ ...prev, toCustomerId: null }));
-      setReceiverSearchInput(''); // Clear search input after selection
+      setReceiverSearchInput('');
     }
   };
 
-  // Handle center selection
   const handleFromCenterChange = (selected) => {
-    setFormData((prev) => ({
-      ...prev,
-      fromCenterId: selected?.value,
-    }));
-    setSelectedLocations((prev) => ({ ...prev, fromLocationId: null })); // Reset location when center changes
+    setFormData((prev) => ({ ...prev, fromCenterId: selected?.value }));
+    setSelectedLocations((prev) => ({ ...prev, fromLocationId: null }));
     setErrors((prev) => ({ ...prev, fromCenterId: null }));
   };
 
   const handleToCenterChange = (selected) => {
-    setFormData((prev) => ({
-      ...prev,
-      toCenterId: selected?.value,
-    }));
-    setSelectedLocations((prev) => ({ ...prev, toLocationId: null })); // Reset location when center changes
+    setFormData((prev) => ({ ...prev, toCenterId: selected?.value }));
+    setSelectedLocations((prev) => ({ ...prev, toLocationId: null }));
     setErrors((prev) => ({ ...prev, toCenterId: null }));
   };
 
-  // Handle location change with "Add New" option
   const handleLocationChange = (selected, field) => {
     if (selected?.value === 'new') {
       setLocationField(field);
-      // Pre-fill the center ID based on which location field is being added
       if (field === 'from') {
         setNewLocation({ name: '', officeCenterId: formData.fromCenterId });
       } else if (field === 'to') {
@@ -427,29 +406,17 @@ const Booking = () => {
     }
   };
 
-  // Package details handlers
   const handlePackageDetailChange = (index, field, value) => {
     const updatedPackages = [...formData.packages];
     if (field === 'packageTypeId') {
-      updatedPackages[index] = {
-        ...updatedPackages[index],
-        packageTypeId: value,
-      };
+      updatedPackages[index] = { ...updatedPackages[index], packageTypeId: value };
     } else if (field === 'quantity') {
-      // Allow empty string or numbers only
       if (value === '' || /^\d*$/.test(value)) {
-        updatedPackages[index] = {
-          ...updatedPackages[index],
-          quantity: value,
-        };
+        updatedPackages[index] = { ...updatedPackages[index], quantity: value };
       }
     } else if (field === 'handlingCharge') {
-      // Allow empty string or decimal numbers
       if (value === '' || /^\d*\.?\d*$/.test(value)) {
-        updatedPackages[index] = {
-          ...updatedPackages[index],
-          handlingCharge: value,
-        };
+        updatedPackages[index] = { ...updatedPackages[index], handlingCharge: value };
       }
     }
     setFormData((prev) => ({ ...prev, packages: updatedPackages }));
@@ -460,11 +427,7 @@ const Booking = () => {
       ...prev,
       packages: [
         ...prev.packages,
-        {
-          packageTypeId: null,
-          quantity: '1',
-          handlingCharge: '',
-        },
+        { packageTypeId: null, quantity: '1', handlingCharge: '' },
       ],
     }));
   };
@@ -476,7 +439,6 @@ const Booking = () => {
     }
   };
 
-  // Safe number parsing function
   const safeParseFloat = (value) => {
     if (value === '' || value === null || value === undefined) return 0;
     const parsed = parseFloat(value);
@@ -489,13 +451,11 @@ const Booking = () => {
     return isNaN(parsed) || parsed < 1 ? 1 : parsed;
   };
 
-  // Safe toFixed function
   const safeToFixed = (value, digits = 2) => {
     const num = safeParseFloat(value);
     return num.toFixed(digits);
   };
 
-  // Calculate totals - only handling charge
   const calculatePackageTotal = (pkg) => {
     const quantity = safeParseInt(pkg.quantity);
     const handlingCharge = safeParseFloat(pkg.handlingCharge);
@@ -508,33 +468,25 @@ const Booking = () => {
 
   const totalAmount = calculateTotalAmount();
 
-  // Handle paid amount change with max validation
   const handlePaidAmountChange = (value) => {
-    // Allow empty string or decimal numbers
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       const numValue = value === '' ? '' : parseFloat(value);
-      // If it's a number and exceeds total amount, don't update
       if (numValue !== '' && !isNaN(numValue) && numValue > totalAmount) {
-        setErrors((prev) => ({
-          ...prev,
-          paidAmount: `Amount cannot exceed ₹${safeToFixed(totalAmount)}`,
-        }));
+        setErrors((prev) => ({ ...prev, paidAmount: `Amount cannot exceed ₹${safeToFixed(totalAmount)}` }));
         return;
       }
       setFormData((prev) => ({ ...prev, paidAmount: value }));
-      // Clear paid amount error if exists
       if (errors.paidAmount) {
         setErrors((prev) => ({ ...prev, paidAmount: null }));
       }
     }
   };
 
-  // Validation
   const validateForm = () => {
     const newErrors = {};
+    
     if (!formData.fromCenterId) newErrors.fromCenterId = 'From center is required';
     if (!formData.toCenterId) newErrors.toCenterId = 'To center is required';
-    // Check if same center selected
     if (formData.fromCenterId && formData.toCenterId && formData.fromCenterId === formData.toCenterId) {
       newErrors.toCenterId = 'From and To centers cannot be the same';
     }
@@ -542,11 +494,10 @@ const Booking = () => {
     if (!selectedLocations.toLocationId) newErrors.toLocationId = 'To location is required';
     if (!formData.fromCustomerId) newErrors.fromCustomerId = 'Please select a sender';
     if (!formData.toCustomerId) newErrors.toCustomerId = 'Please select a receiver';
-    // Check if same customer selected
     if (formData.fromCustomerId && formData.toCustomerId && formData.fromCustomerId === formData.toCustomerId) {
       newErrors.toCustomerId = 'Sender and Receiver cannot be the same customer';
     }
-    // Validate packages
+    
     formData.packages.forEach((pkg, index) => {
       if (!pkg.packageTypeId) {
         newErrors[`packageType_${index}`] = `Package type is required for item ${index + 1}`;
@@ -556,25 +507,25 @@ const Booking = () => {
         newErrors[`quantity_${index}`] = `Valid quantity is required for item ${index + 1}`;
       }
     });
-    // Validate paid amount if payment is by sender
+    
     if (formData.paymentBy === 'sender' && formData.paidAmount !== '') {
       const paid = safeParseFloat(formData.paidAmount);
       if (paid > totalAmount) {
         newErrors.paidAmount = `Paid amount cannot exceed ₹${safeToFixed(totalAmount)}`;
       }
     }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
       showMessage('error', 'Please fix all errors before submitting');
       return;
     }
-
+    
     const requestData = {
       bookingDate: formData.bookingDate,
       fromCenterId: formData.fromCenterId,
@@ -592,12 +543,11 @@ const Booking = () => {
         handlingCharge: safeParseFloat(pkg.handlingCharge),
       })),
     };
-
-    // Add payment mode only if paid amount > 0 and payment is by sender
+    
     if (requestData.paidAmount > 0 && requestData.paymentBy === 'sender') {
       requestData.paymentMode = paymentMode;
     }
-
+    
     try {
       if (isEdit && editId) {
         await dispatch(updatePackage({ request: requestData, packageId: editId })).unwrap();
@@ -609,7 +559,6 @@ const Booking = () => {
     }
   };
 
-  // Reset form
   const resetForm = () => {
     setFormData({
       bookingDate: moment().format('YYYY-MM-DD'),
@@ -621,17 +570,10 @@ const Booking = () => {
       paidAmount: '',
       specialInstructions: '',
       packages: [
-        {
-          packageTypeId: null,
-          quantity: '1',
-          handlingCharge: '',
-        },
+        { packageTypeId: null, quantity: '1', handlingCharge: '' },
       ],
     });
-    setSelectedLocations({
-      fromLocationId: null,
-      toLocationId: null,
-    });
+    setSelectedLocations({ fromLocationId: null, toLocationId: null });
     setPaymentMode('cash');
     setErrors({});
     setIsEdit(false);
@@ -640,15 +582,20 @@ const Booking = () => {
     setReceiverSearchInput('');
   };
 
-  // Edit package
+  // Edit package handler
   const handleEdit = (pkg) => {
-    if (pkg.delivery_status !== 'not_started' && pkg.delivery_status !== 'not_delivered') {
+    // Check if booking is in a state that allows editing
+    const editableStatuses = ['not_delivered', 'pending', 'partial'];
+    if (!editableStatuses.includes(pkg.delivery_status) && pkg.delivery_status !== 'not_delivered') {
       showMessage('error', 'Cannot edit booking that is already in delivery process');
       return;
     }
+    
     setIsEdit(true);
     setEditId(pkg.booking_id);
     setShowForm(true);
+    
+    // Populate form with existing booking data
     setFormData({
       bookingDate: pkg.booking_date ? moment(pkg.booking_date).format('YYYY-MM-DD') : moment().format('YYYY-MM-DD'),
       fromCenterId: pkg.from_center_id,
@@ -664,17 +611,26 @@ const Booking = () => {
         handlingCharge: p.handling_charge?.toString() || '',
       })),
     });
+    
     setSelectedLocations({
       fromLocationId: pkg.from_location_id,
       toLocationId: pkg.to_location_id,
     });
+    
+    // Set payment mode if available
+    if (pkg.payments && pkg.payments.length > 0) {
+      const lastPayment = pkg.payments[0];
+      if (lastPayment.payment_mode) {
+        setPaymentMode(lastPayment.payment_mode);
+      }
+    }
+    
     setSenderSearchInput('');
     setReceiverSearchInput('');
   };
 
-  // Delete package
   const handleDelete = (pkg) => {
-    if (pkg.delivery_status !== 'not_started' && pkg.delivery_status !== 'not_delivered') {
+    if (pkg.delivery_status !== 'not_delivered') {
       showMessage('error', 'Cannot delete booking that is already in delivery process');
       return;
     }
@@ -688,19 +644,14 @@ const Booking = () => {
     );
   };
 
-  // View package details
   const handleView = (pkg) => {
     setSelectedViewPackage(pkg);
     setViewModal(true);
   };
 
-  // Handle filter changes
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setFilters((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
   const clearFilters = () => {
@@ -713,7 +664,6 @@ const Booking = () => {
     setSearchTerm('');
   };
 
-  // Customer modal handlers
   const handleAddCustomer = () => {
     if (!newCustomer.name) {
       showMessage('error', 'Name is required');
@@ -736,7 +686,6 @@ const Booking = () => {
     setCustomerField('');
   };
 
-  // Location modal handlers
   const handleAddLocation = () => {
     if (!newLocation.name) {
       showMessage('error', 'Location name is required');
@@ -759,33 +708,29 @@ const Booking = () => {
     setLocationField('');
   };
 
-  // Format number for display
   const formatNumber = (value) => {
     const num = safeParseFloat(value);
     return num.toFixed(2);
   };
 
-  // Get selected customer label for display
   const getSelectedCustomerLabel = (customerId) => {
     if (!customerId) return null;
     const customer = customersData.find(c => c.customer_id === customerId);
     if (customer) {
-      return {
-        value: customer.customer_id,
-        label: `${customer.customer_name} (${customer.customer_number})`
-      };
+      return { value: customer.customer_id, label: `${customer.customer_name} (${customer.customer_number})` };
     }
     return null;
   };
 
-  // Table columns
   const columns = [
     {
       Header: '#',
       accessor: 'index',
       Cell: ({ row }) => (
         <div className="font-medium text-gray-600 text-center">
-          <span className="inline-flex items-center justify-center w-8 h-8 bg-primary/10 text-primary rounded-full">{currentPage * pageSize + row.index + 1}</span>
+          <span className="inline-flex items-center justify-center w-8 h-8 bg-primary/10 text-primary rounded-full">
+            {currentPage * pageSize + row.index + 1}
+          </span>
         </div>
       ),
       width: 80,
@@ -818,9 +763,7 @@ const Booking = () => {
         <div className="space-y-1">
           <div className="flex items-center text-sm text-gray-600">
             <IconUser className="w-3 h-3 mr-1" />
-            <span>
-              {row.original.fromCustomer?.customer_name || 'N/A'} → {row.original.toCustomer?.customer_name || 'N/A'}
-            </span>
+            <span>{row.original.fromCustomer?.customer_name || 'N/A'} → {row.original.toCustomer?.customer_name || 'N/A'}</span>
           </div>
           <div className="text-xs text-gray-500">
             {row.original.fromCustomer?.customer_number || 'N/A'} → {row.original.toCustomer?.customer_number || 'N/A'}
@@ -887,9 +830,21 @@ const Booking = () => {
               </button>
             </Tippy>
           )}
-          {row.original.delivery_status === 'not_delivered' && (
+          {/* Show Edit and Delete only if:
+              1. No payment has been made (paid_amount === 0)
+              2. AND delivery status is 'not_delivered'
+          */}
+          {(row.original.paid_amount === 0 || row.original.paid_amount === '0' || parseFloat(row.original.paid_amount) === 0) && 
+          row.original.delivery_status === 'not_delivered' && (
             <>
               {_.includes(accessIds, '4') && (
+                <Tippy content="Edit">
+                  <button onClick={() => handleEdit(row.original)} className="btn btn-outline-warning btn-sm p-1.5 rounded-lg hover:bg-warning hover:text-white transition-colors">
+                    <IconPencil className="w-4 h-4" />
+                  </button>
+                </Tippy>
+              )}
+              {_.includes(accessIds, '5') && (
                 <Tippy content="Delete">
                   <button onClick={() => handleDelete(row.original)} className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors">
                     <IconTrashLines className="w-4 h-4" />
@@ -904,7 +859,6 @@ const Booking = () => {
     },
   ];
 
-  // Pagination
   const handlePaginationChange = (pageIndex, newPageSize) => {
     setCurrentPage(pageIndex);
     setPageSize(newPageSize);
@@ -918,7 +872,6 @@ const Booking = () => {
 
   const getTotalCount = () => (packageData || []).length;
 
-  // Stats
   const stats = {
     total: (packageData || []).length,
     pending: (packageData || []).filter((p) => p.payment_status === 'pending').length,
@@ -1012,7 +965,7 @@ const Booking = () => {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Search by booking number, customer name, or mobile..."
+                  placeholder="Search by booking number"
                   className="form-input w-full pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1062,32 +1015,15 @@ const Booking = () => {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block mb-1 text-sm font-medium">From Date</label>
-                  <input
-                    type="date"
-                    name="fromDate"
-                    value={filters.fromDate}
-                    onChange={handleFilterChange}
-                    className="form-input"
-                  />
+                  <input type="date" name="fromDate" value={filters.fromDate} onChange={handleFilterChange} className="form-input" />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">To Date</label>
-                  <input
-                    type="date"
-                    name="toDate"
-                    value={filters.toDate}
-                    onChange={handleFilterChange}
-                    className="form-input"
-                  />
+                  <input type="date" name="toDate" value={filters.toDate} onChange={handleFilterChange} className="form-input" />
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">Delivery Status</label>
-                  <select
-                    name="deliveryStatus"
-                    value={filters.deliveryStatus}
-                    onChange={handleFilterChange}
-                    className="form-select"
-                  >
+                  <select name="deliveryStatus" value={filters.deliveryStatus} onChange={handleFilterChange} className="form-select">
                     <option value="">All</option>
                     <option value="not_delivered">Not Delivered</option>
                     <option value="pickup_assigned">Pickup Assigned</option>
@@ -1100,12 +1036,7 @@ const Booking = () => {
                 </div>
                 <div>
                   <label className="block mb-1 text-sm font-medium">Payment Status</label>
-                  <select
-                    name="paymentStatus"
-                    value={filters.paymentStatus}
-                    onChange={handleFilterChange}
-                    className="form-select"
-                  >
+                  <select name="paymentStatus" value={filters.paymentStatus} onChange={handleFilterChange} className="form-select">
                     <option value="">All</option>
                     <option value="pending">Pending</option>
                     <option value="partial">Partial</option>
@@ -1114,20 +1045,8 @@ const Booking = () => {
                 </div>
               </div>
               <div className="flex justify-end mt-4">
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="btn btn-outline-secondary mr-2"
-                >
-                  Clear Filters
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowFilters(false)}
-                  className="btn btn-primary"
-                >
-                  Apply Filters
-                </button>
+                <button type="button" onClick={clearFilters} className="btn btn-outline-secondary mr-2">Clear Filters</button>
+                <button type="button" onClick={() => setShowFilters(false)} className="btn btn-primary">Apply Filters</button>
               </div>
             </div>
           )}
@@ -1143,7 +1062,6 @@ const Booking = () => {
                 <IconPackage className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-primary" />
                 {isEdit ? 'Edit Booking' : 'Create New Booking'}
               </h2>
-              {/* Add Booking Date Field */}
               <div className="flex items-center gap-2">
                 <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Booking Date:</label>
                 <input
@@ -1160,7 +1078,6 @@ const Booking = () => {
             <div className="space-y-4 sm:space-y-5">
               {/* Row 1: Company Centers and Locations */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-                {/* From Center */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">From Center *</label>
                   <Select
@@ -1182,8 +1099,6 @@ const Booking = () => {
                   />
                   {errors.fromCenterId && <p className="mt-1 text-xs text-red-600">{errors.fromCenterId}</p>}
                 </div>
-
-                {/* To Center */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">To Center *</label>
                   <Select
@@ -1205,8 +1120,6 @@ const Booking = () => {
                   />
                   {errors.toCenterId && <p className="mt-1 text-xs text-red-600">{errors.toCenterId}</p>}
                 </div>
-
-                {/* From Location */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">From Location *</label>
                   <Select
@@ -1221,8 +1134,6 @@ const Booking = () => {
                   />
                   {errors.fromLocationId && <p className="mt-1 text-xs text-red-600">{errors.fromLocationId}</p>}
                 </div>
-
-                {/* To Location */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">To Location *</label>
                   <Select
@@ -1265,13 +1176,11 @@ const Booking = () => {
                       }),
                     }}
                     isSearchable={true}
-                    filterOption={() => true} // Disable default filtering, we handle it in getCombinedCustomerOptions
+                    filterOption={() => true}
                     noOptionsMessage={() => null}
                   />
                   {errors.fromCustomerId && <p className="mt-1 text-xs text-red-600">{errors.fromCustomerId}</p>}
                 </div>
-
-                {/* Row 2: Combined Customer Selection - Receiver */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Receiver (Mobile/Customer) *</label>
                   <Select
@@ -1296,7 +1205,7 @@ const Booking = () => {
                       }),
                     }}
                     isSearchable={true}
-                    filterOption={() => true} // Disable default filtering, we handle it in getCombinedCustomerOptions
+                    filterOption={() => true}
                     noOptionsMessage={() => null}
                   />
                   {errors.toCustomerId && <p className="mt-1 text-xs text-red-600">{errors.toCustomerId}</p>}
@@ -1310,18 +1219,13 @@ const Booking = () => {
                     <IconPackage className="w-3 h-3 mr-1 text-purple-500" />
                     Package Details *
                   </h3>
-                  <button
-                    type="button"
-                    onClick={addPackageDetail}
-                    className="btn btn-outline-primary btn-xs flex items-center text-xs"
-                  >
+                  <button type="button" onClick={addPackageDetail} className="btn btn-outline-primary btn-xs flex items-center text-xs">
                     <IconPlus className="w-3 h-3 mr-1" />
                     Add Item
                   </button>
                 </div>
                 <div className="space-y-2">
                   {formData.packages.map((pkg, index) => {
-                    const selectedPkg = packageTypeData.find((pt) => pt.package_type_id === pkg.packageTypeId);
                     return (
                       <div key={index} className="bg-gray-50 rounded p-2 border border-gray-200 relative">
                         {formData.packages.length > 1 && (
@@ -1334,7 +1238,6 @@ const Booking = () => {
                           </button>
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-                          {/* Package Type */}
                           <div className="md:col-span-6">
                             <label className="block text-xs font-medium text-gray-700 mb-1">Package Type *</label>
                             <Select
@@ -1359,8 +1262,6 @@ const Booking = () => {
                             />
                             {errors[`packageType_${index}`] && <p className="mt-1 text-xs text-red-600">{errors[`packageType_${index}`]}</p>}
                           </div>
-
-                          {/* Quantity */}
                           <div className="md:col-span-3">
                             <label className="block text-xs font-medium text-gray-700 mb-1">Qty *</label>
                             <input
@@ -1372,8 +1273,6 @@ const Booking = () => {
                             />
                             {errors[`quantity_${index}`] && <p className="mt-1 text-xs text-red-600">{errors[`quantity_${index}`]}</p>}
                           </div>
-
-                          {/* Rate/Handling Charge */}
                           <div className="md:col-span-3">
                             <label className="block text-xs font-medium text-gray-700 mb-1">Rate (₹)</label>
                             <input
@@ -1385,8 +1284,6 @@ const Booking = () => {
                             />
                           </div>
                         </div>
-
-                        {/* Package Total */}
                         <div className="mt-2 flex justify-end">
                           <div className="bg-blue-50 border border-blue-200 rounded p-1.5">
                             <span className="text-xs font-medium text-gray-600">Total: </span>
@@ -1404,7 +1301,6 @@ const Booking = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Left Column - Payment Details & Additional Information */}
                   <div className="space-y-4">
-                    {/* Payment Details */}
                     <div>
                       <h3 className="text-sm font-semibold text-gray-800 mb-3">Payment Details *</h3>
                       <div>
@@ -1417,11 +1313,7 @@ const Booking = () => {
                               value="sender"
                               checked={formData.paymentBy === 'sender'}
                               onChange={(e) => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  paymentBy: e.target.value,
-                                  paidAmount: '',
-                                }));
+                                setFormData((prev) => ({ ...prev, paymentBy: e.target.value, paidAmount: '' }));
                                 setErrors((prev) => ({ ...prev, paidAmount: null }));
                               }}
                               className="form-radio"
@@ -1435,11 +1327,7 @@ const Booking = () => {
                               value="receiver"
                               checked={formData.paymentBy === 'receiver'}
                               onChange={(e) => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  paymentBy: e.target.value,
-                                  paidAmount: '',
-                                }));
+                                setFormData((prev) => ({ ...prev, paymentBy: e.target.value, paidAmount: '' }));
                                 setErrors((prev) => ({ ...prev, paidAmount: null }));
                               }}
                               className="form-radio"
@@ -1449,8 +1337,6 @@ const Booking = () => {
                         </div>
                       </div>
                     </div>
-
-                    {/* Additional Information */}
                     <div>
                       <h3 className="text-sm font-semibold text-gray-800 mb-2">Additional Information</h3>
                       <textarea
@@ -1465,23 +1351,17 @@ const Booking = () => {
 
                   {/* Right Column - Total Amount & Payment Fields */}
                   <div className="space-y-4">
-                    {/* Total Amount */}
                     <div className="flex items-baseline justify-between">
                       <h3 className="text-sm font-semibold text-gray-800 mb-2">Total Amount</h3>
                       <span className="text-2xl font-bold text-primary">₹{safeToFixed(totalAmount)}</span>
                     </div>
 
-                    {/* Payment Fields - Only show for In Pay */}
                     {formData.paymentBy === 'sender' && (
                       <>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">Payment Mode</label>
-                            <select
-                              value={paymentMode}
-                              onChange={(e) => setPaymentMode(e.target.value)}
-                              className="form-select text-sm w-full"
-                            >
+                            <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="form-select text-sm w-full">
                               <option value="cash">Cash</option>
                               <option value="upi">UPI</option>
                             </select>
@@ -1500,7 +1380,6 @@ const Booking = () => {
                             </div>
                           </div>
                         </div>
-                        {/* Due Amount */}
                         <div>
                           <div className="flex items-baseline justify-between">
                             <span className="text-xs font-medium text-gray-600">Due Amount</span>
@@ -1512,7 +1391,6 @@ const Booking = () => {
                       </>
                     )}
 
-                    {/* Show message when To Pay */}
                     {formData.paymentBy === 'receiver' && (
                       <>
                         <div className="bg-blue-50 border border-blue-200 rounded p-3 text-sm text-blue-700">
@@ -1542,19 +1420,11 @@ const Booking = () => {
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="btn btn-outline-primary btn-sm"
-                >
+                <button type="button" onClick={resetForm} className="btn btn-outline-primary btn-sm">
                   Clear
                 </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-sm px-4"
-                  disabled={loading}
-                >
-                  {loading ? 'Processing...' : isEdit ? 'Update' : 'Save Booking'}
+                <button type="submit" className="btn btn-primary btn-sm px-4" disabled={loading}>
+                  {loading ? 'Processing...' : isEdit ? 'Update Booking' : 'Save Booking'}
                 </button>
               </div>
             </div>
@@ -1621,12 +1491,7 @@ const Booking = () => {
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-            <input
-              type="text"
-              value={newCustomer.mobileNo}
-              disabled
-              className="form-input w-full bg-gray-100"
-            />
+            <input type="text" value={newCustomer.mobileNo} disabled className="form-input w-full bg-gray-100" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
@@ -1819,9 +1684,7 @@ const Booking = () => {
                   </tbody>
                   <tfoot className="bg-gray-50">
                     <tr>
-                      <td colSpan="3" className="px-2 py-1 text-xs font-medium text-gray-900 text-right">
-                        Total Amount:
-                      </td>
+                      <td colSpan="3" className="px-2 py-1 text-xs font-medium text-gray-900 text-right">Total Amount:</td>
                       <td className="px-2 py-1 text-base font-bold text-primary">₹{formatNumber(selectedViewPackage.total_amount)}</td>
                     </tr>
                   </tfoot>
@@ -1852,7 +1715,9 @@ const Booking = () => {
                 </div>
                 <div>
                   <div className="text-xs text-gray-600 mb-0.5">Balance Due</div>
-                  <div className="text-xl font-bold text-orange-600">₹{formatNumber((selectedViewPackage.total_amount || 0) - (selectedViewPackage.paid_amount || 0))}</div>
+                  <div className="text-xl font-bold text-orange-600">
+                    ₹{formatNumber((selectedViewPackage.total_amount || 0) - (selectedViewPackage.paid_amount || 0))}
+                  </div>
                 </div>
               </div>
             </div>
