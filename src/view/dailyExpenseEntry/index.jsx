@@ -45,18 +45,18 @@ import {
 
 const ExpenseCalculation = () => {
     const dispatch = useDispatch();
-    
+
     // Get access permissions
     const loginInfo = localStorage.getItem('loginInfo');
     const localData = JSON.parse(loginInfo);
     const accessIds = getAccessIdsByLabel(localData?.pagePermission || [], 'Daily Expense Entry');
-    
+
     // Permission checks
     const canCreate = _.includes(accessIds, '2');
     const canEdit = _.includes(accessIds, '3');
     const canDelete = _.includes(accessIds, '4');
     const canPay = _.includes(accessIds, '10');
-    
+
     // Format date functions
     const formatDisplayDate = (date) => {
         if (!date) return '';
@@ -123,13 +123,13 @@ const ExpenseCalculation = () => {
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
     const [openingBalanceType, setOpeningBalanceType] = useState('IN'); // 'IN' or 'OUT'
-    
+
     // Local state
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [selectedOfficeCenter, setSelectedOfficeCenter] = useState(null);
     const [openingBalances, setOpeningBalances] = useState([]);
     const [expenses, setExpenses] = useState([]);
-    
+
     // Form states
     const [openingBalanceForm, setOpeningBalanceForm] = useState({
         date: '',
@@ -138,7 +138,7 @@ const ExpenseCalculation = () => {
         openingBalance: '',
         notes: ''
     });
-    
+
     const [expenseForm, setExpenseForm] = useState({
         expenseTypeId: '',
         amount: '',
@@ -151,7 +151,7 @@ const ExpenseCalculation = () => {
             notes: ''
         }
     });
-    
+
     const [paymentForm, setPaymentForm] = useState({
         expenseId: '',
         paymentDate: '',
@@ -159,21 +159,21 @@ const ExpenseCalculation = () => {
         paymentType: 'cash',
         notes: ''
     });
-    
+
     // Edit states
     const [isEditOpeningBalance, setIsEditOpeningBalance] = useState(false);
     const [selectedOpeningBalanceItem, setSelectedOpeningBalanceItem] = useState(null);
     const [selectedExpenseForPayment, setSelectedExpenseForPayment] = useState(null);
-    
+
     // Form errors
     const [openingBalanceErrors, setOpeningBalanceErrors] = useState({});
     const [expenseErrors, setExpenseErrors] = useState({});
     const [paymentErrors, setPaymentErrors] = useState({});
-    
+
     // Pagination
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
-    
+
     // Filters
     const [filters, setFilters] = useState({
         expenseTypeId: null,
@@ -401,7 +401,7 @@ const ExpenseCalculation = () => {
             } else if (expenseData.data && expenseData.data.data && Array.isArray(expenseData.data.data)) {
                 sourceData = expenseData.data.data;
             }
-            
+
             if (sourceData.length > 0) {
                 let filtered = [...sourceData];
                 
@@ -800,7 +800,7 @@ const ExpenseCalculation = () => {
     const handlePaymentSubmit = (e) => {
         e.preventDefault();
         if (!validatePaymentForm()) return;
-
+        
         const requestData = {
             expenseId: paymentForm.expenseId,
             paymentDate: paymentForm.paymentDate,
@@ -1477,91 +1477,78 @@ const ExpenseCalculation = () => {
                                 />
                             </div>
                         </div>
-                        
-                        {/* Payment Toggle - Only show if user has pay permission */}
-                        {canPay && (
-                            <>
-                                <div className="flex items-center mt-4">
-                                    <input
-                                        type="checkbox"
-                                        id="hasPayment"
-                                        className="form-checkbox h-4 w-4 text-primary"
-                                        checked={expenseForm.hasPayment}
-                                        onChange={(e) => setExpenseForm(prev => ({ 
-                                            ...prev, 
-                                            hasPayment: e.target.checked,
-                                            payment: {
-                                                ...prev.payment,
-                                                paymentDate: formatInputDate(selectedDate),
-                                            }
-                                        }))}
-                                    />
-                                    <label htmlFor="hasPayment" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                        Add payment for this expense
-                                    </label>
-                                </div>
 
-                                {/* Payment Fields */}
-                                {expenseForm.hasPayment && (
-                                    <div className="border-t pt-4 mt-4">
-                                        <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Payment Details</h6>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label>Payment Date</label>
-                                                <input
-                                                    type="date"
-                                                    name="payment.paymentDate"
-                                                    className="form-input"
-                                                    value={expenseForm.payment.paymentDate}
-                                                    onChange={handleExpenseInputChange}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label>Payment Amount</label>
-                                                <input
-                                                    type="number"
-                                                    name="payment.amount"
-                                                    className="form-input"
-                                                    placeholder="Enter amount"
-                                                    value={expenseForm.payment.amount}
-                                                    onChange={handleExpenseInputChange}
-                                                    min="0"
-                                                    step="0.01"
-                                                    max={expenseForm.amount || 0}
-                                                />
-                                            </div>
-                                            <div>
-                                                <label>Payment Type</label>
-                                                <select
-                                                    name="payment.paymentType"
-                                                    className="form-select"
-                                                    value={expenseForm.payment.paymentType}
-                                                    onChange={handleExpenseInputChange}
-                                                >
-                                                    <option value="cash">Cash</option>
-                                                    <option value="gpay">GPay</option>
-                                                    <option value="bank_transfer">Bank Transfer</option>
-                                                    <option value="cheque">Cheque</option>
-                                                    <option value="other">Other</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label>Payment Notes</label>
-                                                <input
-                                                    type="text"
-                                                    name="payment.notes"
-                                                    className="form-input"
-                                                    placeholder="Enter notes"
-                                                    value={expenseForm.payment.notes}
-                                                    onChange={handleExpenseInputChange}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                        
+{/* Payment Toggle - Inline with payment fields */}
+{canPay && (
+    <div className="border-t pt-4 mt-4">
+        <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Payment Details</h6>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            <div className="flex items-center h-full">
+                <input
+                    type="checkbox"
+                    id="hasPayment"
+                    className="form-checkbox h-4 w-4 text-primary"
+                    checked={expenseForm.hasPayment}
+                    onChange={(e) => setExpenseForm(prev => ({
+                        ...prev,
+                        hasPayment: e.target.checked,
+                        payment: {
+                            ...prev.payment,
+                            paymentDate: formatInputDate(selectedDate),
+                        }
+                    }))}
+                />
+                <label htmlFor="hasPayment" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    Add payment
+                </label>
+            </div>
+            
+            {expenseForm.hasPayment && (
+                <>
+                    <div>
+                        <label>Payment Date</label>
+                        <input
+                            type="date"
+                            name="payment.paymentDate"
+                            className="form-input"
+                            value={expenseForm.payment.paymentDate}
+                            onChange={handleExpenseInputChange}
+                        />
+                    </div>
+                    <div>
+                        <label>Payment Amount</label>
+                        <input
+                            type="number"
+                            name="payment.amount"
+                            className="form-input"
+                            placeholder="Enter amount"
+                            value={expenseForm.payment.amount}
+                            onChange={handleExpenseInputChange}
+                            min="0"
+                            step="0.01"
+                            max={expenseForm.amount || 0}
+                        />
+                    </div>
+                    <div>
+                        <label>Payment Type</label>
+                        <select
+                            name="payment.paymentType"
+                            className="form-select"
+                            value={expenseForm.payment.paymentType}
+                            onChange={handleExpenseInputChange}
+                        >
+                            <option value="cash">Cash</option>
+                            <option value="gpay">GPay</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="cheque">Cheque</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                </>
+            )}
+        </div>
+    </div>
+)}
                         <div className="flex justify-end space-x-2 mt-6">
                             <button
                                 type="button"
@@ -1603,6 +1590,10 @@ const ExpenseCalculation = () => {
                             <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg mb-4">
                                 <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">Expense Details</div>
                                 <div className="flex justify-between">
+                                    <span>Expense Type:</span>
+                                    <span className="font-semibold">{selectedExpenseForPayment.expenseType?.expence_type_name || '-'}</span>
+                                </div>
+                                <div className="flex justify-between">
                                     <span>Total Amount:</span>
                                     <span className="font-semibold">₹{parseFloat(selectedExpenseForPayment.amount || 0).toLocaleString('en-IN')}</span>
                                 </div>
@@ -1619,7 +1610,8 @@ const ExpenseCalculation = () => {
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Inline form - all fields in one row */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label>Payment Date <span className="text-danger">*</span></label>
                                 <input
@@ -1633,7 +1625,7 @@ const ExpenseCalculation = () => {
                                     <div className="text-danger text-sm mt-1">{paymentErrors.paymentDate}</div>
                                 )}
                             </div>
-                            
+
                             <div>
                                 <label>Payment Amount (₹) <span className="text-danger">*</span></label>
                                 <input
@@ -1651,7 +1643,7 @@ const ExpenseCalculation = () => {
                                     <div className="text-danger text-sm mt-1">{paymentErrors.amount}</div>
                                 )}
                             </div>
-                            
+
                             <div>
                                 <label>Payment Type <span className="text-danger">*</span></label>
                                 <select
@@ -1667,35 +1659,24 @@ const ExpenseCalculation = () => {
                                     <option value="other">Other</option>
                                 </select>
                             </div>
-                            
-                            <div>
-                                <label>Notes</label>
-                                <textarea
-                                    name="notes"
-                                    className="form-textarea"
-                                    placeholder="Enter notes (optional)"
-                                    rows="3"
-                                    value={paymentForm.notes}
-                                    onChange={handlePaymentInputChange}
-                                />
+
+                            <div className="flex items-end">
+                                <div className="flex space-x-2 w-full">
+                                    <button
+                                        type="button"
+                                        onClick={resetPaymentForm}
+                                        className="btn btn-outline-secondary flex-1"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary flex-1"
+                                    >
+                                        {expensePaymentReduxState.loading ? 'Processing...' : 'Add Payment'}
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        
-                        <div className="flex justify-end space-x-2 mt-6">
-                            <button
-                                type="button"
-                                onClick={resetPaymentForm}
-                                className="btn btn-outline-secondary"
-                            >
-                                Close
-                            </button>
-                            <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={expensePaymentReduxState.loading}
-                            >
-                                {expensePaymentReduxState.loading ? 'Processing...' : 'Add Payment'}
-                            </button>
                         </div>
                     </form>
                 </div>
@@ -1725,7 +1706,6 @@ const ExpenseCalculation = () => {
                                 type="button"
                                 className="btn btn-success btn-sm"
                                 onClick={openAddExpenseForm}
-                                disabled={!selectedOfficeCenter}
                             >
                                 <IconPlus className="w-4 h-4 mr-1" />
                                 Add Expense
@@ -1733,7 +1713,7 @@ const ExpenseCalculation = () => {
                         )}
                     </div>
                 </div>
-                
+
                 {/* Show active filters */}
                 {(filters.expenseTypeId || filters.isPaid !== null) && (
                     <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded">
@@ -1759,7 +1739,7 @@ const ExpenseCalculation = () => {
                         </div>
                     </div>
                 )}
-                
+
                 <div className="p-4">
                     {expenseLoading ? (
                         <div className="flex items-center justify-center h-64">
