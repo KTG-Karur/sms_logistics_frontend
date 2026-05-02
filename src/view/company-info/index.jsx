@@ -3,14 +3,10 @@ import { Badge, Button, Card, Spinner } from 'react-bootstrap';
 import FormLayout from '../../util/formLayout';
 import { useDispatch, useSelector } from 'react-redux';
 import { employeeFormContainer } from './formFieldData';
-import { findArrObj, showMessage , getAccessIdsByLabel } from '../../util/AllFunction';
+import { findArrObj, showMessage, getAccessIdsByLabel } from '../../util/AllFunction';
 import { getCompany, resetCompanyStatus, updateCompany } from '../../redux/companySlice';
 import moment from 'moment';
 import { baseURL } from '../../api/ApiConfig';
-import { createUplode, resetUplodeStatus } from '../../redux/uplodeSlice';
-import _ from 'lodash';
-
-let isEdit = false;
 
 function Index() {
     const loginInfo = localStorage.getItem('loginInfo');
@@ -19,23 +15,12 @@ function Index() {
     const roleIdforRole = localData?.roleName;
     const dispatch = useDispatch();
 
-    const { getCompanySuccess, companyData, getCompanyFailed, updateCompanySuccess, updateCompanyFailed, errorMessage } = useSelector((state) => ({
-        getCompanySuccess: state.ComapnySlice.getCompanySuccess,
-        companyData: state.ComapnySlice.companyData,
-        getCompanyFailed: state.ComapnySlice.getCompanyFailed,
-
-        updateCompanySuccess: state.ComapnySlice.updateCompanySuccess,
-        updateCompanyFailed: state.ComapnySlice.updateCompanyFailed,
-
-        errorMessage: state.ComapnySlice.errorMessage,
-    }));
-
-    const { error, uplodes, loading, createUplodeSuccess, createUplodeFailed } = useSelector((state) => ({
-        error: state.UplodeSlice.error,
-        uplodes: state.UplodeSlice.uplodes,
-        loading: state.UplodeSlice.loading,
-        createUplodeSuccess: state.UplodeSlice.createUplodeSuccess,
-        createUplodeFailed: state.UplodeSlice.createUplodeFailed,
+    const { getCompanySuccess, companyData, getCompanyFailed, updateCompanySuccess, updateCompanyFailed } = useSelector((state) => ({
+        getCompanySuccess: state.ComapnySlice?.getCompanySuccess,
+        companyData: state.ComapnySlice?.companyData,
+        getCompanyFailed: state.ComapnySlice?.getCompanyFailed,
+        updateCompanySuccess: state.ComapnySlice?.updateCompanySuccess,
+        updateCompanyFailed: state.ComapnySlice?.updateCompanyFailed,
     }));
 
     const [state, setState] = useState({
@@ -47,7 +32,7 @@ function Index() {
         companyAddressOne: '',
         companyGstNo: '',
         companyAddressTwo: '',
-        companyLogo: '',
+        companyLogo: null,
         logoPreview: '',
         userId: '',
         userName: '',
@@ -56,103 +41,72 @@ function Index() {
     });
     const [isLoading, setIsLoading] = useState(false);
     const [errors, setErrors] = useState([]);
-    const [showPassword, setShowPassword] = useState(false);
-    const [showUserName, setShowUserName] = useState(false);
 
     const errorHandle = useRef();
 
-    // Check if user has update permission (Super Admin or has edit access)
+    // Check if user has update permission (Super Admin only)
     const canUpdate = roleIdforRole === 'Super Admin';
 
     useEffect(() => {
         setIsLoading(true);
-        dispatch(getCompany());
+        dispatch(getCompany({}));
     }, []);
 
     useEffect(() => {
         if (getCompanySuccess) {
-            dispatch(resetCompanyStatus());
             setIsLoading(false);
-            const companyDataItem = companyData?.data[0];
+            const companyDataItem = companyData?.data?.[0] || companyData?.[0];
 
-            setState({
-                companyId: companyDataItem?.companyId || '',
-                companyName: companyDataItem?.companyName || '',
-                companyMobile: companyDataItem?.companyMobile || '',
-                companyAltMobile: companyDataItem?.companyAltMobile || '',
-                companyMail: companyDataItem?.companyMail || '',
-                companyAddressOne: companyDataItem?.companyAddressOne || '',
-                companyGstNo: companyDataItem?.companyGstNo || '',
-                companyAddressTwo: companyDataItem?.companyAddressTwo || '',
-                companyLogo: companyDataItem?.companyLogo ? [companyDataItem?.companyLogo] : [],
-                logoPreview: companyDataItem?.companyLogo ? `${baseURL}${companyDataItem?.companyLogo}` : '',
-                userId: companyDataItem?.userId || '',
-                userName: companyDataItem?.userName || '',
-                password: companyDataItem?.password || '',
-                updatedAt: companyDataItem?.updatedAt || null,
-            });
+            if (companyDataItem) {
+                // Handle logo preview URL
+                let logoPreviewUrl = '';
+                if (companyDataItem.companyLogo) {
+                    // Check if it's a full URL or relative path
+                    if (companyDataItem.companyLogo.startsWith('http')) {
+                        logoPreviewUrl = companyDataItem.companyLogo;
+                    } else {
+                        logoPreviewUrl = `${baseURL}${companyDataItem.companyLogo}`;
+                    }
+                }
+
+                setState({
+                    companyId: companyDataItem.companyId || companyDataItem.company_id || '',
+                    companyName: companyDataItem.companyName || companyDataItem.company_name || '',
+                    companyMobile: companyDataItem.companyMobile || companyDataItem.company_mobile || '',
+                    companyAltMobile: companyDataItem.companyAltMobile || companyDataItem.company_alt_mobile || '',
+                    companyMail: companyDataItem.companyMail || companyDataItem.company_mail || '',
+                    companyAddressOne: companyDataItem.companyAddressOne || companyDataItem.company_address_one || '',
+                    companyGstNo: companyDataItem.companyGstNo || companyDataItem.company_gst_no || '',
+                    companyAddressTwo: companyDataItem.companyAddressTwo || companyDataItem.company_address_two || '',
+                    companyLogo: null,
+                    logoPreview: logoPreviewUrl,
+                    userId: companyDataItem.userId || companyDataItem.user_id || '',
+                    userName: companyDataItem.userName || companyDataItem.user_name || '',
+                    password: companyDataItem.password || '',
+                    updatedAt: companyDataItem.updatedAt || null,
+                });
+            }
             dispatch(resetCompanyStatus());
         } else if (getCompanyFailed) {
             setIsLoading(false);
             dispatch(resetCompanyStatus());
+            showMessage('error', 'Failed to load company information');
         }
     }, [getCompanySuccess, getCompanyFailed]);
 
     useEffect(() => {
         if (updateCompanySuccess) {
-            if (state.companyLogo && state.companyLogo instanceof File) {
-                const formData = new FormData();
-                const originalFile = state.companyLogo;
-
-                const renamedFile = new File([originalFile], `Ashok-Finance-logo-${Date.now()}-${originalFile.name || 'logo'}`, {
-                    type: originalFile.type,
-                });
-                formData.append('company', renamedFile);
-                dispatch(createUplode({ request: formData, id: state?.companyId }));
-            } else {
-                showMessage('success', 'Company data updated successfully');
-                dispatch(getCompany());
-                dispatch(resetCompanyStatus());
-            }
+            showMessage('success', 'Company information updated successfully');
+            dispatch(getCompany({}));
             dispatch(resetCompanyStatus());
         } else if (updateCompanyFailed) {
-            showMessage('warning', errorMessage);
+            showMessage('error', 'Failed to update company information');
             dispatch(resetCompanyStatus());
         }
     }, [updateCompanySuccess, updateCompanyFailed]);
 
-    useEffect(() => {
-        if (createUplodeSuccess) {
-            showMessage('success', 'Company logo uploaded successfully');
-            dispatch(resetUplodeStatus());
-            dispatch(getCompany());
-            dispatch(resetCompanyStatus());
-        } else if (createUplodeFailed) {
-            showMessage('warning', 'Logo upload failed, but company data was updated');
-            dispatch(getCompany());
-            dispatch(resetUplodeStatus());
-            dispatch(resetCompanyStatus());
-        }
-    }, [createUplodeSuccess, createUplodeFailed]);
-
     const onFormClear = () => {
         setErrors([]);
-        setState({
-            companyId: '',
-            companyName: '',
-            companyMobile: '',
-            companyAltMobile: '',
-            companyMail: '',
-            companyAddressOne: '',
-            companyGstNo: '',
-            companyAddressTwo: '',
-            companyLogo: '',
-            logoPreview: '',
-            userId: '',
-            userName: '',
-            password: '',
-            updatedAt: null,
-        });
     };
 
     const handleValidation = () => {
@@ -160,7 +114,9 @@ function Index() {
             showMessage('warning', 'You do not have permission to update company information');
             return;
         }
-        errorHandle.current.validateFormFields();
+        if (errorHandle.current) {
+            errorHandle.current.validateFormFields();
+        }
     };
 
     const onFormSubmit = async () => {
@@ -169,25 +125,31 @@ function Index() {
             return;
         }
 
-        const submitRequest = {
-            companyName: state?.companyName || '',
-            companyMobile: state?.companyMobile || '',
-            companyAltMobile: state?.companyAltMobile || '',
-            companyMail: state?.companyMail || '',
-            companyAddressOne: state?.companyAddressOne || '',
-            companyAddressTwo: state?.companyAddressTwo || '',
-            companyGstNo: state?.companyGstNo || '',
-            userId: state?.userId || '',
-            userName: state?.userName || '',
-            password: state?.password || '',
-        };
+        // Create FormData for multipart upload
+        const formData = new FormData();
+        
+        formData.append('companyName', state?.companyName || '');
+        formData.append('companyMobile', state?.companyMobile || '');
+        formData.append('companyAltMobile', state?.companyAltMobile || '');
+        formData.append('companyMail', state?.companyMail || '');
+        formData.append('companyAddressOne', state?.companyAddressOne || '');
+        formData.append('companyAddressTwo', state?.companyAddressTwo || '');
+        formData.append('companyGstNo', state?.companyGstNo || '');
+        formData.append('userId', state?.userId || '');
+        formData.append('userName', state?.userName || '');
+        
+        if (state?.password) {
+            formData.append('password', state?.password);
+        }
+        
+        if (state?.companyLogo && state.companyLogo instanceof File) {
+            formData.append('companyLogo', state.companyLogo);
+        }
 
-        dispatch(
-            updateCompany({
-                request: submitRequest,
-                companyInfoId: state?.companyId,
-            })
-        );
+        dispatch(updateCompany({
+            request: formData,
+            companyInfoId: state?.companyId
+        }));
     };
 
     const formImage = async (e, formName, formField) => {
@@ -200,81 +162,94 @@ function Index() {
             const file = e[0].file;
             const imageURL = e[0].dataURL;
 
-            setState((prevState) => {
-                const newState = {
-                    ...prevState,
-                    companyLogo: file,
-                    logoPreview: imageURL,
-                };
-                return newState;
-            });
+            setState((prevState) => ({
+                ...prevState,
+                companyLogo: file,
+                logoPreview: imageURL,
+            }));
         } else if (e === null || e === undefined || (Array.isArray(e) && e.length === 0)) {
             setState((prevState) => ({
                 ...prevState,
-                companyLogo: '',
+                companyLogo: null,
                 logoPreview: '',
             }));
-        } else {
-            console.log(' Unknown format received:', e);
         }
     };
 
-    const togglePasswordVisibility = () => {
-        setShowPassword(!showPassword);
-    };
-
-    const toggleUserNameVisibility = () => {
-        setShowUserName(!showUserName);
-    };
-
     // Mask sensitive data for non-Super Admin users
-    const maskSensitiveData = (value) => {
+    const getMaskedValue = (value) => {
         if (!value) return '';
         if (roleIdforRole === 'Super Admin') return value;
         
-        // Mask the value (show only first and last character if length > 2)
+        // Mask the value for non-admin users
         if (value.length <= 2) return '*'.repeat(value.length);
         return value.charAt(0) + '*'.repeat(value.length - 2) + value.charAt(value.length - 1);
     };
 
+    if (isLoading) {
+        return (
+            <div className="bg-light opacity-0.25">
+                <div className="d-flex justify-content-center m-5">
+                    <Spinner className="mt-5 mb-5" animation="border" />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <React.Fragment>
-            {isLoading ? (
-                <div className="bg-light opacity-0.25">
-                    <div className="d-flex justify-content-center m-5">
-                        <Spinner className="mt-5 mb-5" animation="border" />
-                    </div>
-                </div>
-            ) : (
-                <Card>
-                    <Card.Body>
-                        {/* Display role information */}
-                        {roleIdforRole !== 'Super Admin' && (
-                            <div className="alert alert-info mb-3">
-                                <i className="fas fa-info-circle mr-2"></i>
-                                You are viewing company information in read-only mode. Contact Super Admin for updates.
-                            </div>
-                        )}
+            <Card>
+                <Card.Body>
+                    {/* Display role information */}
+                    {!canUpdate && (
+                        <div className="alert alert-info mb-3">
+                            <i className="fas fa-info-circle mr-2"></i>
+                            You are viewing company information in read-only mode. Contact Super Admin for updates.
+                        </div>
+                    )}
 
-                        <FormLayout
-                            dynamicForm={employeeFormContainer}
-                            handleSubmit={onFormSubmit}
-                            setState={setState}
-                            state={state}
-                            ref={errorHandle}
-                            onClickCallBack={{
-                                formUpdate: handleValidation,
-                                onFormClear: onFormClear,
-                            }}
-                            onChangeCallBack={{ formImage: formImage }}
-                            noOfColumns={1}
-                            errors={errors}
-                            setErrors={setErrors}
-                            readOnly={!canUpdate} // Make form read-only if user cannot update
-                        />
-                    </Card.Body>
-                </Card>
-            )}
+                    {/* Logo Preview Card */}
+                    {state.logoPreview && (
+                        <div className="mb-4 p-3 border rounded bg-light">
+                            <div className="d-flex align-items-center">
+                                <div className="mr-3">
+                                    <img 
+                                        src={state.logoPreview} 
+                                        alt="Company Logo" 
+                                        crossOrigin="anonymous"
+                                        style={{ maxWidth: '100px', maxHeight: '100px', objectFit: 'contain' }}
+                                        className="rounded"
+                                    />
+                                </div>
+                                <div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <FormLayout
+                        dynamicForm={employeeFormContainer}
+                        handleSubmit={onFormSubmit}
+                        setState={setState}
+                        state={{
+                            ...state,
+                            // Mask sensitive data for non-admin users in display
+                            userName: !canUpdate && state.userName ? getMaskedValue(state.userName) : state.userName,
+                            password: !canUpdate && state.password ? getMaskedValue(state.password) : state.password,
+                        }}
+                        ref={errorHandle}
+                        onClickCallBack={{
+                            formUpdate: handleValidation,
+                            onFormClear: onFormClear,
+                        }}
+                        onChangeCallBack={{ formImage: formImage }}
+                        noOfColumns={1}
+                        errors={errors}
+                        setErrors={setErrors}
+                        readOnly={!canUpdate}
+                    />
+                </Card.Body>
+            </Card>
         </React.Fragment>
     );
 }

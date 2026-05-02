@@ -2,7 +2,8 @@ import { Navigate } from 'react-router-dom';
 import { apiReturnCallBack } from './ApiConfig';
 import apiContainer from './apiContainer';
 const companyInfo = apiContainer.companyInfo;
-//GET--->
+
+// GET--->
 export async function getCompanyInfo(request) {
     try {
         const response = await apiReturnCallBack('GET', companyInfo, request);
@@ -22,10 +23,10 @@ export async function getCompanyInfo(request) {
     }
 }
 
-//UPDATE---->
+// UPDATE with file upload support
 export async function updateCompanyInfo(request, companyInfoId) {
     try {
-        const response = await apiReturnCallBack('PUT', companyInfo + `/${companyInfoId}`, request);
+        const response = await apiReturnCallBack('FORMPUT', companyInfo + `/${companyInfoId}`, request);
         const data = await response.json();
         if (!response.ok) {
             if (data.code == 401) {

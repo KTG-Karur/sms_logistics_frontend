@@ -11,6 +11,7 @@ import IconUsers from '../../../components/Icon/IconUsers';
 import IconReceipt from '../../../components/Icon/IconReceipt';
 import IconBuilding from '../../../components/Icon/IconBuilding';
 import IconX from '../../../components/Icon/IconX';
+import IconPieChart from '../../../components/Icon/IconPieChart';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
@@ -43,6 +44,8 @@ const ProfitLossReport = () => {
     // Modal states
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [showExpenseModal, setShowExpenseModal] = useState(false);
+    const [selectedExpenseType, setSelectedExpenseType] = useState(null);
 
     useEffect(() => {
         dispatch(setPageTitle('Profit & Loss Report'));
@@ -135,12 +138,30 @@ const ProfitLossReport = () => {
         setShowCustomerModal(true);
     };
 
+    const handleViewExpenseDetails = (expenseType) => {
+        if (!reportData || !expenseType) return;
+        
+        const expenses = reportData.transactions?.expenses?.filter(
+            exp => exp.expense_type === expenseType.expense_type
+        ) || [];
+        
+        setSelectedExpenseType({
+            name: expenseType.expense_type,
+            total: expenseType.total,
+            count: expenseType.count,
+            expenses: expenses
+        });
+        setShowExpenseModal(true);
+    };
+
     const closeModal = () => {
         setShowCustomerModal(false);
         setSelectedCustomer(null);
+        setShowExpenseModal(false);
+        setSelectedExpenseType(null);
     };
 
-    // Prepare ledger entries for the report (only individual transactions)
+    // Prepare ledger entries for the report
     const prepareLedgerEntries = () => {
         if (!reportData) return [];
 
@@ -153,8 +174,22 @@ const ProfitLossReport = () => {
                     name: payment.customer?.name || 'Customer Payment',
                     credit: parseFloat(payment.amount),
                     debit: 0,
-                    remarks: `${payment.mode?.toUpperCase()} | Booking: ${payment.booking?.number || 'N/A'}`,
+                    remarks: `${payment.payment_mode_label} | Booking: ${payment.booking?.number || 'N/A'}`,
                     payment_number: payment.payment_number,
+                    type: 'payment'
+                });
+            });
+        }
+
+        // Add all extra income
+        if (reportData.transactions?.extra_incomes?.length > 0) {
+            reportData.transactions.extra_incomes.forEach((income) => {
+                entries.push({
+                    name: 'Extra Income',
+                    credit: parseFloat(income.amount),
+                    debit: 0,
+                    remarks: `${income.income_type_label} | ${income.description || 'No description'}`,
+                    type: 'extra_income'
                 });
             });
         }
@@ -163,10 +198,11 @@ const ProfitLossReport = () => {
         if (reportData.transactions?.expenses?.length > 0) {
             reportData.transactions.expenses.forEach((expense) => {
                 entries.push({
-                    name: expense.type || 'Expense',
+                    name: expense.expense_type || 'Expense',
                     credit: 0,
                     debit: parseFloat(expense.amount),
-                    remarks: expense.description || expense.notes || '',
+                    remarks: `${expense.payment_type_label} | ${expense.description || expense.notes || 'No description'}`,
+                    type: 'expense'
                 });
             });
         }
@@ -180,6 +216,7 @@ const ProfitLossReport = () => {
                     credit: parseFloat(investment.amount),
                     debit: 0,
                     remarks: investment.center?.name || '',
+                    type: 'investment'
                 });
             });
         }
@@ -193,6 +230,7 @@ const ProfitLossReport = () => {
                     credit: 0,
                     debit: parseFloat(withdrawal.amount),
                     remarks: withdrawal.center?.name || '',
+                    type: 'withdrawal'
                 });
             });
         }
@@ -206,13 +244,16 @@ const ProfitLossReport = () => {
         
         const summary = [];
         
-        // Total Payments
+        // Total Payments (Including Extra Income)
         const totalPayments = parseFloat(reportData.summary?.total_payment_amount || 0);
+        const totalExtraIncome = parseFloat(reportData.summary?.total_extra_income_amount || 0);
+        const totalIncome = totalPayments + totalExtraIncome;
+        
         summary.push({
-            name: 'TOTAL PAYMENTS',
-            credit: totalPayments,
+            name: 'TOTAL INCOME (Payments + Extra Income)',
+            credit: totalIncome,
             debit: 0,
-            remarks: '-',
+            remarks: `${reportData.summary?.total_payments || 0} payments, ${reportData.summary?.total_extra_income_count || 0} extra income`,
             isBold: true,
         });
         
@@ -222,18 +263,18 @@ const ProfitLossReport = () => {
             name: 'TOTAL EXPENSES',
             credit: 0,
             debit: totalExpenses,
-            remarks: '-',
+            remarks: `${reportData.summary?.total_expense_payments || 0} expense transactions`,
             isBold: true,
         });
         
         // Operational Profit/Loss
         const operationalProfitLoss = Math.abs(parseFloat(reportData.summary?.operational_profit_loss || 0));
-        const isOperationalProfit = operationalProfitLoss >= 0;
+        const isOperationalProfit = parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0;
         summary.push({
             name: 'OPERATIONAL PROFIT/LOSS',
             credit: isOperationalProfit ? operationalProfitLoss : 0,
             debit: !isOperationalProfit ? operationalProfitLoss : 0,
-            remarks: '-',
+            remarks: 'Income - Expenses',
             isBold: true,
         });
         
@@ -246,7 +287,7 @@ const ProfitLossReport = () => {
             name: 'NET INVESTMENT CHANGE',
             credit: netInvestmentChange > 0 ? netInvestmentChange : 0,
             debit: netInvestmentChange < 0 ? Math.abs(netInvestmentChange) : 0,
-            remarks: '-',
+            remarks: 'Investments - Withdrawals',
             isBold: true,
         });
         
@@ -258,7 +299,7 @@ const ProfitLossReport = () => {
             name: 'NET PROFIT/LOSS (Overall)',
             credit: isTotalProfit ? Math.abs(totalProfitLoss) : 0,
             debit: !isTotalProfit ? Math.abs(totalProfitLoss) : 0,
-            remarks: '-',
+            remarks: 'Operational P/L + Investment Change',
             isBold: true,
             isHighlight: true,
         });
@@ -282,7 +323,6 @@ const ProfitLossReport = () => {
             [`Center: ${reportData.center?.name || 'All Centers'}`],
             [`Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
             [],
-            ['Opening Balance', formatCurrency(openingBalance), `As of ${reportData.opening_balance?.as_of_date || 'previous day'}`],
             [],
             ['Particulars', 'Credit (₹)', 'Debit (₹)', 'Remarks'],
             [],
@@ -317,7 +357,36 @@ const ProfitLossReport = () => {
 
         XLSX.utils.book_append_sheet(wb, ledgerWs, 'Profit & Loss Ledger');
 
-        const fileName = `Profit-Loss-Ledger-${moment(selectedDate).format('DD-MM-YYYY')}-${(reportData.center?.name || 'All-Centers').replace(/\s+/g, '-')}.xlsx`;
+        // Summary Sheet with Breakdowns
+        const summarySheetData = [
+            ['PROFIT & LOSS SUMMARY'],
+            [],
+            ['PAYMENT BREAKDOWN BY TYPE'],
+            ['Type', 'Amount (₹)', 'Count'],
+            ...(reportData.summary?.payment_breakdown_by_type || []).map(item => [item.label, item.amount, item.count]),
+            [],
+            ['PAYMENT BREAKDOWN BY MODE'],
+            ['Mode', 'Amount (₹)', 'Count'],
+            ...(reportData.summary?.payment_breakdown_by_mode || []).map(item => [item.label, item.amount, item.count]),
+            [],
+            ['EXTRA INCOME BREAKDOWN'],
+            ['Type', 'Amount (₹)', 'Count'],
+            ...(reportData.summary?.extra_income_breakdown_by_type || []).map(item => [item.label, item.amount, item.count]),
+            [],
+            ['EXPENSE BREAKDOWN BY PAYMENT TYPE'],
+            ['Payment Type', 'Amount (₹)', 'Count'],
+            ...(reportData.summary?.expense_breakdown_by_payment_type || []).map(item => [item.label, item.amount, item.count]),
+            [],
+            ['EXPENSE BREAKDOWN BY EXPENSE TYPE'],
+            ['Expense Type', 'Amount (₹)', 'Count'],
+            ...(reportData.summary?.expense_breakdown_by_expense_type || []).map(item => [item.expense_type, item.amount, item.count]),
+        ];
+
+        const summaryWs = XLSX.utils.aoa_to_sheet(summarySheetData);
+        summaryWs['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 10 }];
+        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary Breakdown');
+
+        const fileName = `Profit-Loss-${moment(selectedDate).format('DD-MM-YYYY')}-${(reportData.center?.name || 'All-Centers').replace(/\s+/g, '-')}.xlsx`;
         XLSX.writeFile(wb, fileName);
     };
 
@@ -529,6 +598,233 @@ const ProfitLossReport = () => {
                 )}
             </div>
 
+            {/* Summary Cards */}
+            {reportData && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-green-700 text-sm font-medium">Total Income</p>
+                                <p className="text-2xl font-bold text-green-800">{formatCurrency(reportData.summary?.total_income || 0)}</p>
+                            </div>
+                            <IconMoney className="w-10 h-10 text-green-600 opacity-50" />
+                        </div>
+                        <div className="mt-2 text-xs text-green-600">
+                            {reportData.summary?.total_payments || 0} Payments | {reportData.summary?.total_extra_income_count || 0} Extra Income
+                        </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-red-700 text-sm font-medium">Total Expenses</p>
+                                <p className="text-2xl font-bold text-red-800">{formatCurrency(reportData.summary?.total_expense_amount || 0)}</p>
+                            </div>
+                            <IconReceipt className="w-10 h-10 text-red-600 opacity-50" />
+                        </div>
+                        <div className="mt-2 text-xs text-red-600">
+                            {reportData.summary?.total_expense_payments || 0} Transactions
+                        </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-blue-700 text-sm font-medium">Operational P/L</p>
+                                <p className={`text-2xl font-bold ${parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                    {formatCurrency(Math.abs(reportData.summary?.operational_profit_loss || 0))}
+                                </p>
+                            </div>
+                            {parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? (
+                                <IconTrendingUp className="w-10 h-10 text-green-600 opacity-50" />
+                            ) : (
+                                <IconTrendingDown className="w-10 h-10 text-red-600 opacity-50" />
+                            )}
+                        </div>
+                        <div className="mt-2 text-xs text-blue-600">
+                            Income - Expenses
+                        </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-purple-700 text-sm font-medium">Net Investment</p>
+                                <p className={`text-2xl font-bold ${parseFloat(reportData.summary?.net_investment_change || 0) >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                                    {formatCurrency(Math.abs(reportData.summary?.net_investment_change || 0))}
+                                </p>
+                            </div>
+                            <IconPieChart className="w-10 h-10 text-purple-600 opacity-50" />
+                        </div>
+                        <div className="mt-2 text-xs text-purple-600">
+                            Investments: {formatCurrency(reportData.summary?.total_investments || 0)} | Withdrawals: {formatCurrency(reportData.summary?.total_withdrawals || 0)}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Breakdown Sections */}
+            {reportData && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    {/* Payment Breakdown */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
+                            <h3 className="text-lg font-semibold text-blue-800">Payment Breakdown</h3>
+                        </div>
+                        <div className="p-4">
+                            <div className="mb-4">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">By Payment Type</h4>
+                                <div className="space-y-2">
+                                    {(reportData.summary?.payment_breakdown_by_type || []).map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                            <div className="text-right">
+                                                <span className="text-sm font-bold text-green-600">{formatCurrency(item.total)}</span>
+                                                <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">By Payment Mode</h4>
+                                <div className="space-y-2">
+                                    {(reportData.summary?.payment_breakdown_by_mode || []).map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                            <div className="text-right">
+                                                <span className="text-sm font-bold text-green-600">{formatCurrency(item.total)}</span>
+                                                <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Expense Breakdown */}
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="px-6 py-4 bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200">
+                            <h3 className="text-lg font-semibold text-red-800">Expense Breakdown</h3>
+                        </div>
+                        <div className="p-4">
+                            <div className="mb-4">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">By Expense Type</h4>
+                                <div className="space-y-2">
+                                    {(reportData.summary?.expense_breakdown_by_expense_type || []).map((item, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            className="flex justify-between items-center p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100 transition-colors"
+                                            onClick={() => handleViewExpenseDetails(item)}
+                                        >
+                                            <span className="text-sm font-medium text-gray-700">{item.expense_type}</span>
+                                            <div className="text-right">
+                                                <span className="text-sm font-bold text-red-600">{formatCurrency(item.total)}</span>
+                                                <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">By Payment Type</h4>
+                                <div className="space-y-2">
+                                    {(reportData.summary?.expense_breakdown_by_payment_type || []).map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                            <div className="text-right">
+                                                <span className="text-sm font-bold text-red-600">{formatCurrency(item.total)}</span>
+                                                <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Extra Income and Investment Sections */}
+            {reportData && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    {/* Extra Income Breakdown */}
+                    {(reportData.summary?.extra_income_breakdown_by_type?.length > 0 || reportData.transactions?.extra_incomes?.length > 0) && (
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-4 bg-gradient-to-r from-yellow-50 to-yellow-100 border-b border-yellow-200">
+                                <h3 className="text-lg font-semibold text-yellow-800">Extra Income</h3>
+                            </div>
+                            <div className="p-4">
+                                <div className="mb-4">
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">By Income Type</h4>
+                                    <div className="space-y-2">
+                                        {(reportData.summary?.extra_income_breakdown_by_type || []).map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-green-600">{formatCurrency(item.total)}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                {reportData.transactions?.extra_incomes?.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-700 mb-2">Transactions</h4>
+                                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                                            {reportData.transactions.extra_incomes.map((income, idx) => (
+                                                <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded text-sm">
+                                                    <div>
+                                                        <span className="font-medium">{income.income_type_label}</span>
+                                                        {income.description && (
+                                                            <span className="text-gray-500 text-xs ml-2">- {income.description}</span>
+                                                        )}
+                                                    </div>
+                                                    <span className="font-bold text-green-600">{formatCurrency(income.amount)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Investment/Withdrawal Breakdown */}
+                    {(reportData.transactions?.investments?.length > 0) && (
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-purple-100 border-b border-purple-200">
+                                <h3 className="text-lg font-semibold text-purple-800">Investments & Withdrawals</h3>
+                            </div>
+                            <div className="p-4">
+                                <div className="space-y-2">
+                                    {reportData.transactions.investments.map((inv, idx) => (
+                                        <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <div>
+                                                <span className="text-sm font-medium text-gray-700">
+                                                    {inv.type === 'IN' ? 'Investment' : 'Withdrawal'}
+                                                </span>
+                                                {inv.center && (
+                                                    <span className="text-xs text-gray-500 ml-2">- {inv.center.name}</span>
+                                                )}
+                                                {inv.notes && (
+                                                    <span className="text-xs text-gray-400 ml-2">({inv.notes})</span>
+                                                )}
+                                            </div>
+                                            <span className={`text-sm font-bold ${inv.type === 'IN' ? 'text-green-600' : 'text-red-600'}`}>
+                                                {formatCurrency(inv.amount)}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Ledger Report Table */}
             {reportData && (
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
@@ -571,6 +867,18 @@ const ProfitLossReport = () => {
                                 ))}
                             </tbody>
                             <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                {/* Opening Balance Row */}
+                                {/* <tr className="bg-blue-50">
+                                    <td className="px-6 py-3 text-sm font-bold text-gray-900">Opening Balance</td>
+                                    <td className="px-6 py-3 text-sm text-right font-bold text-green-700">
+                                        {formatCurrency(openingBalance)}
+                                    </td>
+                                    <td className="px-6 py-3 text-sm text-right font-bold text-red-700">-</td>
+                                    <td className="px-6 py-3 text-sm text-gray-500">
+                                        As of {reportData.opening_balance?.as_of_date || 'previous day'}
+                                    </td>
+                                </tr> */}
+                                
                                 {summaryData.map((summary, index) => (
                                     <tr 
                                         key={index} 
@@ -590,13 +898,25 @@ const ProfitLossReport = () => {
                                         </td>
                                     </tr>
                                 ))}
+                                
+                                {/* Closing Balance Row */}
+                                {/* <tr className="bg-gray-100 font-bold">
+                                    <td className="px-6 py-3 text-sm font-bold text-gray-900">Closing Balance</td>
+                                    <td className="px-6 py-3 text-sm text-right font-bold text-green-700">
+                                        {formatCurrency(closingBalance)}
+                                    </td>
+                                    <td className="px-6 py-3 text-sm text-right font-bold text-red-700">-</td>
+                                    <td className="px-6 py-3 text-sm text-gray-500">
+                                        As of {reportData.summary?.closing_balance_as_of || selectedDate}
+                                    </td>
+                                </tr> */}
                             </tfoot>
                         </table>
                     </div>
                 </div>
             )}
 
-                {/* Customer Payment Details Modal */}
+            {/* Customer Modal */}
             {showCustomerModal && selectedCustomer && (
                 <div className="fixed inset-0 z-50 overflow-y-auto">
                     <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -654,6 +974,81 @@ const ProfitLossReport = () => {
                                             <IconReceipt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                                             <p className="text-gray-600 text-lg font-medium mb-2">No Payment Details</p>
                                             <p className="text-gray-500 text-sm">This customer has no payment records for the selected date.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <button
+                                    type="button"
+                                    onClick={closeModal}
+                                    className="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Expense Details Modal */}
+            {showExpenseModal && selectedExpenseType && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+                            <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+                        </div>
+
+                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+                            &#8203;
+                        </span>
+
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Expense Details - {selectedExpenseType.name}</h3>
+                                        <p className="text-sm text-gray-600">
+                                            Total: {formatCurrency(selectedExpenseType.total)} | Transactions: {selectedExpenseType.count}
+                                        </p>
+                                    </div>
+                                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                        <IconX className="w-6 h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="mt-4">
+                                    {selectedExpenseType.expenses && selectedExpenseType.expenses.length > 0 ? (
+                                        <div className="overflow-x-auto">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-gray-50">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Payment Type</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Center</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-gray-200">
+                                                    {selectedExpenseType.expenses.map((expense, idx) => (
+                                                        <tr key={idx} className="hover:bg-gray-50">
+                                                            <td className="px-4 py-2 text-sm">{moment(expense.date).format('DD/MM/YYYY')}</td>
+                                                            <td className="px-4 py-2 text-sm text-right font-bold text-red-700">{formatCurrency(expense.amount)}</td>
+                                                            <td className="px-4 py-2 text-sm capitalize">{expense.payment_type_label}</td>
+                                                            <td className="px-4 py-2 text-sm">{expense.center?.name || '-'}</td>
+                                                            <td className="px-4 py-2 text-sm text-gray-500">{expense.description || expense.notes || '-'}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12 bg-gray-50 rounded-lg">
+                                            <IconReceipt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                                            <p className="text-gray-600 text-lg font-medium mb-2">No Expense Details</p>
                                         </div>
                                     )}
                                 </div>

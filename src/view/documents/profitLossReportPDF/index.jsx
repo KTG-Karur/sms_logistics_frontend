@@ -4,7 +4,7 @@ import IconPrinter from '../../../components/Icon/IconPrinter';
 import IconBack from '../../../components/Icon/IconArrowLeft';
 import moment from 'moment';
 
-const AuditReportPDF = () => {
+const ProfitLossPDF = () => {
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -54,13 +54,13 @@ const AuditReportPDF = () => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
-            maximumFractionDigits: 0
+            maximumFractionDigits: 2
         }).format(numAmount);
     };
 
     const formatRupees = (amount) => {
         const numAmount = parseFloat(amount || 0);
-        return `₹${numAmount.toLocaleString('en-IN')}`;
+        return `₹${numAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     };
 
     if (!reportData && entries.length === 0) {
@@ -78,7 +78,7 @@ const AuditReportPDF = () => {
         <div className="p-4 bg-gray-100 min-h-screen">
             {/* Printable Area - PORTRAIT LAYOUT */}
             <div
-                id="audit-report-to-print"
+                id="profit-loss-report-to-print"
                 className="bg-white mx-auto"
                 style={{
                     width: '210mm',
@@ -139,7 +139,7 @@ const AuditReportPDF = () => {
                         {entries.map((entry, index) => (
                             <tr key={index} style={{ pageBreakInside: 'avoid' }}>
                                 <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top' }}>
-                                    <div style={{ fontWeight: entry.isBold ? 'bold' : 'normal' }}>
+                                    <div style={{ fontWeight: entry.isBold ? 'bold' : 'normal', fontSize: entry.type === 'payment' ? '9pt' : '8.5pt' }}>
                                         {entry.name}
                                     </div>
                                     {entry.payment_number && (
@@ -147,6 +147,13 @@ const AuditReportPDF = () => {
                                             #{entry.payment_number}
                                         </div>
                                     )}
+                                    <div style={{ fontSize: '6.5pt', color: '#999', marginTop: '0.5mm' }}>
+                                        {entry.type === 'payment' && 'Income'}
+                                        {entry.type === 'expense' && 'Expense'}
+                                        {entry.type === 'extra_income' && 'Extra Income'}
+                                        {entry.type === 'investment' && 'Investment'}
+                                        {entry.type === 'withdrawal' && 'Withdrawal'}
+                                    </div>
                                 </td>
                                 <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', verticalAlign: 'top', color: '#059669', fontWeight: entry.isBold ? 'bold' : 'normal' }}>
                                     {entry.credit > 0 ? formatRupees(entry.credit) : '-'}
@@ -154,7 +161,7 @@ const AuditReportPDF = () => {
                                 <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', verticalAlign: 'top', color: '#dc2626', fontWeight: entry.isBold ? 'bold' : 'normal' }}>
                                     {entry.debit > 0 ? formatRupees(entry.debit) : '-'}
                                 </td>
-                                <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '8pt' }}>
+                                <td style={{ border: '1px solid #000', padding: '2mm', verticalAlign: 'top', fontSize: '7.5pt' }}>
                                     {entry.remarks || '-'}
                                 </td>
                             </tr>
@@ -174,7 +181,9 @@ const AuditReportPDF = () => {
                     {summaryData.length > 0 && (
                         <tbody>
                             <tr>
-                                <td colSpan="4" style={{ borderTop: '2px solid #000', borderBottom: '1px solid #000', padding: '2mm', backgroundColor: '#f9fafb' }}></td>
+                                <td colSpan="4" style={{ borderTop: '2px solid #000', borderBottom: '1px solid #000', padding: '2mm', backgroundColor: '#f9fafb' }}>
+                                    <strong style={{ fontSize: '9pt' }}>SUMMARY</strong>
+                                </td>
                             </tr>
                             {summaryData.map((summary, index) => (
                                 <tr 
@@ -210,7 +219,7 @@ const AuditReportPDF = () => {
                                     }}>
                                         {summary.debit > 0 ? formatRupees(summary.debit) : '-'}
                                     </td>
-                                    <td style={{ border: '1px solid #000', padding: '2.5mm', fontSize: '8pt' }}>
+                                    <td style={{ border: '1px solid #000', padding: '2.5mm', fontSize: '7.5pt' }}>
                                         {summary.remarks || '-'}
                                     </td>
                                 </tr>
@@ -219,6 +228,140 @@ const AuditReportPDF = () => {
                     )}
                 </table>
 
+                {/* BREAKDOWN SECTIONS */}
+                {reportData && reportData.summary && (
+                    <>
+                        {/* Payment Breakdowns */}
+                        <div style={{ marginBottom: '6mm' }}>
+                            <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '2px solid #000', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr>
+                                        <th colSpan="3" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                                            💰 PAYMENT BREAKDOWN
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td width="50%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#eff6ff' }} colSpan="3">
+                                            By Payment Type
+                                        </td>
+                                    </tr>
+                                    {(reportData.summary?.payment_breakdown_by_type || []).map((item, idx) => (
+                                        <tr key={`type-${idx}`}>
+                                            <td width="60%" style={{ border: '1px solid #000', padding: '2mm' }}>{item.label}</td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
+                                                {formatRupees(item.total)}
+                                            </td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center' }}>
+                                                {item.count} transactions
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    
+                                    <tr>
+                                        <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#eff6ff' }} colSpan="3">
+                                            By Payment Mode
+                                        </td>
+                                    </tr>
+                                    {(reportData.summary?.payment_breakdown_by_mode || []).map((item, idx) => (
+                                        <tr key={`mode-${idx}`}>
+                                            <td width="60%" style={{ border: '1px solid #000', padding: '2mm' }}>{item.label}</td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
+                                                {formatRupees(item.total)}
+                                            </td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center' }}>
+                                                {item.count} transactions
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Expense Breakdowns */}
+                        <div style={{ marginBottom: '6mm' }}>
+                            <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '2px solid #000', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr>
+                                        <th colSpan="3" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                                            💸 EXPENSE BREAKDOWN
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td width="50%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef2f2' }} colSpan="3">
+                                            By Expense Type
+                                        </td>
+                                    </tr>
+                                    {(reportData.summary?.expense_breakdown_by_expense_type || []).map((item, idx) => (
+                                        <tr key={`exp-type-${idx}`}>
+                                            <td width="60%" style={{ border: '1px solid #000', padding: '2mm' }}>{item.expense_type}</td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#dc2626', fontWeight: 'bold' }}>
+                                                {formatRupees(item.total)}
+                                            </td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center' }}>
+                                                {item.count} transactions
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    
+                                    <tr>
+                                        <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef2f2' }} colSpan="3">
+                                            By Payment Type
+                                        </td>
+                                    </tr>
+                                    {(reportData.summary?.expense_breakdown_by_payment_type || []).map((item, idx) => (
+                                        <tr key={`exp-mode-${idx}`}>
+                                            <td width="60%" style={{ border: '1px solid #000', padding: '2mm' }}>{item.label}</td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#dc2626', fontWeight: 'bold' }}>
+                                                {formatRupees(item.total)}
+                                            </td>
+                                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center' }}>
+                                                {item.count} transactions
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Extra Income Breakdown */}
+                        {(reportData.summary?.extra_income_breakdown_by_type?.length > 0 || reportData.summary?.total_extra_income_amount > 0) && (
+                            <div style={{ marginBottom: '6mm' }}>
+                                <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '2px solid #000', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr>
+                                            <th colSpan="3" style={{ borderBottom: '2px solid #000', padding: '3mm', fontWeight: 'bold', textAlign: 'center', fontSize: '11pt', backgroundColor: '#f0f0f0' }}>
+                                                ✨ EXTRA INCOME BREAKDOWN
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td width="60%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef3c7' }}>Total Extra Income</td>
+                                            <td width="40%" colSpan="2" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
+                                                {formatRupees(reportData.summary?.total_extra_income_amount || 0)}
+                                            </td>
+                                        </tr>
+                                        {(reportData.summary?.extra_income_breakdown_by_type || []).map((item, idx) => (
+                                            <tr key={`extra-${idx}`}>
+                                                <td width="60%" style={{ border: '1px solid #000', padding: '2mm' }}>{item.label}</td>
+                                                <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
+                                                    {formatRupees(item.total)}
+                                                </td>
+                                                <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center' }}>
+                                                    {item.count} transactions
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </>
+                )}
 
                 {/* FINANCIAL SUMMARY CARDS */}
                 {reportData && reportData.summary && (
@@ -239,10 +382,24 @@ const AuditReportPDF = () => {
                                     <td width="25%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
                                         {formatRupees(reportData.summary?.total_payment_amount || 0)}
                                     </td>
-                                    <td width="25%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef2f2' }}>
+                                    <td width="25%" style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef3c7' }}>
+                                        Total Extra Income:
+                                    </td>
+                                    <td width="25%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
+                                        {formatRupees(reportData.summary?.total_extra_income_amount || 0)}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#d1fae5' }}>
+                                        Total Income:
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
+                                        {formatRupees(reportData.summary?.total_income || 0)}
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef2f2' }}>
                                         Total Expenses:
                                     </td>
-                                    <td width="25%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#dc2626', fontWeight: 'bold' }}>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#dc2626', fontWeight: 'bold' }}>
                                         {formatRupees(reportData.summary?.total_expense_amount || 0)}
                                     </td>
                                 </tr>
@@ -260,11 +417,25 @@ const AuditReportPDF = () => {
                                         {formatRupees(reportData.summary?.total_withdrawals || 0)}
                                     </td>
                                 </tr>
+                                <tr>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef3c7' }}>
+                                        Operational P/L:
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? '#059669' : '#dc2626', fontWeight: 'bold' }}>
+                                        {formatRupees(reportData.summary?.operational_profit_loss || 0)}
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', fontWeight: 'bold', backgroundColor: '#fef3c7' }}>
+                                        Net Investment Change:
+                                    </td>
+                                    <td style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: parseFloat(reportData.summary?.net_investment_change || 0) >= 0 ? '#059669' : '#dc2626', fontWeight: 'bold' }}>
+                                        {formatRupees(reportData.summary?.net_investment_change || 0)}
+                                    </td>
+                                </tr>
                                 <tr style={{ backgroundColor: parseFloat(reportData.summary?.total_profit_loss || 0) >= 0 ? '#d1fae5' : '#fee2e2' }}>
-                                    <td style={{ border: '1px solid #000', padding: '2.5mm', fontWeight: 'bold', fontSize: '10pt' }}>
+                                    <td colSpan="2" style={{ border: '1px solid #000', padding: '3mm', fontWeight: 'bold', fontSize: '11pt', textAlign: 'center' }}>
                                         NET PROFIT/LOSS:
                                     </td>
-                                    <td colSpan="3" style={{ border: '1px solid #000', padding: '2.5mm', textAlign: 'right', fontWeight: 'bold', fontSize: '12pt', color: parseFloat(reportData.summary?.total_profit_loss || 0) >= 0 ? '#059669' : '#dc2626' }}>
+                                    <td colSpan="2" style={{ border: '1px solid #000', padding: '3mm', textAlign: 'right', fontWeight: 'bold', fontSize: '12pt', color: parseFloat(reportData.summary?.total_profit_loss || 0) >= 0 ? '#059669' : '#dc2626' }}>
                                         {formatRupees(reportData.summary?.total_profit_loss || 0)}
                                         <span style={{ fontSize: '9pt', marginLeft: '5mm' }}>
                                             ({parseFloat(reportData.summary?.total_profit_loss || 0) >= 0 ? 'PROFIT' : 'LOSS'})
@@ -280,18 +451,46 @@ const AuditReportPDF = () => {
                 <div style={{ marginBottom: '4mm' }}>
                     <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', fontSize: '8pt' }}>
                         <tr>
-                            <td width="33%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
-                                <strong>Total Credit Transactions:</strong> {entries.filter(e => e.credit > 0).length}
+                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+                                <strong>Total Credit:</strong>
                             </td>
-                            <td width="33%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
-                                <strong>Total Debit Transactions:</strong> {entries.filter(e => e.debit > 0).length}
+                            <td width="13%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#059669', fontWeight: 'bold' }}>
+                                {formatRupees(entries.filter(e => e.credit > 0).reduce((sum, e) => sum + e.credit, 0))}
                             </td>
-                            <td width="34%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
-                                <strong>Total Transactions:</strong> {entries.length}
+                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+                                <strong>Total Debit:</strong>
+                            </td>
+                            <td width="13%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'right', color: '#dc2626', fontWeight: 'bold' }}>
+                                {formatRupees(entries.filter(e => e.debit > 0).reduce((sum, e) => sum + e.debit, 0))}
+                            </td>
+                            <td width="20%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+                                <strong>Total Transactions:</strong>
+                            </td>
+                            <td width="14%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', fontWeight: 'bold' }}>
+                                {entries.length}
                             </td>
                         </tr>
                     </table>
                 </div>
+
+                {/* CUSTOMER STATISTICS */}
+                {reportData && reportData.summary && (
+                    <div style={{ marginBottom: '4mm' }}>
+                        <table width="100%" cellPadding="2" cellSpacing="0" style={{ border: '1px solid #000', borderCollapse: 'collapse', fontSize: '8pt' }}>
+                            <tr>
+                                <td width="33%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+                                    <strong>Unique Customers:</strong> {reportData.summary?.unique_customers || 0}
+                                </td>
+                                <td width="33%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+                                    <strong>Centers Involved:</strong> {reportData.summary?.centers_involved || 0}
+                                </td>
+                                <td width="34%" style={{ border: '1px solid #000', padding: '2mm', textAlign: 'center', backgroundColor: '#f9fafb' }}>
+                                    <strong>Days in Range:</strong> {reportData.summary?.days_in_range || 1}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                )}
 
                 {/* REPORT FOOTER */}
                 <div style={{ 
@@ -308,8 +507,7 @@ const AuditReportPDF = () => {
                     <div>
                         Report ID: PL-{reportDate.replace(/\//g, '')} | 
                         Generated: {generatedDate} | 
-                        Credits: {entries.filter(e => e.credit > 0).reduce((sum, e) => sum + e.credit, 0).toLocaleString('en-IN')} | 
-                        Debits: {entries.filter(e => e.debit > 0).reduce((sum, e) => sum + e.debit, 0).toLocaleString('en-IN')}
+                        Status: {reportData?.summary?.profit_loss_status === 'profit' ? 'PROFITABLE' : 'LOSS'}
                     </div>
                     <div style={{ marginTop: '2mm', fontStyle: 'italic', fontSize: '7.5pt' }}>
                         "This report shows all credit and debit transactions with opening and closing balance for the selected period."
@@ -352,12 +550,12 @@ const AuditReportPDF = () => {
                         padding: 0 !important;
                     }
 
-                    #audit-report-to-print,
-                    #audit-report-to-print * {
+                    #profit-loss-report-to-print,
+                    #profit-loss-report-to-print * {
                         visibility: visible;
                     }
 
-                    #audit-report-to-print {
+                    #profit-loss-report-to-print {
                         position: absolute !important;
                         left: 0 !important;
                         top: 0 !important;
@@ -414,4 +612,4 @@ const AuditReportPDF = () => {
     );
 };
 
-export default AuditReportPDF;
+export default ProfitLossPDF;

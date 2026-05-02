@@ -78,7 +78,7 @@ const expenseSlice = createSlice({
             state.getPaymentsSuccess = false;
             state.getPaymentsFailed = false;
             state.error = null;
-            state.loading = false;
+            // Don't reset loading here - let it be controlled by individual actions
         },
         setExpenseFilters: (state, action) => {
             state.filters = { ...state.filters, ...action.payload };
@@ -100,6 +100,9 @@ const expenseSlice = createSlice({
         clearPaymentsData: (state) => {
             state.paymentsData = [];
         },
+        setLoading: (state, action) => {
+            state.loading = action.payload;
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -112,8 +115,18 @@ const expenseSlice = createSlice({
             })
             .addCase(getExpense.fulfilled, (state, action) => {
                 state.loading = false;
-                state.expenseData = action.payload.data || [];
-                state.filteredData = action.payload.data || [];
+                // Handle different response structures
+                let expenseArray = [];
+                if (action.payload?.data?.data && Array.isArray(action.payload.data.data)) {
+                    expenseArray = action.payload.data.data;
+                } else if (action.payload?.data && Array.isArray(action.payload.data)) {
+                    expenseArray = action.payload.data;
+                } else if (Array.isArray(action.payload)) {
+                    expenseArray = action.payload;
+                }
+                
+                state.expenseData = expenseArray;
+                state.filteredData = expenseArray;
                 state.getExpenseSuccess = true;
                 state.getExpenseFailed = false;
             })
@@ -133,7 +146,7 @@ const expenseSlice = createSlice({
             })
             .addCase(getExpenseById.fulfilled, (state, action) => {
                 state.loading = false;
-                state.selectedExpense = action.payload.data || null;
+                state.selectedExpense = action.payload?.data || null;
                 state.getExpenseByIdSuccess = true;
                 state.getExpenseByIdFailed = false;
             })
@@ -153,7 +166,7 @@ const expenseSlice = createSlice({
             })
             .addCase(getExpensePayments.fulfilled, (state, action) => {
                 state.loading = false;
-                state.paymentsData = action.payload.data || [];
+                state.paymentsData = action.payload?.data || [];
                 state.getPaymentsSuccess = true;
                 state.getPaymentsFailed = false;
             })
@@ -164,7 +177,7 @@ const expenseSlice = createSlice({
                 state.getPaymentsFailed = true;
             })
 
-           // CREATE EXPENSE - FIXED
+            // CREATE EXPENSE
             .addCase(createExpense.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -174,7 +187,6 @@ const expenseSlice = createSlice({
             .addCase(createExpense.fulfilled, (state, action) => {
                 state.loading = false;
                 
-                // Handle response structure
                 let newExpense = null;
                 if (action.payload?.data) {
                     newExpense = action.payload.data;
@@ -183,7 +195,6 @@ const expenseSlice = createSlice({
                 }
                 
                 if (newExpense) {
-                    // Ensure arrays exist
                     if (!Array.isArray(state.expenseData)) {
                         state.expenseData = [];
                     }
@@ -191,7 +202,6 @@ const expenseSlice = createSlice({
                         state.filteredData = [];
                     }
                     
-                    // Add to beginning of arrays
                     state.expenseData = [newExpense, ...state.expenseData];
                     state.filteredData = [newExpense, ...state.filteredData];
                 }
@@ -215,14 +225,13 @@ const expenseSlice = createSlice({
             })
             .addCase(updateExpense.fulfilled, (state, action) => {
                 state.loading = false;
-                const updatedExpense = action.payload.data;
+                const updatedExpense = action.payload?.data;
                 if (updatedExpense) {
                     const index = state.expenseData.findIndex((expense) => expense.expense_id === updatedExpense.expense_id);
                     if (index !== -1) {
                         state.expenseData[index] = updatedExpense;
                         state.filteredData[index] = updatedExpense;
                     }
-                    // Update selected expense if it's the same one
                     if (state.selectedExpense && state.selectedExpense.expense_id === updatedExpense.expense_id) {
                         state.selectedExpense = updatedExpense;
                     }
@@ -237,7 +246,7 @@ const expenseSlice = createSlice({
                 state.updateExpenseFailed = true;
             })
 
-            // DELETE EXPENSE
+            // DELETE EXPENSE - FIXED: Don't set loading false here if we're going to refetch
             .addCase(deleteExpense.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -245,7 +254,8 @@ const expenseSlice = createSlice({
                 state.deleteExpenseFailed = false;
             })
             .addCase(deleteExpense.fulfilled, (state, action) => {
-                state.loading = false;
+                // Don't set loading false immediately - keep it true until refetch completes
+                // The loading will be set false when getExpense completes
                 const expenseId = action.meta.arg;
                 state.expenseData = state.expenseData.filter((expense) => expense.expense_id !== expenseId);
                 state.filteredData = state.filteredData.filter((expense) => expense.expense_id !== expenseId);
@@ -254,6 +264,7 @@ const expenseSlice = createSlice({
                 }
                 state.deleteExpenseSuccess = true;
                 state.deleteExpenseFailed = false;
+                // Keep loading true - it will be reset by the subsequent getExpense call
             })
             .addCase(deleteExpense.rejected, (state, action) => {
                 state.loading = false;
@@ -269,7 +280,8 @@ export const {
     setExpenseFilters, 
     clearExpenseFilters,
     clearSelectedExpense,
-    clearPaymentsData 
+    clearPaymentsData,
+    setLoading
 } = expenseSlice.actions;
 
 export default expenseSlice.reducer;

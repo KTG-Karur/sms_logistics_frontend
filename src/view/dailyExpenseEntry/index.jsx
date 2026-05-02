@@ -14,6 +14,7 @@ import IconBuilding from '../../components/Icon/IconBuilding';
 import IconRefresh from '../../components/Icon/IconRefresh';
 import IconFilter from '../../components/Icon/IconSearch';
 import IconX from '../../components/Icon/IconX';
+import IconIncome from '../../components/Icon/IconTrendingUp';
 import Tippy from '@tippyjs/react';
 import Select from 'react-select';
 import _ from 'lodash';
@@ -42,6 +43,15 @@ import {
     deleteExpensePayment,
     resetExpensePaymentStatus
 } from '../../redux/expensePaymentSlice';
+import {
+    getExtraIncome,
+    createExtraIncome,
+    updateExtraIncome,
+    deleteExtraIncome,
+    resetExtraIncomeStatus,
+    setExtraIncomeFilters,
+    clearExtraIncomeFilters
+} from '../../redux/extraIncomeSlice';
 
 const ExpenseCalculation = () => {
     const dispatch = useDispatch();
@@ -82,6 +92,7 @@ const ExpenseCalculation = () => {
     const openingBalanceReduxState = useSelector((state) => state.OpeningBalanceSlice || {});
     const expenseReduxState = useSelector((state) => state.ExpenseSlice || {});
     const expensePaymentReduxState = useSelector((state) => state.ExpensePaymentSlice || {});
+    const extraIncomeReduxState = useSelector((state) => state.ExtraIncomeSlice || {});
 
     const {
         officeCentersData = [],
@@ -117,18 +128,30 @@ const ExpenseCalculation = () => {
         error: paymentError = null,
     } = expensePaymentReduxState;
 
+    const {
+        extraIncomeData = [],
+        loading: extraIncomeLoading = false,
+        createExtraIncomeSuccess = false,
+        updateExtraIncomeSuccess = false,
+        deleteExtraIncomeSuccess = false,
+        error: extraIncomeError = null,
+    } = extraIncomeReduxState;
+
     // UI State
     const [showOpeningBalanceForm, setShowOpeningBalanceForm] = useState(false);
     const [showExpenseForm, setShowExpenseForm] = useState(false);
     const [showPaymentForm, setShowPaymentForm] = useState(false);
     const [showFilter, setShowFilter] = useState(false);
-    const [openingBalanceType, setOpeningBalanceType] = useState('IN'); // 'IN' or 'OUT'
+    const [showExtraIncomeForm, setShowExtraIncomeForm] = useState(false);
+    const [showExtraIncomeFilter, setShowExtraIncomeFilter] = useState(false);
+    const [openingBalanceType, setOpeningBalanceType] = useState('IN');
 
     // Local state
     const [selectedDate, setSelectedDate] = useState(getTodayDate());
     const [selectedOfficeCenter, setSelectedOfficeCenter] = useState(null);
     const [openingBalances, setOpeningBalances] = useState([]);
     const [expenses, setExpenses] = useState([]);
+    const [extraIncomes, setExtraIncomes] = useState([]);
 
     // Form states
     const [openingBalanceForm, setOpeningBalanceForm] = useState({
@@ -152,6 +175,13 @@ const ExpenseCalculation = () => {
         }
     });
 
+    const [extraIncomeForm, setExtraIncomeForm] = useState({
+        income_date: '',
+        amount: '',
+        income_type: 'cash',
+        description: ''
+    });
+
     const [paymentForm, setPaymentForm] = useState({
         expenseId: '',
         paymentDate: '',
@@ -164,15 +194,20 @@ const ExpenseCalculation = () => {
     const [isEditOpeningBalance, setIsEditOpeningBalance] = useState(false);
     const [selectedOpeningBalanceItem, setSelectedOpeningBalanceItem] = useState(null);
     const [selectedExpenseForPayment, setSelectedExpenseForPayment] = useState(null);
+    const [isEditExtraIncome, setIsEditExtraIncome] = useState(false);
+    const [selectedExtraIncomeItem, setSelectedExtraIncomeItem] = useState(null);
 
     // Form errors
     const [openingBalanceErrors, setOpeningBalanceErrors] = useState({});
     const [expenseErrors, setExpenseErrors] = useState({});
     const [paymentErrors, setPaymentErrors] = useState({});
+    const [extraIncomeErrors, setExtraIncomeErrors] = useState({});
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(0);
     const [pageSize, setPageSize] = useState(10);
+    const [extraIncomeCurrentPage, setExtraIncomeCurrentPage] = useState(0);
+    const [extraIncomePageSize, setExtraIncomePageSize] = useState(10);
 
     // Filters
     const [filters, setFilters] = useState({
@@ -183,6 +218,14 @@ const ExpenseCalculation = () => {
     const [filterState, setFilterState] = useState({
         expenseTypeId: '',
         isPaid: '',
+    });
+
+    const [extraIncomeFilters, setExtraIncomeFilters] = useState({
+        incomeType: null,
+    });
+
+    const [extraIncomeFilterState, setExtraIncomeFilterState] = useState({
+        incomeType: '',
     });
 
     // Check if opening balance exists for selected date, center and type
@@ -229,6 +272,7 @@ const ExpenseCalculation = () => {
         if (selectedOfficeCenter?.value) {
             fetchOpeningBalances();
             fetchExpenses();
+            fetchExtraIncomes();
         }
     }, [selectedDate, selectedOfficeCenter]);
 
@@ -301,6 +345,31 @@ const ExpenseCalculation = () => {
         }
     }, [createPaymentSuccess, deletePaymentSuccess, paymentError]);
 
+    // Handle extra income success/error
+    useEffect(() => {
+        if (createExtraIncomeSuccess) {
+            showMessage('success', 'Extra income created successfully');
+            resetExtraIncomeForm();
+            fetchExtraIncomes();
+            dispatch(resetExtraIncomeStatus());
+        }
+        if (updateExtraIncomeSuccess) {
+            showMessage('success', 'Extra income updated successfully');
+            resetExtraIncomeForm();
+            fetchExtraIncomes();
+            dispatch(resetExtraIncomeStatus());
+        }
+        if (deleteExtraIncomeSuccess) {
+            showMessage('success', 'Extra income deleted successfully');
+            fetchExtraIncomes();
+            dispatch(resetExtraIncomeStatus());
+        }
+        if (extraIncomeError) {
+            showMessage('error', extraIncomeError);
+            dispatch(resetExtraIncomeStatus());
+        }
+    }, [createExtraIncomeSuccess, updateExtraIncomeSuccess, deleteExtraIncomeSuccess, extraIncomeError]);
+
     // Transform office centers for select options
     const officeCenterOptions = (officeCentersData || []).map(center => ({
         value: center?.id || '',
@@ -326,6 +395,12 @@ const ExpenseCalculation = () => {
         { value: '', label: 'All Status' },
         { value: 'true', label: 'Paid' },
         { value: 'false', label: 'Unpaid' },
+    ];
+
+    const incomeTypeOptions = [
+        { value: '', label: 'All Types' },
+        { value: 'cash', label: 'Cash' },
+        { value: 'upi', label: 'UPI' },
     ];
 
     // API Calls
@@ -356,6 +431,18 @@ const ExpenseCalculation = () => {
         dispatch(getExpense(params));
     };
 
+    const fetchExtraIncomes = () => {
+        if (!selectedOfficeCenter?.value) return;
+        
+        const params = {
+            startDate: formatInputDate(selectedDate),
+            endDate: formatInputDate(selectedDate),
+            officeCenterId: selectedOfficeCenter?.value,
+            ...(extraIncomeFilters.incomeType && { incomeType: extraIncomeFilters.incomeType }),
+        };
+        dispatch(getExtraIncome(params));
+    };
+
     // Set opening balances from API
     useEffect(() => {
         if (openingBalanceData && openingBalanceData.length > 0) {
@@ -368,15 +455,12 @@ const ExpenseCalculation = () => {
     // Set expenses from API
     useEffect(() => {
         if (expenseData) {
-            // Check if expenseData has a data property that is an array (pagination response)
             if (expenseData.data && Array.isArray(expenseData.data)) {
                 setExpenses(expenseData.data);
             } 
-            // Check if expenseData itself is an array
             else if (Array.isArray(expenseData)) {
                 setExpenses(expenseData);
             }
-            // Check if expenseData has a data property that contains a data array (nested pagination)
             else if (expenseData.data && expenseData.data.data && Array.isArray(expenseData.data.data)) {
                 setExpenses(expenseData.data.data);
             }
@@ -388,12 +472,31 @@ const ExpenseCalculation = () => {
         }
     }, [expenseData]);
 
+    // Set extra incomes from API
+    useEffect(() => {
+        if (extraIncomeData) {
+            if (extraIncomeData.data && Array.isArray(extraIncomeData.data)) {
+                setExtraIncomes(extraIncomeData.data);
+            } 
+            else if (Array.isArray(extraIncomeData)) {
+                setExtraIncomes(extraIncomeData);
+            }
+            else if (extraIncomeData.data && extraIncomeData.data.data && Array.isArray(extraIncomeData.data.data)) {
+                setExtraIncomes(extraIncomeData.data.data);
+            }
+            else {
+                setExtraIncomes([]);
+            }
+        } else {
+            setExtraIncomes([]);
+        }
+    }, [extraIncomeData]);
+
     // Filter expenses when filters change
     useEffect(() => {
         if (expenseData) {
             let sourceData = [];
             
-            // Extract source data based on structure
             if (expenseData.data && Array.isArray(expenseData.data)) {
                 sourceData = expenseData.data;
             } else if (Array.isArray(expenseData)) {
@@ -418,7 +521,7 @@ const ExpenseCalculation = () => {
         }
     }, [filters, expenseData]);
 
-    // Calculate totals
+    // Calculate totals for expenses
     const calculateTotalExpenses = () => {
         return (expenses || []).reduce((sum, expense) => sum + parseFloat(expense?.amount || 0), 0);
     };
@@ -430,7 +533,6 @@ const ExpenseCalculation = () => {
     const calculateTotalOpeningBalance = () => {
         return (openingBalances || []).reduce((sum, balance) => {
             const amount = parseFloat(balance?.opening_balance || 0);
-            // IN adds to balance, OUT subtracts from balance
             return balance?.in_out === 'IN' ? sum + amount : sum - amount;
         }, 0);
     };
@@ -439,17 +541,22 @@ const ExpenseCalculation = () => {
         return calculateTotalOpeningBalance() - calculateTotalPaid();
     };
 
+    // Calculate total extra income
+    const calculateTotalExtraIncome = () => {
+        return (extraIncomes || []).reduce((sum, income) => sum + parseFloat(income?.amount || 0), 0);
+    };
+
     // Get opening balance by type
     const getOpeningBalanceByType = (type) => {
         return (openingBalances || []).find(balance => balance.in_out === type);
     };
 
-    // Handle office center change - ONLY FOR TOP SELECTOR
+    // Handle office center change
     const handleOfficeCenterChange = (option) => {
         setSelectedOfficeCenter(option);
     };
 
-    // Filter handlers
+    // Filter handlers for expenses
     const handleFilterChange = (selectedOption, { name }) => {
         setFilterState(prev => ({
             ...prev,
@@ -486,6 +593,40 @@ const ExpenseCalculation = () => {
         });
         setShowFilter(false);
         fetchExpenses();
+    };
+
+    // Filter handlers for extra income
+    const handleExtraIncomeFilterChange = (selectedOption, { name }) => {
+        setExtraIncomeFilterState(prev => ({
+            ...prev,
+            [name]: selectedOption ? selectedOption.value : ''
+        }));
+    };
+
+    const handleExtraIncomeFilterApply = () => {
+        const apiFilters = {};
+        Object.keys(extraIncomeFilterState).forEach(key => {
+            if (extraIncomeFilterState[key] !== '') {
+                apiFilters[key] = extraIncomeFilterState[key];
+            }
+        });
+        
+        dispatch(setExtraIncomeFilters(apiFilters));
+        setExtraIncomeFilters(apiFilters);
+        setShowExtraIncomeFilter(false);
+        fetchExtraIncomes();
+    };
+
+    const handleExtraIncomeFilterClear = () => {
+        setExtraIncomeFilterState({
+            incomeType: '',
+        });
+        dispatch(clearExtraIncomeFilters());
+        setExtraIncomeFilters({
+            incomeType: null,
+        });
+        setShowExtraIncomeFilter(false);
+        fetchExtraIncomes();
     };
 
     // Get selected value for React Select
@@ -697,7 +838,6 @@ const ExpenseCalculation = () => {
             description: expenseForm.description,
         };
 
-        // Add payment if included
         if (expenseForm.hasPayment && expenseForm.payment?.amount && parseFloat(expenseForm.payment.amount) > 0) {
             requestData.payment = {
                 paymentDate: expenseForm.payment.paymentDate || formatInputDate(selectedDate),
@@ -763,7 +903,6 @@ const ExpenseCalculation = () => {
         const { name, value } = e.target;
         let processedValue = value;
         
-        // For amount field, validate against max allowed
         if (name === 'amount' && selectedExpenseForPayment) {
             const maxAllowed = parseFloat(selectedExpenseForPayment.amount) - parseFloat(selectedExpenseForPayment.paid_amount);
             if (parseFloat(value) > maxAllowed) {
@@ -810,6 +949,120 @@ const ExpenseCalculation = () => {
         };
 
         dispatch(createExpensePayment(requestData));
+    };
+
+    // Extra Income Form Handlers
+    const resetExtraIncomeForm = () => {
+        setExtraIncomeForm({
+            income_date: formatInputDate(selectedDate),
+            amount: '',
+            income_type: 'cash',
+            description: ''
+        });
+        setExtraIncomeErrors({});
+        setIsEditExtraIncome(false);
+        setSelectedExtraIncomeItem(null);
+        setShowExtraIncomeForm(false);
+    };
+
+    const openAddExtraIncomeForm = () => {
+        if (!canCreate) {
+            showMessage('warning', 'You do not have permission to create extra income');
+            return;
+        }
+        setExtraIncomeForm({
+            income_date: formatInputDate(selectedDate),
+            amount: '',
+            income_type: 'cash',
+            description: ''
+        });
+        setIsEditExtraIncome(false);
+        setSelectedExtraIncomeItem(null);
+        setShowExtraIncomeForm(true);
+    };
+
+    const openEditExtraIncomeForm = (item) => {
+        if (!canEdit) {
+            showMessage('warning', 'You do not have permission to edit extra income');
+            return;
+        }
+        setExtraIncomeForm({
+            income_date: item?.income_date || '',
+            amount: item?.amount || '',
+            income_type: item?.income_type || 'cash',
+            description: item?.description || '',
+        });
+        setIsEditExtraIncome(true);
+        setSelectedExtraIncomeItem(item);
+        setShowExtraIncomeForm(true);
+    };
+
+    const handleExtraIncomeInputChange = (e) => {
+        const { name, value } = e.target;
+        setExtraIncomeForm(prev => ({
+            ...prev,
+            [name]: value
+        }));
+        if (extraIncomeErrors[name]) {
+            setExtraIncomeErrors(prev => ({ ...prev, [name]: null }));
+        }
+    };
+
+    const handleIncomeTypeChange = (option) => {
+        setExtraIncomeForm(prev => ({
+            ...prev,
+            income_type: option?.value || 'cash'
+        }));
+    };
+
+    const validateExtraIncomeForm = () => {
+        const errors = {};
+        if (!extraIncomeForm.income_date) errors.income_date = 'Income date is required';
+        if (!extraIncomeForm.amount) errors.amount = 'Amount is required';
+        else if (parseFloat(extraIncomeForm.amount) <= 0) errors.amount = 'Amount must be greater than 0';
+        if (!extraIncomeForm.income_type) errors.income_type = 'Income type is required';
+        
+        setExtraIncomeErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleExtraIncomeSubmit = (e) => {
+        e.preventDefault();
+        if (!validateExtraIncomeForm()) return;
+
+        const requestData = {
+            income_date: extraIncomeForm.income_date,
+            officeCenterId: selectedOfficeCenter?.value,
+            amount: parseFloat(extraIncomeForm.amount),
+            incomeType: extraIncomeForm.income_type,
+            description: extraIncomeForm.description,
+        };
+
+        if (isEditExtraIncome && selectedExtraIncomeItem?.extra_income_id) {
+            dispatch(updateExtraIncome({
+                request: requestData,
+                extraIncomeId: selectedExtraIncomeItem.extra_income_id
+            }));
+        } else {
+            dispatch(createExtraIncome(requestData));
+        }
+    };
+
+    const handleDeleteExtraIncome = (item) => {
+        if (!canDelete) {
+            showMessage('warning', 'You do not have permission to delete extra income');
+            return;
+        }
+        if (!item?.extra_income_id) return;
+        
+        showMessage(
+            'warning',
+            'Are you sure you want to delete this extra income record?',
+            () => {
+                dispatch(deleteExtraIncome(item.extra_income_id));
+            },
+            'Yes, delete it'
+        );
     };
 
     // Table Columns for Opening Balance
@@ -873,7 +1126,7 @@ const ExpenseCalculation = () => {
                             </button>
                         </Tippy>
                     )}
-                    {/* {canDelete && (
+                    {canDelete && (
                         <Tippy content="Delete">
                             <button
                                 type="button"
@@ -883,9 +1136,6 @@ const ExpenseCalculation = () => {
                                 <IconTrashLines className="w-4 h-4" />
                             </button>
                         </Tippy>
-                    )} */}
-                    {!canEdit && !canDelete && (
-                        <span className="text-xs text-gray-400 italic">No actions</span>
                     )}
                 </div>
             ),
@@ -1005,7 +1255,123 @@ const ExpenseCalculation = () => {
         },
     ];
 
-    // Pagination handler
+    // Table Columns for Extra Income
+    const extraIncomeColumns = [
+        {
+            Header: 'S.No',
+            accessor: 'sno',
+            Cell: (row) => <div>{row?.row?.index + 1}</div>,
+            width: 80,
+        },
+        {
+            Header: 'Date',
+            accessor: 'income_date',
+            sort: true,
+            Cell: ({ value }) => (
+                <div className="font-medium">{value ? new Date(value).toLocaleDateString('en-IN') : '-'}</div>
+            ),
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            sort: true,
+            Cell: ({ value }) => (
+                <div className="text-success font-bold text-lg">
+                    ₹{parseFloat(value || 0).toLocaleString('en-IN')}
+                </div>
+            ),
+        },
+        {
+            Header: 'Income Type',
+            accessor: 'income_type',
+            sort: true,
+            Cell: ({ value }) => {
+                const typeMap = {
+                    'cash': '💵 Cash',
+                    'upi': '📱 UPI',
+                };
+                return (
+                    <div className="font-medium">
+                        {typeMap[value] || value || '-'}
+                    </div>
+                );
+            },
+        },
+        {
+            Header: 'Description',
+            accessor: 'description',
+            sort: true,
+            Cell: ({ value }) => (
+                <div className="text-gray-600 dark:text-gray-400">{value || '-'}</div>
+            ),
+        },
+        {
+            Header: 'Actions',
+            accessor: 'actions',
+            Cell: ({ row }) => (
+                <div className="flex items-center space-x-2">
+                    {canEdit && (
+                        <Tippy content="Edit">
+                            <button
+                                type="button"
+                                className="btn btn-outline-primary btn-sm"
+                                onClick={() => openEditExtraIncomeForm(row.original)}
+                            >
+                                <IconEdit className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {canDelete && (
+                        <Tippy content="Delete">
+                            <button
+                                type="button"
+                                className="btn btn-outline-danger btn-sm"
+                                onClick={() => handleDeleteExtraIncome(row.original)}
+                            >
+                                <IconTrashLines className="w-4 h-4" />
+                            </button>
+                        </Tippy>
+                    )}
+                    {!canEdit && !canDelete && (
+                        <span className="text-xs text-gray-400 italic">No actions</span>
+                    )}
+                </div>
+            ),
+            width: 150,
+        },
+    ];
+
+    // Calculate totals by payment type
+    const calculateTotalPaidByType = () => {
+        const totals = {
+            cash: 0,
+            gpay: 0,
+            other: 0
+        };
+        
+        (expenses || []).forEach(expense => {
+            if (expense.payments && Array.isArray(expense.payments)) {
+                expense.payments.forEach(payment => {
+                    const amount = parseFloat(payment.amount || 0);
+                    const paymentType = payment.payment_type || 'cash';
+                    if (totals[paymentType] !== undefined) {
+                        totals[paymentType] += amount;
+                    } else {
+                        totals.other += amount;
+                    }
+                });
+            }
+        });
+        
+        return totals;
+    };
+
+    const paidByType = calculateTotalPaidByType();
+    const totalPaidAmount = calculateTotalPaid();
+    const totalExtraIncomeAmount = calculateTotalExtraIncome();
+    const totalExpenseAmount = calculateTotalExpenses();
+
+    // Pagination handlers for expenses
     const handlePaginationChange = (pageIndex, newPageSize) => {
         setCurrentPage(pageIndex);
         setPageSize(newPageSize);
@@ -1017,16 +1383,28 @@ const ExpenseCalculation = () => {
         const endIndex = startIndex + pageSize;
         return data.slice(startIndex, endIndex);
     };
+
+    const getPaginatedExtraIncomeData = (data) => {
+        if (!data || !Array.isArray(data)) return [];
+        const startIndex = extraIncomeCurrentPage * extraIncomePageSize;
+        const endIndex = startIndex + extraIncomePageSize;
+        return data.slice(startIndex, endIndex);
+    };
+
+    const handleExtraIncomePaginationChange = (pageIndex, newPageSize) => {
+        setExtraIncomeCurrentPage(pageIndex);
+        setExtraIncomePageSize(newPageSize);
+    };
+
     return (
         <div className="space-y-6">
             {/* Header with Office Center and Date Selector */}
             <div className="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Expense Calculation</h2>
-                    <p className="text-gray-600 dark:text-gray-400">Manage opening balances and daily expenses</p>
+                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Expense & Income Calculation</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Manage opening balances, expenses, and extra income</p>
                 </div>
                 <div className="flex items-center space-x-4">
-                    {/* Office Center Selector - Only in top header */}
                     <div className="flex items-center space-x-2">
                         <IconBuilding className="w-5 h-5 text-primary" />
                         <Select
@@ -1049,7 +1427,6 @@ const ExpenseCalculation = () => {
                         />
                     </div>
                     
-                    {/* Date Picker */}
                     <div className="flex items-center bg-gray-100 dark:bg-gray-700 px-4 py-2 rounded-lg">
                         <IconCalendar className="w-5 h-5 text-primary mr-2" />
                         <div className="flex items-center">
@@ -1065,7 +1442,7 @@ const ExpenseCalculation = () => {
                 </div>
             </div>
 
-            {/* Filter Panel */}
+            {/* Expense Filter Panel */}
             {showFilter && (
                 <div className="panel mb-6">
                     <div className="flex items-center justify-between mb-5">
@@ -1082,7 +1459,6 @@ const ExpenseCalculation = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Expense Type Filter */}
                         <div>
                             <label>Expense Type</label>
                             <Select
@@ -1097,7 +1473,6 @@ const ExpenseCalculation = () => {
                             />
                         </div>
                         
-                        {/* Status Filter */}
                         <div>
                             <label>Payment Status</label>
                             <Select
@@ -1124,6 +1499,57 @@ const ExpenseCalculation = () => {
                         <button
                             type="button"
                             onClick={handleFilterApply}
+                            className="btn btn-primary"
+                        >
+                            Apply Filters
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Extra Income Filter Panel */}
+            {showExtraIncomeFilter && (
+                <div className="panel mb-6">
+                    <div className="flex items-center justify-between mb-5">
+                        <h5 className="font-semibold text-lg dark:text-white-light">
+                            Filter Extra Income
+                        </h5>
+                        <button
+                            type="button"
+                            onClick={() => setShowExtraIncomeFilter(false)}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            <IconX className="w-5 h-5" />
+                        </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label>Income Type</label>
+                            <Select
+                                name="incomeType"
+                                options={incomeTypeOptions}
+                                value={getSelectedValue(incomeTypeOptions, extraIncomeFilterState.incomeType)}
+                                onChange={(selectedOption) => handleExtraIncomeFilterChange(selectedOption, { name: 'incomeType' })}
+                                placeholder="All Types"
+                                isClearable={false}
+                                className="react-select"
+                                classNamePrefix="select"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="flex justify-end space-x-2 mt-6">
+                        <button
+                            type="button"
+                            onClick={handleExtraIncomeFilterClear}
+                            className="btn btn-outline-secondary"
+                        >
+                            Clear Filters
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleExtraIncomeFilterApply}
                             className="btn btn-primary"
                         >
                             Apply Filters
@@ -1165,7 +1591,6 @@ const ExpenseCalculation = () => {
                                 )}
                             </div>
                             
-                            {/* Office Center Display - Fixed, not editable */}
                             <div>
                                 <label>Office Center</label>
                                 <div className="form-input bg-gray-100 dark:bg-gray-700 cursor-not-allowed">
@@ -1173,7 +1598,6 @@ const ExpenseCalculation = () => {
                                 </div>
                             </div>
 
-                            {/* Type Display - Not editable when editing */}
                             <div>
                                 <label>Type</label>
                                 {isEditOpeningBalance ? (
@@ -1268,7 +1692,6 @@ const ExpenseCalculation = () => {
                         </h5>
                         {canCreate && (
                             <div className="flex space-x-2">
-                                {/* Add Cash In Button - Show only if no IN record exists */}
                                 {!hasOpeningBalance('IN') && (
                                     <button
                                         type="button"
@@ -1280,7 +1703,6 @@ const ExpenseCalculation = () => {
                                         Add Cash In
                                     </button>
                                 )}
-                                {/* Add Cash Out Button - Show only if no OUT record exists */}
                                 {!hasOpeningBalance('OUT') && (
                                     <button
                                         type="button"
@@ -1296,7 +1718,6 @@ const ExpenseCalculation = () => {
                         )}
                     </div>
                     
-                    {/* Quick Summary of IN/OUT */}
                     <div className="flex space-x-4 mt-2 text-sm">
                         {getOpeningBalanceByType('IN') && (
                             <div className="bg-success/10 text-success px-3 py-1 rounded-full">
@@ -1353,59 +1774,88 @@ const ExpenseCalculation = () => {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <div className="flex items-center mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
-                            <IconDollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                        </div>
+                    <div className="flex items-center justify-between">
                         <div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Net Opening Balance</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Total Expenses</div>
+                            <div className="text-xl font-bold text-gray-800 dark:text-white">
+                                ₹{totalExpenseAmount.toLocaleString('en-IN')}
+                            </div>
+                        </div>
+                        <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                            <IconReceipt className="w-5 h-5 text-yellow-600" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Net Opening Balance</div>
                             <div className={`text-xl font-bold ${calculateTotalOpeningBalance() >= 0 ? 'text-success' : 'text-danger'}`}>
                                 ₹{calculateTotalOpeningBalance().toLocaleString('en-IN')}
                             </div>
                         </div>
-                    </div>
-                </div>
-
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <div className="flex items-center mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mr-3">
-                            <IconReceipt className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                        </div>
-                        <div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Total Expenses</div>
-                            <div className="text-xl font-bold text-gray-800 dark:text-white">
-                                ₹{calculateTotalExpenses().toLocaleString('en-IN')}
-                            </div>
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <IconDollarSign className="w-5 h-5 text-blue-600" />
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-                    <div className="flex items-center mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center mr-3">
-                            <IconCheck className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Payment Breakdown</div>
+                        <div className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            Total: ₹{totalPaidAmount.toLocaleString('en-IN')}
                         </div>
-                        <div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Total Paid</div>
-                            <div className="text-xl font-bold text-gray-800 dark:text-white">
-                                ₹{calculateTotalPaid().toLocaleString('en-IN')}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {paidByType.cash > 0 && (
+                            <div className="flex items-center">
+                                <span className="text-gray-600">💵 Cash</span>
+                                <span className="ml-1 font-semibold">₹{paidByType.cash.toLocaleString('en-IN')}</span>
                             </div>
+                        )}
+                        {paidByType.gpay > 0 && (
+                            <div className="flex items-center">
+                                <span className="text-gray-600">📱 GPay</span>
+                                <span className="ml-1 font-semibold">₹{paidByType.gpay.toLocaleString('en-IN')}</span>
+                            </div>
+                        )}
+                        {totalPaidAmount === 0 && (
+                            <span className="text-gray-400">No payments</span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Extra Income</div>
+                            <div className="text-xl font-bold text-success">
+                                +₹{totalExtraIncomeAmount.toLocaleString('en-IN')}
+                            </div>
+                        </div>
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                            <IconIncome className="w-5 h-5 text-green-600" />
                         </div>
                     </div>
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm bg-gradient-to-r from-primary/10 to-primary/5">
-                    <div className="flex items-center mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-primary to-primary/80 flex items-center justify-center mr-3">
-                            <IconDollarSign className="w-5 h-5 text-white" />
-                        </div>
+                    <div className="flex items-center justify-between">
                         <div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">Net Balance</div>
-                            <div className={`text-2xl font-bold ${calculateNetBalance() >= 0 ? 'text-success' : 'text-danger'}`}>
-                                ₹{calculateNetBalance().toLocaleString('en-IN')}
+                            <div className="text-xs text-gray-500">Net Balance</div>
+                            <div className={`text-2xl font-bold ${(calculateTotalOpeningBalance() - totalPaidAmount + totalExtraIncomeAmount) >= 0 ? 'text-success' : 'text-danger'}`}>
+                                ₹{(calculateTotalOpeningBalance() - totalPaidAmount + totalExtraIncomeAmount).toLocaleString('en-IN')}
                             </div>
+                            <div className="text-xs text-gray-400">
+                                Opening - Paid + Income
+                            </div>
+                        </div>
+                        <div className="p-2 bg-gradient-to-r from-primary/20 to-primary/10 rounded-lg">
+                            <IconDollarSign className="w-6 h-6 text-primary" />
                         </div>
                     </div>
                 </div>
@@ -1429,7 +1879,6 @@ const ExpenseCalculation = () => {
                     
                     <form onSubmit={handleExpenseSubmit}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Expense Type Selection */}
                             <div>
                                 <label>Expense Type <span className="text-danger">*</span></label>
                                 <Select
@@ -1446,7 +1895,6 @@ const ExpenseCalculation = () => {
                                 )}
                             </div>
                             
-                            {/* Amount */}
                             <div>
                                 <label>Amount (₹) <span className="text-danger">*</span></label>
                                 <input
@@ -1464,7 +1912,6 @@ const ExpenseCalculation = () => {
                                 )}
                             </div>
                             
-                            {/* Description */}
                             <div className="md:col-span-2">
                                 <label>Description</label>
                                 <textarea
@@ -1478,77 +1925,74 @@ const ExpenseCalculation = () => {
                             </div>
                         </div>
 
-{/* Payment Toggle - Inline with payment fields */}
-{canPay && (
-    <div className="border-t pt-4 mt-4">
-        <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Payment Details</h6>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="flex items-center h-full">
-                <input
-                    type="checkbox"
-                    id="hasPayment"
-                    className="form-checkbox h-4 w-4 text-primary"
-                    checked={expenseForm.hasPayment}
-                    onChange={(e) => setExpenseForm(prev => ({
-                        ...prev,
-                        hasPayment: e.target.checked,
-                        payment: {
-                            ...prev.payment,
-                            paymentDate: formatInputDate(selectedDate),
-                        }
-                    }))}
-                />
-                <label htmlFor="hasPayment" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                    Add payment
-                </label>
-            </div>
-            
-            {expenseForm.hasPayment && (
-                <>
-                    <div>
-                        <label>Payment Date</label>
-                        <input
-                            type="date"
-                            name="payment.paymentDate"
-                            className="form-input"
-                            value={expenseForm.payment.paymentDate}
-                            onChange={handleExpenseInputChange}
-                        />
-                    </div>
-                    <div>
-                        <label>Payment Amount</label>
-                        <input
-                            type="number"
-                            name="payment.amount"
-                            className="form-input"
-                            placeholder="Enter amount"
-                            value={expenseForm.payment.amount}
-                            onChange={handleExpenseInputChange}
-                            min="0"
-                            step="0.01"
-                            max={expenseForm.amount || 0}
-                        />
-                    </div>
-                    <div>
-                        <label>Payment Type</label>
-                        <select
-                            name="payment.paymentType"
-                            className="form-select"
-                            value={expenseForm.payment.paymentType}
-                            onChange={handleExpenseInputChange}
-                        >
-                            <option value="cash">Cash</option>
-                            <option value="gpay">GPay</option>
-                            <option value="bank_transfer">Bank Transfer</option>
-                            <option value="cheque">Cheque</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                </>
-            )}
-        </div>
-    </div>
-)}
+                        {canPay && (
+                            <div className="border-t pt-4 mt-4">
+                                <h6 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Payment Details</h6>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                    <div className="flex items-center h-full">
+                                        <input
+                                            type="checkbox"
+                                            id="hasPayment"
+                                            className="form-checkbox h-4 w-4 text-primary"
+                                            checked={expenseForm.hasPayment}
+                                            onChange={(e) => setExpenseForm(prev => ({
+                                                ...prev,
+                                                hasPayment: e.target.checked,
+                                                payment: {
+                                                    ...prev.payment,
+                                                    paymentDate: formatInputDate(selectedDate),
+                                                }
+                                            }))}
+                                        />
+                                        <label htmlFor="hasPayment" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                                            Add payment
+                                        </label>
+                                    </div>
+                                    
+                                    {expenseForm.hasPayment && (
+                                        <>
+                                            <div>
+                                                <label>Payment Date</label>
+                                                <input
+                                                    type="date"
+                                                    name="payment.paymentDate"
+                                                    className="form-input"
+                                                    value={expenseForm.payment.paymentDate}
+                                                    onChange={handleExpenseInputChange}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Payment Amount</label>
+                                                <input
+                                                    type="number"
+                                                    name="payment.amount"
+                                                    className="form-input"
+                                                    placeholder="Enter amount"
+                                                    value={expenseForm.payment.amount}
+                                                    onChange={handleExpenseInputChange}
+                                                    min="0"
+                                                    step="0.01"
+                                                    max={expenseForm.amount || 0}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label>Payment Type</label>
+                                                <select
+                                                    name="payment.paymentType"
+                                                    className="form-select"
+                                                    value={expenseForm.payment.paymentType}
+                                                    onChange={handleExpenseInputChange}
+                                                >
+                                                    <option value="cash">Cash</option>
+                                                    <option value="gpay">GPay</option>
+                                                </select>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                        
                         <div className="flex justify-end space-x-2 mt-6">
                             <button
                                 type="button"
@@ -1610,7 +2054,6 @@ const ExpenseCalculation = () => {
                             </div>
                         )}
 
-                        {/* Inline form - all fields in one row */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label>Payment Date <span className="text-danger">*</span></label>
@@ -1654,9 +2097,6 @@ const ExpenseCalculation = () => {
                                 >
                                     <option value="cash">Cash</option>
                                     <option value="gpay">GPay</option>
-                                    <option value="bank_transfer">Bank Transfer</option>
-                                    <option value="cheque">Cheque</option>
-                                    <option value="other">Other</option>
                                 </select>
                             </div>
 
@@ -1690,7 +2130,6 @@ const ExpenseCalculation = () => {
                         Expense Records - {selectedOfficeCenter?.label || 'Select Center'} ({selectedDate ? new Date(selectedDate).toLocaleDateString('en-IN') : ''})
                     </h5>
                     <div className="flex space-x-2">
-                        {/* Filter Button */}
                         <button
                             type="button"
                             onClick={() => setShowFilter(!showFilter)}
@@ -1700,7 +2139,6 @@ const ExpenseCalculation = () => {
                             Filter
                         </button>
                         
-                        {/* Add Expense Button - Only show if user has create permission */}
                         {canCreate && (
                             <button
                                 type="button"
@@ -1714,7 +2152,6 @@ const ExpenseCalculation = () => {
                     </div>
                 </div>
 
-                {/* Show active filters */}
                 {(filters.expenseTypeId || filters.isPaid !== null) && (
                     <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded">
                         <div className="flex flex-wrap gap-2">
@@ -1759,6 +2196,197 @@ const ExpenseCalculation = () => {
                             isSortable={true}
                             loading={expenseLoading}
                         />
+                    )}
+                </div>
+            </div>
+
+            {/* Extra Income Section with Inline Form */}
+            <div className="panel border border-gray-200 dark:border-gray-700 shadow-sm">
+                <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-gray-800 dark:to-gray-900 border-b">
+                    <div className="flex justify-between items-center">
+                        <h5 className="font-semibold text-lg dark:text-white-light flex items-center">
+                            <IconIncome className="w-5 h-5 mr-2 text-success" />
+                            Extra Income Records - {selectedOfficeCenter?.label || 'Select Center'} ({selectedDate ? new Date(selectedDate).toLocaleDateString('en-IN') : ''})
+                        </h5>
+                        <div className="flex space-x-2">
+                            {/* <button
+                                type="button"
+                                onClick={() => setShowExtraIncomeFilter(!showExtraIncomeFilter)}
+                                className="btn btn-outline-primary"
+                            >
+                                <IconFilter className="ltr:mr-2 rtl:ml-2" />
+                                Filter
+                            </button> */}
+                            
+                            {canCreate && !showExtraIncomeForm && (
+                                <button
+                                    type="button"
+                                    className="btn btn-success btn-sm"
+                                    onClick={openAddExtraIncomeForm}
+                                >
+                                    <IconPlus className="w-4 h-4 mr-1" />
+                                    Add Extra Income
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {(extraIncomeFilters.incomeType) && (
+                    <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-800 rounded">
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-sm font-medium">Active Filters:</span>
+                            {extraIncomeFilters.incomeType && (
+                                <span className="badge bg-primary">
+                                    Type: {incomeTypeOptions.find(t => t.value === extraIncomeFilters.incomeType)?.label || extraIncomeFilters.incomeType}
+                                </span>
+                            )}
+                            <button
+                                type="button"
+                                onClick={handleExtraIncomeFilterClear}
+                                className="text-danger text-sm hover:underline ml-2"
+                            >
+                                Clear All
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Extra Income Inline Form */}
+                {showExtraIncomeForm && (
+                    <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                        <div className="flex items-center justify-between mb-4">
+                            <h6 className="font-semibold text-md dark:text-white-light">
+                                {isEditExtraIncome ? 'Edit Extra Income' : 'Add Extra Income'}
+                            </h6>
+                            <button
+                                type="button"
+                                onClick={resetExtraIncomeForm}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <IconX className="w-5 h-5" />
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleExtraIncomeSubmit}>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div>
+                                    <label>Income Date <span className="text-danger">*</span></label>
+                                    <input
+                                        type="date"
+                                        name="income_date"
+                                        className={`form-input ${extraIncomeErrors.income_date ? 'border-danger' : ''}`}
+                                        value={extraIncomeForm.income_date}
+                                        onChange={handleExtraIncomeInputChange}
+                                    />
+                                    {extraIncomeErrors.income_date && (
+                                        <div className="text-danger text-sm mt-1">{extraIncomeErrors.income_date}</div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label>Amount (₹) <span className="text-danger">*</span></label>
+                                    <input
+                                        type="number"
+                                        name="amount"
+                                        className={`form-input ${extraIncomeErrors.amount ? 'border-danger' : ''}`}
+                                        placeholder="Enter amount"
+                                        value={extraIncomeForm.amount}
+                                        onChange={handleExtraIncomeInputChange}
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                    {extraIncomeErrors.amount && (
+                                        <div className="text-danger text-sm mt-1">{extraIncomeErrors.amount}</div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label>Income Type <span className="text-danger">*</span></label>
+                                    <Select
+                                        placeholder="Select Income Type"
+                                        options={incomeTypeOptions.filter(opt => opt.value !== '')}
+                                        value={incomeTypeOptions.find(opt => opt.value === extraIncomeForm.income_type)}
+                                        onChange={handleIncomeTypeChange}
+                                        className={extraIncomeErrors.income_type ? 'border-danger' : ''}
+                                    />
+                                    {extraIncomeErrors.income_type && (
+                                        <div className="text-danger text-sm mt-1">{extraIncomeErrors.income_type}</div>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label>Description</label>
+                                    <input
+                                        type="text"
+                                        name="description"
+                                        className="form-input"
+                                        placeholder="Enter description (optional)"
+                                        value={extraIncomeForm.description}
+                                        onChange={handleExtraIncomeInputChange}
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-end space-x-2 mt-4">
+                                <button
+                                    type="button"
+                                    onClick={resetExtraIncomeForm}
+                                    className="btn btn-outline-secondary"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary"
+                                    disabled={extraIncomeLoading}
+                                >
+                                    {extraIncomeLoading ? 'Processing...' : (isEditExtraIncome ? 'Update' : 'Create')}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                )}
+
+                <div className="p-4">
+                    {extraIncomeLoading ? (
+                        <div className="flex items-center justify-center h-64">
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                        </div>
+                    ) : extraIncomes.length > 0 ? (
+                        <Table
+                            columns={extraIncomeColumns}
+                            data={getPaginatedExtraIncomeData(extraIncomes)}
+                            pageSize={extraIncomePageSize}
+                            pageIndex={extraIncomeCurrentPage}
+                            totalCount={extraIncomes?.length || 0}
+                            totalPages={Math.ceil((extraIncomes?.length || 0) / extraIncomePageSize)}
+                            onPaginationChange={handleExtraIncomePaginationChange}
+                            pagination={true}
+                            isSearchable={true}
+                            isSortable={true}
+                            loading={extraIncomeLoading}
+                        />
+                    ) : (
+                        <div className="text-center py-8 text-gray-500">
+                            {selectedOfficeCenter ? (
+                                <>
+                                    No extra income records found for {new Date(selectedDate).toLocaleDateString('en-IN')}.
+                                    {canCreate && !showExtraIncomeForm && (
+                                        <div className="mt-2">
+                                            <button
+                                                className="text-success ml-2 underline"
+                                                onClick={openAddExtraIncomeForm}
+                                            >
+                                                Add Extra Income
+                                            </button>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                'Please select an office center to view extra income records.'
+                            )}
+                        </div>
                     )}
                 </div>
             </div>

@@ -48,13 +48,13 @@ const PendingPayments = () => {
     const [customerBookings, setCustomerBookings] = useState(null);
     const [loadingBookings, setLoadingBookings] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
+    // IMPORTANT: Don't include page and limit in filters unless manually set by user
     const [filters, setFilters] = useState({
         search: '',
         status: 'all',
         sortBy: 'customer_name',
         sortOrder: 'ASC',
-        page: 1,
-        limit: 20,
+        // No page and limit here - they are handled separately for UI only
     });
 
     // Status options for filter
@@ -68,9 +68,10 @@ const PendingPayments = () => {
         dispatch(setPageTitle('Payment Management'));
     }, [dispatch]);
 
+    // Fetch data only when filters change (not when page changes)
     useEffect(() => {
         fetchAllCustomersSummary();
-    }, [filters]);
+    }, [filters.search, filters.status, filters.sortBy, filters.sortOrder]); // Removed page and limit dependencies
 
     // Update filtered customers when data changes
     useEffect(() => {
@@ -85,7 +86,7 @@ const PendingPayments = () => {
                 );
             }
 
-            // Apply payment by filter (based on as_payer/responsible amount)
+            // Apply payment by filter
             if (paymentByFilter !== 'all') {
                 customers = customers.filter((customer) => {
                     if (paymentByFilter === 'sender') {
@@ -96,20 +97,20 @@ const PendingPayments = () => {
                 });
             }
 
-            // Apply payment status filter (override the API filter if needed)
+            // Apply payment status filter
             if (paymentStatusFilter !== 'all') {
                 customers = customers.filter((customer) => customer.summary?.payment_status === paymentStatusFilter);
             }
 
             setFilteredCustomers(customers);
+            // Reset to first page when data changes (but DON'T refetch)
             setCurrentPage(0);
         }
     }, [allCustomersPaymentSummary, searchTerm, paymentByFilter, paymentStatusFilter]);
 
     const fetchAllCustomersSummary = () => {
         const filterParams = {
-            page: filters.page,
-            limit: filters.limit,
+            // NEVER send page and limit to API - fetch ALL data once
             sortBy: filters.sortBy,
             sortOrder: filters.sortOrder
         };
@@ -223,8 +224,9 @@ const PendingPayments = () => {
         setFilters((prev) => ({
             ...prev,
             [field]: value,
-            page: 1, // Reset to first page when filter changes
         }));
+        // Reset to first page when filter changes
+        setCurrentPage(0);
     };
 
     const clearFilters = () => {
@@ -233,15 +235,14 @@ const PendingPayments = () => {
             status: 'all',
             sortBy: 'customer_name',
             sortOrder: 'ASC',
-            page: 1,
-            limit: 20,
         });
         setSearchTerm('');
         setPaymentByFilter('all');
         setPaymentStatusFilter('all');
+        setCurrentPage(0);
     };
 
-    // Table columns
+    // Table columns - similar to Booking component
     const columns = [
         {
             Header: 'CUSTOMER',
@@ -347,7 +348,6 @@ const PendingPayments = () => {
                             </button>
                         ) : null}
                         
-                        {/* Show disabled state if no permissions */}
                         {!canPay && !canView && (
                             <span className="text-xs text-gray-400 italic">No access</span>
                         )}
@@ -358,15 +358,11 @@ const PendingPayments = () => {
         },
     ];
 
-    // Pagination
+    // Pagination handling - ONLY for UI, NO API calls
     const handlePaginationChange = (pageIndex, newPageSize) => {
         setCurrentPage(pageIndex);
         setPageSize(newPageSize);
-        setFilters((prev) => ({
-            ...prev,
-            page: pageIndex + 1,
-            limit: newPageSize,
-        }));
+        // NO API call here - just update UI state
     };
 
     const getPaginatedData = () => {
@@ -404,14 +400,13 @@ const PendingPayments = () => {
                         <p className="text-gray-600 mt-2 text-lg">Professional payment tracking and management system</p>
                     </div>
                     
-                    {/* Permission Info */}
                     <div className="flex gap-2">
                         {canPay && <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">Can Pay</span>}
                         {canView && <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">Can View</span>}
                     </div>
                 </div>
 
-                {/* Stats Cards - Always visible */}
+                {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                     <div className="bg-gradient-to-br from-white to-blue-50 rounded-xl shadow-lg border border-blue-100 p-5 transform hover:scale-105 transition-all duration-500">
                         <div className="flex items-center justify-between">
@@ -479,10 +474,9 @@ const PendingPayments = () => {
                     </div>
                 </div>
 
-                {/* Search and Filter Bar - Always visible */}
+                {/* Search and Filter Bar */}
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                        {/* Search */}
                         <div className="w-full">
                             <label className="block mb-1 text-sm font-medium opacity-0">Search</label>
                             <div className="relative">
@@ -497,7 +491,6 @@ const PendingPayments = () => {
                             </div>
                         </div>
 
-                        {/* Payment Status */}
                         <div className="w-full">
                             <label className="block mb-1 text-sm font-medium">Payment Status</label>
                             <Select
@@ -529,7 +522,7 @@ const PendingPayments = () => {
             {/* No Data State */}
             {!loading && filteredCustomers.length === 0 && <div className="text-center py-8 text-gray-500">No customers found with pending payments.</div>}
 
-            {/* Customers Table - Only show if user has at least view permission */}
+            {/* Customers Table */}
             {!loading && filteredCustomers.length > 0 && (canView || canPay) && (
                 <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200 overflow-hidden">
                     <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
@@ -583,7 +576,7 @@ const PendingPayments = () => {
                 </div>
             )}
 
-            {/* View Customer Modal - Only accessible if user has view permission */}
+            {/* View Customer Modal */}
             {canView && (
                 <ModelViewBox
                     modal={viewModal}
@@ -605,7 +598,7 @@ const PendingPayments = () => {
                     ) : (
                         customerBookings && (
                             <div className="space-y-6">
-                                {/* Customer Header */}
+                                {/* Modal content remains the same */}
                                 <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border-2 border-blue-200">
                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                         <div className="flex items-center space-x-4">
@@ -627,7 +620,6 @@ const PendingPayments = () => {
                                     </div>
                                 </div>
 
-                                {/* Financial Summary */}
                                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                     <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
                                         <div className="text-center">
@@ -655,7 +647,6 @@ const PendingPayments = () => {
                                     </div>
                                 </div>
 
-                                {/* Status Summary */}
                                 <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200">
                                     <h3 className="text-lg font-bold text-gray-900 mb-4">📊 Payment Status Summary</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -680,13 +671,11 @@ const PendingPayments = () => {
                                     </div>
                                 </div>
 
-                                {/* Shipments List with Payment History */}
                                 <div>
                                     <h3 className="text-lg font-bold text-gray-900 mb-4">📋 Shipment & Payment Details ({customerBookings.bookings?.length || 0})</h3>
                                     <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                                         {customerBookings.bookings?.map((booking, index) => (
                                             <div key={booking.booking_id} className="bg-white rounded-lg p-4 border border-gray-200">
-                                                {/* Shipment Header */}
                                                 <div className="flex justify-between items-start mb-3">
                                                     <div className="flex items-center space-x-3">
                                                         <span className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold">{index + 1}</span>
@@ -699,21 +688,18 @@ const PendingPayments = () => {
                                                     </div>
                                                     <div className="text-right">
                                                         <div className="text-lg font-bold text-primary">₹{parseFloat(booking.total_amount).toFixed(2)}</div>
-                                                        <div
-                                                            className={`mt-1 px-3 py-1 rounded-full text-sm font-medium ${
-                                                                booking.payment_status === 'pending'
-                                                                    ? 'bg-yellow-100 text-yellow-800'
-                                                                    : booking.payment_status === 'partial'
-                                                                      ? 'bg-orange-100 text-orange-800'
-                                                                      : 'bg-green-100 text-green-800'
-                                                            }`}
-                                                        >
+                                                        <div className={`mt-1 px-3 py-1 rounded-full text-sm font-medium ${
+                                                            booking.payment_status === 'pending'
+                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                : booking.payment_status === 'partial'
+                                                                  ? 'bg-orange-100 text-orange-800'
+                                                                  : 'bg-green-100 text-green-800'
+                                                        }`}>
                                                             {booking.payment_status === 'pending' ? 'Pending' : booking.payment_status === 'partial' ? 'Partial' : 'Completed'}
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Package Details */}
                                                 <div className="mb-3">
                                                     <div className="text-sm font-medium text-gray-700 mb-1">Package Details:</div>
                                                     <div className="flex flex-wrap gap-2">
@@ -725,7 +711,6 @@ const PendingPayments = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Payment Summary */}
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                                                     <div className="text-center bg-gray-50 p-2 rounded">
                                                         <div className="text-sm text-gray-600">Total</div>
@@ -745,7 +730,6 @@ const PendingPayments = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Payment History */}
                                                 {booking.payments && booking.payments.length > 0 && (
                                                     <div className="mt-3 pt-3 border-t border-gray-200">
                                                         <div className="text-sm font-medium text-gray-700 mb-2">Payment History:</div>
@@ -765,7 +749,6 @@ const PendingPayments = () => {
                                                     </div>
                                                 )}
 
-                                                {/* No Payment History */}
                                                 {(!booking.payments || booking.payments.length === 0) && (
                                                     <div className="text-center py-3 text-gray-500 text-sm border-t border-gray-200 mt-3">No payment history recorded for this shipment</div>
                                                 )}

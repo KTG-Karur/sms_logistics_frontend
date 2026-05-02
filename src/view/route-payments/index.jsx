@@ -103,11 +103,7 @@ const RoutePayments = () => {
     // Payment mode options
     const paymentModeOptions = [
         { value: 'cash', label: 'Cash' },
-        { value: 'card', label: 'Card' },
         { value: 'upi', label: 'UPI' },
-        { value: 'bank_transfer', label: 'Bank Transfer' },
-        { value: 'cheque', label: 'Cheque' },
-        { value: 'wallet', label: 'Wallet' },
     ];
 
     // Payment status options

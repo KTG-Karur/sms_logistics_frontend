@@ -837,14 +837,14 @@ const Booking = () => {
           {(row.original.paid_amount === 0 || row.original.paid_amount === '0' || parseFloat(row.original.paid_amount) === 0) && 
           row.original.delivery_status === 'not_delivered' && (
             <>
-              {_.includes(accessIds, '4') && (
+              {_.includes(accessIds, '3') && (
                 <Tippy content="Edit">
                   <button onClick={() => handleEdit(row.original)} className="btn btn-outline-warning btn-sm p-1.5 rounded-lg hover:bg-warning hover:text-white transition-colors">
                     <IconPencil className="w-4 h-4" />
                   </button>
                 </Tippy>
               )}
-              {_.includes(accessIds, '5') && (
+              {_.includes(accessIds, '4') && (
                 <Tippy content="Delete">
                   <button onClick={() => handleDelete(row.original)} className="btn btn-outline-danger btn-sm p-1.5 rounded-lg hover:bg-danger hover:text-white transition-colors">
                     <IconTrashLines className="w-4 h-4" />

@@ -72,8 +72,8 @@ export async function getPackageReportApi(request) {
         if (packageTypeId) params.push(`packageTypeId=${packageTypeId}`);
         if (customerId) params.push(`customerId=${customerId}`);
         if (status) params.push(`status=${status}`);
-        if (page) params.push(`page=${page}`);
-        if (limit) params.push(`limit=${limit}`);
+        // if (page) params.push(`page=${page}`);
+        // if (limit) params.push(`limit=${limit}`);
         
         url += params.join('&');
         
@@ -117,8 +117,8 @@ export async function getTripReportApi(request) {
         if (driverId) params.push(`driverId=${driverId}`);
         if (vehicleId) params.push(`vehicleId=${vehicleId}`);
         if (status) params.push(`status=${status}`);
-        if (page) params.push(`page=${page}`);
-        if (limit) params.push(`limit=${limit}`);
+        // if (page) params.push(`page=${page}`);
+        // if (limit) params.push(`limit=${limit}`);
         
         url += params.join('&');
         
@@ -168,8 +168,8 @@ export async function getAllBookingsWithDetailsApi(request) {
         if (paymentStatus) params.push(`paymentStatus=${paymentStatus}`);
         if (tripStatus) params.push(`tripStatus=${tripStatus}`);
         if (search) params.push(`search=${encodeURIComponent(search)}`);
-        if (page) params.push(`page=${page}`);
-        if (limit) params.push(`limit=${limit}`);
+        // if (page) params.push(`page=${page}`);
+        // if (limit) params.push(`limit=${limit}`);
         if (includeTrip !== undefined) params.push(`includeTrip=${includeTrip}`);
         if (includePayments !== undefined) params.push(`includePayments=${includePayments}`);
         

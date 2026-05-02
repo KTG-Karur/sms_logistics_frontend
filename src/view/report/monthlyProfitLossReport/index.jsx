@@ -4,25 +4,21 @@ import { setPageTitle } from '../../../redux/themeStore/themeConfigSlice';
 import IconDownload from '../../../components/Icon/IconFile';
 import IconPrinter from '../../../components/Icon/IconPrinter';
 import IconCalendar from '../../../components/Icon/IconCalendar';
-import IconFilter from '../../../components/Icon/IconSearch';
 import IconMoney from '../../../components/Icon/IconCreditCard';
 import IconTrendingUp from '../../../components/Icon/IconTrendingUp';
 import IconTrendingDown from '../../../components/Icon/IconTrendingDown';
-import IconPackage from '../../../components/Icon/IconBox';
-import IconTruck from '../../../components/Icon/IconTruck';
 import IconUsers from '../../../components/Icon/IconUsers';
 import IconReceipt from '../../../components/Icon/IconReceipt';
-import IconCheckCircle from '../../../components/Icon/IconCheckCircle';
-import IconClock from '../../../components/Icon/IconClock';
-import IconChartBar from '../../../components/Icon/IconChartBar';
 import IconBuilding from '../../../components/Icon/IconBuilding';
+import IconPieChart from '../../../components/Icon/IconPieChart';
+import IconX from '../../../components/Icon/IconX';
 import Table from '../../../util/Table';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
 import { getDateRangeProfitLossApi } from '../../../api/ReportApi';
 import { getOfficeCenters } from '../../../redux/officeCenterSlice';
-import { findArrObj, showMessage , getAccessIdsByLabel } from '../../../util/AllFunction';
+import { showMessage, getAccessIdsByLabel } from '../../../util/AllFunction';
 import Select from 'react-select';
 import _ from 'lodash';
 
@@ -49,27 +45,25 @@ const ProfitLossReport = () => {
         from: defaultFromDate,
         to: defaultToDate
     });
-    const [selectedFilters, setSelectedFilters] = useState({
-        packageType: 'all',
-        expenseCategory: 'all',
-        paymentStatus: 'all',
-        profitStatus: 'all',
-        vehicleType: 'all',
-        staffMember: 'all'
-    });
-    const [reportData, setReportData] = useState({
-        summary: null,
-        dailyData: [],
-        filteredPackages: [],
-        filteredExpenses: [],
-        totals: null,
-        rawData: null
-    });
-    const [viewMode, setViewMode] = useState('summary'); // 'summary', 'packages', 'expenses', 'daily'
+    const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [viewMode, setViewMode] = useState('summary');
 
-    // Initialize data
+    // Pagination states for each table
+    const [paymentsPagination, setPaymentsPagination] = useState({ pageIndex: 0, pageSize: 10 });
+    const [expensesPagination, setExpensesPagination] = useState({ pageIndex: 0, pageSize: 10 });
+    const [extraIncomePagination, setExtraIncomePagination] = useState({ pageIndex: 0, pageSize: 10 });
+    const [investmentsPagination, setInvestmentsPagination] = useState({ pageIndex: 0, pageSize: 10 });
+    const [customerPagination, setCustomerPagination] = useState({ pageIndex: 0, pageSize: 10 });
+
+    // Modal states
+    const [showCustomerModal, setShowCustomerModal] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [showExpenseModal, setShowExpenseModal] = useState(false);
+    const [selectedExpenseType, setSelectedExpenseType] = useState(null);
+    const [customerPaymentsPagination, setCustomerPaymentsPagination] = useState({ pageIndex: 0, pageSize: 10 });
+
     useEffect(() => {
         dispatch(setPageTitle('Profit & Loss Report'));
         dispatch(getOfficeCenters({}));
@@ -95,8 +89,13 @@ const ProfitLossReport = () => {
             const response = await getDateRangeProfitLossApi(request);
 
             if (response && response.data) {
-                const processedData = processApiData(response.data);
-                setReportData(processedData);
+                setReportData(response.data);
+                // Reset pagination when new data loads
+                setPaymentsPagination({ pageIndex: 0, pageSize: 10 });
+                setExpensesPagination({ pageIndex: 0, pageSize: 10 });
+                setExtraIncomePagination({ pageIndex: 0, pageSize: 10 });
+                setInvestmentsPagination({ pageIndex: 0, pageSize: 10 });
+                setCustomerPagination({ pageIndex: 0, pageSize: 10 });
             } else {
                 setError('No data found for selected date range');
             }
@@ -107,207 +106,6 @@ const ProfitLossReport = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const processApiData = (data) => {
-        // Extract payments and expenses
-        const payments = data?.transactions?.payments || [];
-        const expenses = data?.transactions?.expenses || [];
-        
-        // Group by date for daily data
-        const dailyMap = new Map();
-        
-        // Process payments
-        payments.forEach(payment => {
-            const date = payment.date;
-            if (!dailyMap.has(date)) {
-                dailyMap.set(date, {
-                    date,
-                    dayOfWeek: moment(date).format('dddd'),
-                    packages: [],
-                    expenses: [],
-                    dailyRevenue: 0,
-                    dailyExpense: 0,
-                    dailyProfit: 0,
-                    profitMargin: 0,
-                    isProfitDay: false,
-                    totalPackages: 0,
-                    totalExpenses: 0,
-                    vehicleExpense: 0,
-                    staffExpense: 0,
-                    otherExpense: 0
-                });
-            }
-            
-            const dayData = dailyMap.get(date);
-            
-            // Create package object from payment
-            const packageObj = {
-                id: payment.payment_id,
-                packageId: payment.payment_number,
-                date: payment.date,
-                packageType: payment.type || 'Standard',
-                // weight: 'N/A',
-                dimensions: 'N/A',
-                fromLocation: payment.booking_center?.name || 'Unknown',
-                toLocation: payment.booking_center?.name || 'Unknown',
-                packageValue: parseFloat(payment.amount || 0),
-                packageCost: 0, // We don't have cost data
-                packageProfit: parseFloat(payment.amount || 0), // Assume profit equals revenue since no cost data
-                vehicleType: 'Standard',
-                staffMember: payment.customer?.name || 'N/A',
-                status: payment.type === 'full' ? 'Delivered' : 'In Transit',
-                deliveryTime: payment.date,
-                isProfitable: true // All payments are profitable in this context
-            };
-            
-            dayData.packages.push(packageObj);
-            dayData.dailyRevenue += parseFloat(payment.amount || 0);
-            dayData.totalPackages++;
-        });
-        
-        // Process expenses
-        expenses.forEach(expense => {
-            const date = expense.date;
-            if (!dailyMap.has(date)) {
-                dailyMap.set(date, {
-                    date,
-                    dayOfWeek: moment(date).format('dddd'),
-                    packages: [],
-                    expenses: [],
-                    dailyRevenue: 0,
-                    dailyExpense: 0,
-                    dailyProfit: 0,
-                    profitMargin: 0,
-                    isProfitDay: false,
-                    totalPackages: 0,
-                    totalExpenses: 0,
-                    vehicleExpense: 0,
-                    staffExpense: 0,
-                    otherExpense: 0
-                });
-            }
-            
-            const dayData = dailyMap.get(date);
-            
-            // Create expense object
-            const expenseObj = {
-                id: expense.expense_payment_id,
-                expenseId: `EXP-${moment(expense.date).format('DDMM')}-${dayData.expenses.length + 1}`,
-                date: expense.date,
-                name: expense.type || 'Expense',
-                description: expense.description || '',
-                category: getExpenseCategory(expense.type),
-                subCategory: expense.type || 'General',
-                type: 'daily',
-                amount: parseFloat(expense.amount || 0),
-                status: 'paid',
-                paidAmount: parseFloat(expense.amount || 0),
-                balance: 0,
-                vendor: 'N/A',
-                paymentMethod: expense.payment_type || 'Cash'
-            };
-            
-            dayData.expenses.push(expenseObj);
-            dayData.dailyExpense += parseFloat(expense.amount || 0);
-            dayData.totalExpenses++;
-            
-            // Categorize expense for breakdown
-            const category = getExpenseCategory(expense.type);
-            if (category === 'vehicle') {
-                dayData.vehicleExpense += parseFloat(expense.amount || 0);
-            } else if (category === 'staff') {
-                dayData.staffExpense += parseFloat(expense.amount || 0);
-            } else {
-                dayData.otherExpense += parseFloat(expense.amount || 0);
-            }
-        });
-        
-        // Calculate daily profits and convert map to array
-        const dailyData = Array.from(dailyMap.values()).map(day => {
-            day.dailyProfit = day.dailyRevenue - day.dailyExpense;
-            day.profitMargin = day.dailyRevenue > 0 ? (day.dailyProfit / day.dailyRevenue) * 100 : 0;
-            day.isProfitDay = day.dailyProfit > 0;
-            return day;
-        }).sort((a, b) => moment(a.date).diff(moment(b.date)));
-        
-        // Calculate overall totals
-        const allPackages = dailyData.flatMap(day => day.packages);
-        const allExpenses = dailyData.flatMap(day => day.expenses);
-        
-        const totalRevenue = allPackages.reduce((sum, pkg) => sum + pkg.packageValue, 0);
-        const totalExpenses = allExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const totalProfit = totalRevenue - totalExpenses;
-        const overallProfitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
-        
-        // Count profit/loss days
-        const profitDays = dailyData.filter(day => day.isProfitDay).length;
-        const lossDays = dailyData.filter(day => !day.isProfitDay).length;
-        
-        // Calculate totals by expense category
-        const totalVehicleExpense = allExpenses.filter(e => e.category === 'vehicle').reduce((sum, e) => sum + e.amount, 0);
-        const totalStaffExpense = allExpenses.filter(e => e.category === 'staff').reduce((sum, e) => sum + e.amount, 0);
-        const totalOtherExpense = allExpenses.filter(e => e.category === 'other').reduce((sum, e) => sum + e.amount, 0);
-        
-        return {
-            summary: {
-                dateRange: { from: dateRange.from, to: dateRange.to },
-                totalDays: dailyData.length,
-                profitDays,
-                lossDays,
-                profitPercentage: dailyData.length > 0 ? ((profitDays / dailyData.length) * 100).toFixed(1) : 0,
-                
-                totalRevenue,
-                totalExpenses,
-                totalProfit,
-                overallProfitMargin: parseFloat(overallProfitMargin.toFixed(1)),
-                isOverallProfit: totalProfit > 0,
-                
-                avgDailyRevenue: dailyData.length > 0 ? totalRevenue / dailyData.length : 0,
-                avgDailyExpense: dailyData.length > 0 ? totalExpenses / dailyData.length : 0,
-                avgDailyProfit: dailyData.length > 0 ? totalProfit / dailyData.length : 0,
-                
-                totalPackages: allPackages.length,
-                totalExpenseItems: allExpenses.length,
-                
-                totalVehicleExpense,
-                totalStaffExpense,
-                totalOtherExpense,
-                vehicleExpensePercentage: totalExpenses > 0 ? ((totalVehicleExpense / totalExpenses) * 100).toFixed(1) : 0,
-                staffExpensePercentage: totalExpenses > 0 ? ((totalStaffExpense / totalExpenses) * 100).toFixed(1) : 0,
-                otherExpensePercentage: totalExpenses > 0 ? ((totalOtherExpense / totalExpenses) * 100).toFixed(1) : 0,
-                
-                paidExpenses: allExpenses.filter(e => e.status === 'paid').length,
-                unpaidExpenses: allExpenses.filter(e => e.status === 'unpaid').length,
-                partialExpenses: allExpenses.filter(e => e.status === 'partially_paid').length,
-                
-                profitablePackages: allPackages.filter(p => p.isProfitable).length,
-                lossPackages: allPackages.filter(p => !p.isProfitable).length,
-            },
-            dailyData,
-            allPackages,
-            allExpenses,
-            filteredPackages: allPackages,
-            filteredExpenses: allExpenses,
-            totals: {
-                totalRevenue,
-                totalExpenses,
-                totalProfit,
-                totalVehicleExpense,
-                totalStaffExpense,
-                totalOtherExpense
-            },
-            rawData: data
-        };
-    };
-
-    const getExpenseCategory = (expenseType) => {
-        const vehicleTypes = ['Fuel', 'Diesel', 'Petrol', 'Maintenance', 'Repair', 'Toll', 'Parking'];
-        const staffTypes = ['Salary', 'Wage', 'Staff', 'Driver', 'Overtime', 'Bonus'];
-        
-        if (vehicleTypes.includes(expenseType)) return 'vehicle';
-        if (staffTypes.includes(expenseType)) return 'staff';
-        return 'other';
     };
 
     const handleDateRangeChange = (e) => {
@@ -322,94 +120,88 @@ const ProfitLossReport = () => {
         setSelectedCenter(selectedOption);
     };
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setSelectedFilters(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    };
-
-    const applyFilters = () => {
-        if (!reportData.allPackages || !reportData.allExpenses) return;
-        
-        setLoading(true);
-        
-        setTimeout(() => {
-            let filteredPackages = [...reportData.allPackages];
-            let filteredExpenses = [...reportData.allExpenses];
-            
-            // Apply package filters
-            if (selectedFilters.packageType !== 'all') {
-                filteredPackages = filteredPackages.filter(pkg => pkg.packageType === selectedFilters.packageType);
-            }
-            
-            if (selectedFilters.profitStatus !== 'all') {
-                filteredPackages = filteredPackages.filter(pkg => 
-                    selectedFilters.profitStatus === 'profit' ? pkg.isProfitable : !pkg.isProfitable
-                );
-            }
-            
-            if (selectedFilters.vehicleType !== 'all') {
-                filteredPackages = filteredPackages.filter(pkg => pkg.vehicleType === selectedFilters.vehicleType);
-            }
-            
-            if (selectedFilters.staffMember !== 'all') {
-                filteredPackages = filteredPackages.filter(pkg => pkg.staffMember === selectedFilters.staffMember);
-            }
-            
-            // Apply expense filters
-            if (selectedFilters.expenseCategory !== 'all') {
-                filteredExpenses = filteredExpenses.filter(exp => exp.category === selectedFilters.expenseCategory);
-            }
-            
-            if (selectedFilters.paymentStatus !== 'all') {
-                filteredExpenses = filteredExpenses.filter(exp => exp.status === selectedFilters.paymentStatus);
-            }
-            
-            setReportData(prev => ({
-                ...prev,
-                filteredPackages,
-                filteredExpenses
-            }));
-            setLoading(false);
-        }, 500);
-    };
-
-    const resetFilters = () => {
-        setSelectedFilters({
-            packageType: 'all',
-            expenseCategory: 'all',
-            paymentStatus: 'all',
-            profitStatus: 'all',
-            vehicleType: 'all',
-            staffMember: 'all'
-        });
-        
-        setReportData(prev => ({
-            ...prev,
-            filteredPackages: prev.allPackages,
-            filteredExpenses: prev.allExpenses
-        }));
-    };
-
     const quickDateRange = (days) => {
         const toDate = moment().format('YYYY-MM-DD');
         const fromDate = moment().subtract(days, 'days').format('YYYY-MM-DD');
-        
         setDateRange({ from: fromDate, to: toDate });
     };
 
+    const handleViewCustomerPayments = (customer) => {
+        if (!customer) return;
+
+        const customerWithPayments = {
+            customer_name: customer.customer_name || 'Unknown',
+            customer_number: customer.customer_number || 'N/A',
+            total_amount: customer.total_amount || 0,
+            payment_count: customer.payment_count || 0,
+            payments: Array.isArray(customer.payments)
+                ? customer.payments.map((payment) => ({
+                      payment_id: payment.payment_id,
+                      payment_number: payment.payment_number || 'N/A',
+                      amount: payment.amount || 0,
+                      mode: payment.mode || 'N/A',
+                      booking_number: payment.booking_number || 'N/A',
+                      booking_center: payment.booking_center || 'N/A',
+                      date: payment.date || null,
+                      payment_type: payment.type || 'full',
+                      payment_type_label: getPaymentTypeLabel(payment.type)
+                  }))
+                : [],
+        };
+
+        setSelectedCustomer(customerWithPayments);
+        setCustomerPaymentsPagination({ pageIndex: 0, pageSize: 10 });
+        setShowCustomerModal(true);
+    };
+
+    const getPaymentTypeLabel = (type) => {
+        const labels = { 'advance': 'Advance', 'partial': 'Partial', 'full': 'Full', 'refund': 'Refund' };
+        return labels[type] || type;
+    };
+
+    const handleViewExpenseDetails = (expenseType) => {
+        if (!reportData || !expenseType) return;
+        
+        const expenses = reportData.transactions?.expenses?.filter(
+            exp => exp.expense_type === expenseType.expense_type
+        ) || [];
+        
+        setSelectedExpenseType({
+            name: expenseType.expense_type,
+            total: expenseType.total,
+            count: expenseType.count,
+            expenses: expenses
+        });
+        setShowExpenseModal(true);
+    };
+
+    const closeModal = () => {
+        setShowCustomerModal(false);
+        setSelectedCustomer(null);
+        setShowExpenseModal(false);
+        setSelectedExpenseType(null);
+        setCustomerPaymentsPagination({ pageIndex: 0, pageSize: 10 });
+    };
+
     const formatCurrency = (amount) => {
+        const num = parseFloat(amount) || 0;
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
-            maximumFractionDigits: 0
-        }).format(amount || 0);
+            maximumFractionDigits: 2,
+        }).format(num);
     };
 
     const formatNumber = (num) => {
         return new Intl.NumberFormat('en-IN').format(num || 0);
+    };
+
+    // Helper function to get paginated data
+    const getPaginatedData = (data, pageIndex, pageSize) => {
+        if (!data || !Array.isArray(data)) return [];
+        const start = pageIndex * pageSize;
+        const end = start + pageSize;
+        return data.slice(start, end);
     };
 
     // Transform office centers for react-select
@@ -421,7 +213,6 @@ const ProfitLossReport = () => {
         })),
     ];
 
-    // Custom styles for react-select
     const selectStyles = {
         control: (provided) => ({
             ...provided,
@@ -436,9 +227,6 @@ const ProfitLossReport = () => {
             backgroundColor: state.isSelected ? '#3b82f6' : state.isFocused ? '#e2e8f0' : 'white',
             color: state.isSelected ? 'white' : '#1e293b',
             cursor: 'pointer',
-            '&:active': {
-                backgroundColor: state.isSelected ? '#2563eb' : '#cbd5e0',
-            },
         }),
         menu: (provided) => ({
             ...provided,
@@ -446,66 +234,75 @@ const ProfitLossReport = () => {
         }),
     };
 
-    // Package Columns
-    const packageColumns = [
+    // Payment Columns
+    const paymentColumns = [
+        {
+            Header: 'S.No',
+            accessor: 'index',
+            Cell: ({ row }) => <div>{row.index + 1 + paymentsPagination.pageIndex * paymentsPagination.pageSize}</div>,
+            width: 70,
+        },
         {
             Header: 'Date',
             accessor: 'date',
             width: 100,
             Cell: ({ value }) => (
                 <div className="text-sm">
-                    <div>{moment(value).format('DD/MM')}</div>
-                    <div className="text-xs text-gray-500">{moment(value).format('ddd')}</div>
+                    <div>{moment(value).format('DD/MM/YYYY')}</div>
                 </div>
             ),
         },
         {
-            Header: 'Payment ID',
-            accessor: 'packageId',
+            Header: 'Payment No',
+            accessor: 'payment_number',
             width: 120,
             Cell: ({ value }) => <span className="font-bold text-blue-600">{value}</span>,
         },
         {
-            Header: 'Payment Details',
-            accessor: 'packageDetails',
-            Cell: ({ row }) => (
+            Header: 'Customer',
+            accessor: 'customer',
+            width: 150,
+            Cell: ({ value }) => (
                 <div>
-                    <div className="font-medium">{row.original.packageType}</div>
-                    <div className="text-xs text-gray-500">
-                        {row.original.fromLocation} → {row.original.toLocation}
-                    </div>
+                    <div className="font-medium">{value?.name || 'N/A'}</div>
+                    <div className="text-xs text-gray-500">{value?.number || ''}</div>
                 </div>
             ),
         },
         {
             Header: 'Amount',
-            accessor: 'packageValue',
+            accessor: 'amount',
+            width: 120,
             Cell: ({ value }) => (
-                <div>
-                    <div className="font-bold text-green-700">{formatCurrency(value)}</div>
-                </div>
+                <div className="font-bold text-green-700">{formatCurrency(value)}</div>
             ),
         },
         {
-            Header: 'Customer',
-            accessor: 'staffMember',
+            Header: 'Payment Mode',
+            accessor: 'payment_mode_label',
+            width: 100,
             Cell: ({ value }) => (
-                <div className="text-sm font-medium">{value}</div>
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {value}
+                </span>
             ),
         },
         {
-            Header: 'Status',
-            accessor: 'status',
+            Header: 'Payment Type',
+            accessor: 'payment_type_label',
+            width: 100,
             Cell: ({ value }) => (
-                <div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        value === 'Delivered' ? 'bg-green-100 text-green-800' : 
-                        value === 'In Transit' ? 'bg-blue-100 text-blue-800' : 
-                        'bg-yellow-100 text-yellow-800'
-                    }`}>
-                        {value}
-                    </span>
-                </div>
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {value}
+                </span>
+            ),
+        },
+        {
+            Header: 'Booking Center',
+            accessor: 'booking_center',
+            width: 120,
+            Cell: ({ value }) => (
+                <div className="text-sm">{value?.name || 'N/A'}</div>
             ),
         },
     ];
@@ -513,282 +310,482 @@ const ProfitLossReport = () => {
     // Expense Columns
     const expenseColumns = [
         {
+            Header: 'S.No',
+            accessor: 'index',
+            Cell: ({ row }) => <div>{row.index + 1 + expensesPagination.pageIndex * expensesPagination.pageSize}</div>,
+            width: 70,
+        },
+        {
             Header: 'Date',
             accessor: 'date',
             width: 100,
             Cell: ({ value }) => (
-                <div className="text-sm">
-                    <div>{moment(value).format('DD/MM')}</div>
-                    <div className="text-xs text-gray-500">{moment(value).format('ddd')}</div>
-                </div>
+                <div className="text-sm">{moment(value).format('DD/MM/YYYY')}</div>
             ),
         },
         {
-            Header: 'Expense ID',
-            accessor: 'expenseId',
-            width: 100,
-            Cell: ({ value }) => <span className="font-bold text-red-600">{value}</span>,
-        },
-        {
-            Header: 'Expense Details',
-            accessor: 'name',
-            Cell: ({ row }) => (
-                <div>
-                    <div className="font-medium">{row.original.name}</div>
-                    <div className="text-xs text-gray-500">{row.original.description}</div>
-                </div>
+            Header: 'Expense Type',
+            accessor: 'expense_type',
+            width: 120,
+            Cell: ({ value }) => (
+                <div className="font-medium">{value || 'N/A'}</div>
             ),
         },
         {
             Header: 'Amount',
             accessor: 'amount',
+            width: 120,
             Cell: ({ value }) => (
                 <div className="font-bold text-red-700">{formatCurrency(value)}</div>
             ),
         },
         {
-            Header: 'Payment Status',
-            accessor: 'paymentStatus',
-            Cell: ({ row }) => (
-                <div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        row.original.status === 'paid' ? 'bg-green-100 text-green-800' : 
-                        row.original.status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' : 
-                        'bg-red-100 text-red-800'
-                    }`}>
-                        {row.original.status.replace('_', ' ').toUpperCase()}
-                    </span>
-                </div>
+            Header: 'Payment Type',
+            accessor: 'payment_type_label',
+            width: 100,
+            Cell: ({ value }) => (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                    {value}
+                </span>
             ),
         },
         {
-            Header: 'Category',
-            accessor: 'category',
+            Header: 'Center',
+            accessor: 'center',
+            width: 120,
             Cell: ({ value }) => (
-                <div className={`font-medium capitalize px-2 py-1 rounded-full text-xs ${
-                    value === 'vehicle' ? 'bg-blue-100 text-blue-800' :
-                    value === 'staff' ? 'bg-green-100 text-green-800' :
-                    'bg-gray-100 text-gray-800'
-                }`}>
-                    {value}
-                </div>
+                <div className="text-sm">{value?.name || 'N/A'}</div>
+            ),
+        },
+        {
+            Header: 'Description',
+            accessor: 'description',
+            width: 200,
+            Cell: ({ value }) => (
+                <div className="text-sm text-gray-600">{value || '-'}</div>
             ),
         },
     ];
 
-    // Daily Summary Columns
-    const dailyColumns = [
+    // Extra Income Columns
+    const extraIncomeColumns = [
+        {
+            Header: 'S.No',
+            accessor: 'index',
+            Cell: ({ row }) => <div>{row.index + 1 + extraIncomePagination.pageIndex * extraIncomePagination.pageSize}</div>,
+            width: 70,
+        },
         {
             Header: 'Date',
             accessor: 'date',
-            width: 120,
-            Cell: ({ value, row }) => (
-                <div className="text-sm">
-                    <div className="font-medium">{moment(value).format('DD MMM YYYY')}</div>
-                    <div className="text-xs text-gray-500">{row.original.dayOfWeek}</div>
-                </div>
-            ),
-        },
-        {
-            Header: 'Payments',
-            accessor: 'totalPackages',
+            width: 100,
             Cell: ({ value }) => (
-                <div className="text-center">
-                    <div className="font-bold text-blue-700">{value}</div>
-                </div>
+                <div className="text-sm">{moment(value).format('DD/MM/YYYY')}</div>
             ),
         },
         {
-            Header: 'Revenue',
-            accessor: 'dailyRevenue',
+            Header: 'Income Type',
+            accessor: 'income_type_label',
+            width: 100,
+            Cell: ({ value }) => (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    {value}
+                </span>
+            ),
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            width: 120,
             Cell: ({ value }) => (
                 <div className="font-bold text-green-700">{formatCurrency(value)}</div>
             ),
         },
         {
-            Header: 'Expenses',
-            accessor: 'dailyExpense',
+            Header: 'Center',
+            accessor: 'center',
+            width: 120,
             Cell: ({ value }) => (
-                <div className="font-bold text-red-700">{formatCurrency(value)}</div>
+                <div className="text-sm">{value?.name || 'N/A'}</div>
             ),
         },
         {
-            Header: 'Profit/Loss',
-            accessor: 'dailyProfit',
+            Header: 'Description',
+            accessor: 'description',
+            width: 200,
             Cell: ({ value }) => (
-                <div className={`font-bold ${value >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                <div className="text-sm text-gray-600">{value || '-'}</div>
+            ),
+        },
+    ];
+
+    // Investment Columns
+    const investmentColumns = [
+        {
+            Header: 'S.No',
+            accessor: 'index',
+            Cell: ({ row }) => <div>{row.index + 1 + investmentsPagination.pageIndex * investmentsPagination.pageSize}</div>,
+            width: 70,
+        },
+        {
+            Header: 'Date',
+            accessor: 'date',
+            width: 100,
+            Cell: ({ value }) => (
+                <div className="text-sm">{moment(value).format('DD/MM/YYYY')}</div>
+            ),
+        },
+        {
+            Header: 'Type',
+            accessor: 'type',
+            width: 100,
+            Cell: ({ value }) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${value === 'IN' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    {value === 'IN' ? 'Investment' : 'Withdrawal'}
+                </span>
+            ),
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            width: 120,
+            Cell: ({ value, row }) => (
+                <div className={`font-bold ${row.original.type === 'IN' ? 'text-green-700' : 'text-red-700'}`}>
                     {formatCurrency(value)}
                 </div>
             ),
         },
         {
-            Header: 'Margin %',
-            accessor: 'profitMargin',
+            Header: 'Center',
+            accessor: 'center',
+            width: 120,
             Cell: ({ value }) => (
-                <div className={`font-medium ${value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {value >= 0 ? '+' : ''}{value.toFixed(1)}%
-                </div>
+                <div className="text-sm">{value?.name || 'N/A'}</div>
             ),
         },
         {
-            Header: 'Day Status',
-            accessor: 'isProfitDay',
+            Header: 'Notes',
+            accessor: 'notes',
+            width: 150,
             Cell: ({ value }) => (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                    {value ? 'Profit Day' : 'Loss Day'}
-                </span>
-            ),
-        },
-        {
-            Header: 'Breakdown',
-            accessor: 'breakdown',
-            Cell: ({ row }) => (
-                <div className="text-xs text-gray-600">
-                    <div>Vehicle: {formatCurrency(row.original.vehicleExpense)}</div>
-                    <div>Staff: {formatCurrency(row.original.staffExpense)}</div>
-                </div>
+                <div className="text-sm text-gray-600">{value || '-'}</div>
             ),
         },
     ];
 
+    // Customer Columns for Summary Table
+    const customerColumns = [
+        {
+            Header: 'S.No',
+            accessor: 'index',
+            Cell: ({ row }) => <div>{row.index + 1 + customerPagination.pageIndex * customerPagination.pageSize}</div>,
+            width: 70,
+        },
+        {
+            Header: 'Customer Name',
+            accessor: 'customer_name',
+            width: 200,
+            Cell: ({ value, row }) => (
+                <div>
+                    <div className="font-medium">{value}</div>
+                    <div className="text-xs text-gray-500">{row.original.customer_number}</div>
+                </div>
+            ),
+        },
+        {
+            Header: 'Total Amount',
+            accessor: 'total_amount',
+            width: 150,
+            Cell: ({ value }) => (
+                <div className="font-bold text-green-700">{formatCurrency(value)}</div>
+            ),
+        },
+        {
+            Header: 'Payment Count',
+            accessor: 'payment_count',
+            width: 120,
+            Cell: ({ value }) => (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {value} payments
+                </span>
+            ),
+        },
+        {
+            Header: 'Action',
+            accessor: 'action',
+            width: 100,
+            Cell: ({ row }) => (
+                <button
+                    onClick={() => handleViewCustomerPayments(row.original)}
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                    View Details
+                </button>
+            ),
+        },
+    ];
+
+    // Customer Payment Modal Columns
+    const customerPaymentColumns = [
+        {
+            Header: 'S.No',
+            accessor: 'index',
+            Cell: ({ row }) => <div>{row.index + 1 + customerPaymentsPagination.pageIndex * customerPaymentsPagination.pageSize}</div>,
+            width: 60,
+        },
+        {
+            Header: 'Payment No',
+            accessor: 'payment_number',
+            width: 120,
+            Cell: ({ value }) => <span className="font-bold text-blue-600">{value}</span>,
+        },
+        {
+            Header: 'Amount',
+            accessor: 'amount',
+            width: 100,
+            Cell: ({ value }) => (
+                <div className="font-bold text-green-700">{formatCurrency(value)}</div>
+            ),
+        },
+        {
+            Header: 'Mode',
+            accessor: 'mode',
+            width: 80,
+            Cell: ({ value }) => (
+                <span className="capitalize px-2 py-1 rounded-full text-xs font-medium bg-gray-100">
+                    {value}
+                </span>
+            ),
+        },
+        {
+            Header: 'Type',
+            accessor: 'payment_type_label',
+            width: 80,
+            Cell: ({ value }) => (
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    {value}
+                </span>
+            ),
+        },
+        {
+            Header: 'Booking No',
+            accessor: 'booking_number',
+            width: 100,
+        },
+        {
+            Header: 'Booking Center',
+            accessor: 'booking_center',
+            width: 100,
+        },
+        {
+            Header: 'Date',
+            accessor: 'date',
+            width: 100,
+            Cell: ({ value }) => value ? moment(value).format('DD/MM/YYYY') : '-',
+        },
+    ];
+
     const onDownloadExcel = () => {
-        if (!reportData.summary) return;
+        if (!reportData) return;
 
         const wb = XLSX.utils.book_new();
 
         // Summary Sheet
-        const summaryHeader = [
-            ['PROFIT & LOSS REPORT - SUMMARY'],
+        const summaryData = [
+            ['PROFIT & LOSS REPORT'],
             [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
             [`Center: ${selectedCenter?.label || 'All Centers'}`],
-            [`Report Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
+            [`Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
             [],
-            ['OVERALL SUMMARY'],
-            ['Metric', 'Value'],
-            ['Report Period', `${moment(dateRange.from).format('DD MMM YYYY')} to ${moment(dateRange.to).format('DD MMM YYYY')}`],
-            ['Total Days', reportData.summary.totalDays],
-            ['Profit Days', reportData.summary.profitDays],
-            ['Loss Days', reportData.summary.lossDays],
-            ['Profit Day Percentage', `${reportData.summary.profitPercentage}%`],
+            ['OPENING BALANCE'],
+            ['Total', reportData.opening_balance?.total || '0'],
+            ['As of Date', reportData.opening_balance?.as_of_date || 'N/A'],
             [],
-            ['FINANCIAL SUMMARY', ''],
-            ['Total Revenue', reportData.summary.totalRevenue],
-            ['Total Expenses', reportData.summary.totalExpenses],
-            ['Net Profit/Loss', reportData.summary.totalProfit],
-            ['Profit Margin', `${reportData.summary.overallProfitMargin}%`],
-            ['Overall Status', reportData.summary.isOverallProfit ? 'PROFIT' : 'LOSS'],
+            ['FINANCIAL SUMMARY'],
+            ['Metric', 'Amount'],
+            ['Total Payments', reportData.summary?.total_payment_amount || '0'],
+            ['Total Extra Income', reportData.summary?.total_extra_income_amount || '0'],
+            ['Total Income', reportData.summary?.total_income || '0'],
+            ['Total Expenses', reportData.summary?.total_expense_amount || '0'],
+            ['Operational Profit/Loss', reportData.summary?.operational_profit_loss || '0'],
+            ['Total Investments', reportData.summary?.total_investments || '0'],
+            ['Total Withdrawals', reportData.summary?.total_withdrawals || '0'],
+            ['Net Investment Change', reportData.summary?.net_investment_change || '0'],
+            ['Net Profit/Loss', reportData.summary?.total_profit_loss || '0'],
+            ['Profit/Loss Status', reportData.summary?.profit_loss_status || 'N/A'],
+            ['Closing Balance', reportData.summary?.closing_balance || '0'],
             [],
-            ['DAILY AVERAGES', ''],
-            ['Avg Daily Revenue', reportData.summary.avgDailyRevenue],
-            ['Avg Daily Expenses', reportData.summary.avgDailyExpense],
-            ['Avg Daily Profit', reportData.summary.avgDailyProfit],
+            ['PAYMENT BREAKDOWN BY TYPE'],
+            ['Type', 'Amount', 'Count'],
+            ...(reportData.summary?.payment_breakdown_by_type || []).map(item => [item.label, item.amount, item.count]),
             [],
-            ['EXPENSE BREAKDOWN', ''],
-            ['Vehicle Expenses', reportData.summary.totalVehicleExpense],
-            ['Staff Expenses', reportData.summary.totalStaffExpense],
-            ['Other Expenses', reportData.summary.totalOtherExpense],
+            ['PAYMENT BREAKDOWN BY MODE'],
+            ['Mode', 'Amount', 'Count'],
+            ...(reportData.summary?.payment_breakdown_by_mode || []).map(item => [item.label, item.amount, item.count]),
             [],
-            ['COUNTS', ''],
-            ['Total Payments', reportData.summary.totalPackages],
-            ['Total Expense Items', reportData.summary.totalExpenseItems],
+            ['EXTRA INCOME BREAKDOWN'],
+            ['Type', 'Amount', 'Count'],
+            ...(reportData.summary?.extra_income_breakdown_by_type || []).map(item => [item.label, item.amount, item.count]),
+            [],
+            ['EXPENSE BREAKDOWN BY PAYMENT TYPE'],
+            ['Payment Type', 'Amount', 'Count'],
+            ...(reportData.summary?.expense_breakdown_by_payment_type || []).map(item => [item.label, item.amount, item.count]),
+            [],
+            ['EXPENSE BREAKDOWN BY EXPENSE TYPE'],
+            ['Expense Type', 'Amount', 'Count'],
+            ...(reportData.summary?.expense_breakdown_by_expense_type || []).map(item => [item.expense_type, item.amount, item.count]),
         ];
 
-        const summaryWs = XLSX.utils.aoa_to_sheet(summaryHeader);
-        summaryWs['!cols'] = [{ wch: 25 }, { wch: 20 }];
+        const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+        summaryWs['!cols'] = [{ wch: 30 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
 
-        // Daily Data Sheet
-        const dailyHeader = [
-            ['DAILY PROFIT & LOSS DETAILS'],
-            [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
-            [],
-            ['Date', 'Day', 'Payments', 'Revenue', 'Expenses', 'Profit/Loss', 'Margin %', 'Status', 'Vehicle Expense', 'Staff Expense', 'Other Expense']
-        ];
-
-        const dailyData = reportData.dailyData.map(day => [
-            moment(day.date).format('DD/MM/YYYY'),
-            day.dayOfWeek,
-            day.totalPackages,
-            day.dailyRevenue,
-            day.dailyExpense,
-            day.dailyProfit,
-            `${day.profitMargin.toFixed(1)}%`,
-            day.isProfitDay ? 'Profit' : 'Loss',
-            day.vehicleExpense,
-            day.staffExpense,
-            day.otherExpense
-        ]);
-
-        const dailyRows = [...dailyHeader, ...dailyData];
-        const dailyWs = XLSX.utils.aoa_to_sheet(dailyRows);
-        dailyWs['!cols'] = [
-            { wch: 12 }, { wch: 10 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-            { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }
-        ];
-
-        // Packages Sheet
-        const packageHeader = [
-            ['PAYMENT DETAILS'],
-            [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
-            [],
-            ['Date', 'Payment ID', 'Type', 'From', 'To', 'Amount', 'Customer', 'Status']
-        ];
-
-        const packageRows = reportData.filteredPackages.map(pkg => [
-            moment(pkg.date).format('DD/MM/YYYY'),
-            pkg.packageId,
-            pkg.packageType,
-            pkg.fromLocation,
-            pkg.toLocation,
-            pkg.packageValue,
-            pkg.staffMember,
-            pkg.status
-        ]);
-
-        const packageData = [...packageHeader, ...packageRows];
-        const packageWs = XLSX.utils.aoa_to_sheet(packageData);
-        packageWs['!cols'] = [
-            { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
-            { wch: 12 }, { wch: 15 }, { wch: 12 }
-        ];
+        // Payments Sheet
+        if (reportData.transactions?.payments?.length > 0) {
+            const paymentsData = [
+                ['PAYMENTS DETAILS'],
+                [],
+                ['Date', 'Payment No', 'Customer', 'Amount', 'Payment Mode', 'Payment Type', 'Booking Center', 'Description'],
+                ...reportData.transactions.payments.map(p => [
+                    p.date,
+                    p.payment_number,
+                    p.customer?.name || 'N/A',
+                    p.amount,
+                    p.payment_mode_label,
+                    p.payment_type_label,
+                    p.booking_center?.name || 'N/A',
+                    p.description || ''
+                ])
+            ];
+            const paymentsWs = XLSX.utils.aoa_to_sheet(paymentsData);
+            XLSX.utils.book_append_sheet(wb, paymentsWs, 'Payments');
+        }
 
         // Expenses Sheet
-        const expenseHeader = [
-            ['EXPENSES DETAILS'],
-            [`Date Range: ${moment(dateRange.from).format('DD/MM/YYYY')} to ${moment(dateRange.to).format('DD/MM/YYYY')}`],
-            [],
-            ['Date', 'Expense ID', 'Name', 'Description', 'Category', 'Amount', 'Status', 'Payment Method']
-        ];
+        if (reportData.transactions?.expenses?.length > 0) {
+            const expensesData = [
+                ['EXPENSES DETAILS'],
+                [],
+                ['Date', 'Expense Type', 'Amount', 'Payment Type', 'Center', 'Description'],
+                ...reportData.transactions.expenses.map(e => [
+                    e.date,
+                    e.expense_type,
+                    e.amount,
+                    e.payment_type_label,
+                    e.center?.name || 'N/A',
+                    e.description || e.notes || ''
+                ])
+            ];
+            const expensesWs = XLSX.utils.aoa_to_sheet(expensesData);
+            XLSX.utils.book_append_sheet(wb, expensesWs, 'Expenses');
+        }
 
-        const expenseRows = reportData.filteredExpenses.map(exp => [
-            moment(exp.date).format('DD/MM/YYYY'),
-            exp.expenseId,
-            exp.name,
-            exp.description,
-            exp.category,
-            exp.amount,
-            exp.status,
-            exp.paymentMethod
-        ]);
+        // Extra Income Sheet
+        if (reportData.transactions?.extra_incomes?.length > 0) {
+            const extraIncomeData = [
+                ['EXTRA INCOME DETAILS'],
+                [],
+                ['Date', 'Income Type', 'Amount', 'Center', 'Description'],
+                ...reportData.transactions.extra_incomes.map(i => [
+                    i.date,
+                    i.income_type_label,
+                    i.amount,
+                    i.center?.name || 'N/A',
+                    i.description || ''
+                ])
+            ];
+            const extraIncomeWs = XLSX.utils.aoa_to_sheet(extraIncomeData);
+            XLSX.utils.book_append_sheet(wb, extraIncomeWs, 'Extra Income');
+        }
 
-        const expenseData = [...expenseHeader, ...expenseRows];
-        const expenseWs = XLSX.utils.aoa_to_sheet(expenseData);
-        expenseWs['!cols'] = [
-            { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 12 },
-            { wch: 12 }, { wch: 12 }, { wch: 15 }
-        ];
+        // Investments Sheet
+        if (reportData.transactions?.investments?.length > 0) {
+            const investmentsData = [
+                ['INVESTMENTS & WITHDRAWALS'],
+                [],
+                ['Date', 'Type', 'Amount', 'Center', 'Notes'],
+                ...reportData.transactions.investments.map(i => [
+                    i.date,
+                    i.type === 'IN' ? 'Investment' : 'Withdrawal',
+                    i.amount,
+                    i.center?.name || 'N/A',
+                    i.notes || ''
+                ])
+            ];
+            const investmentsWs = XLSX.utils.aoa_to_sheet(investmentsData);
+            XLSX.utils.book_append_sheet(wb, investmentsWs, 'Investments');
+        }
 
-        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
-        XLSX.utils.book_append_sheet(wb, dailyWs, 'Daily Details');
-        XLSX.utils.book_append_sheet(wb, packageWs, 'Payments');
-        XLSX.utils.book_append_sheet(wb, expenseWs, 'Expenses');
-
-        const fileName = `PL-Report-${moment(dateRange.from).format('DD-MM-YY')}-to-${moment(dateRange.to).format('DD-MM-YY')}.xlsx`;
+        const fileName = `Profit-Loss-${moment(dateRange.from).format('DD-MM-YY')}-to-${moment(dateRange.to).format('DD-MM-YY')}.xlsx`;
         XLSX.writeFile(wb, fileName);
     };
 
-    if (loading || centersLoading || !reportData.summary) {
+    // Pagination handlers
+    const handlePaymentsPagination = (pageIndex, pageSize) => {
+        setPaymentsPagination({ pageIndex, pageSize });
+    };
+
+    const handleExpensesPagination = (pageIndex, pageSize) => {
+        setExpensesPagination({ pageIndex, pageSize });
+    };
+
+    const handleExtraIncomePagination = (pageIndex, pageSize) => {
+        setExtraIncomePagination({ pageIndex, pageSize });
+    };
+
+    const handleInvestmentsPagination = (pageIndex, pageSize) => {
+        setInvestmentsPagination({ pageIndex, pageSize });
+    };
+
+    const handleCustomerPagination = (pageIndex, pageSize) => {
+        setCustomerPagination({ pageIndex, pageSize });
+    };
+
+    const handleCustomerPaymentsPagination = (pageIndex, pageSize) => {
+        setCustomerPaymentsPagination({ pageIndex, pageSize });
+    };
+
+    // Get paginated data for customer modal
+    const getPaginatedCustomerPayments = () => {
+        if (!selectedCustomer?.payments) return [];
+        const start = customerPaymentsPagination.pageIndex * customerPaymentsPagination.pageSize;
+        const end = start + customerPaymentsPagination.pageSize;
+        return selectedCustomer.payments.slice(start, end);
+    };
+
+    
+    // Get paginated data for all tables
+    const paginatedPayments = getPaginatedData(
+        reportData?.transactions?.payments || [],
+        paymentsPagination.pageIndex,
+        paymentsPagination.pageSize
+    );
+
+    const paginatedExpenses = getPaginatedData(
+        reportData?.transactions?.expenses || [],
+        expensesPagination.pageIndex,
+        expensesPagination.pageSize
+    );
+
+    const paginatedExtraIncome = getPaginatedData(
+        reportData?.transactions?.extra_incomes || [],
+        extraIncomePagination.pageIndex,
+        extraIncomePagination.pageSize
+    );
+
+    const paginatedInvestments = getPaginatedData(
+        reportData?.transactions?.investments || [],
+        investmentsPagination.pageIndex,
+        investmentsPagination.pageSize
+    );
+
+    const paginatedCustomers = getPaginatedData(
+        reportData?.breakdown?.by_customer || [],
+        customerPagination.pageIndex,
+        customerPagination.pageSize
+    );
+
+    if (loading || centersLoading) {
         return (
             <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-center h-64">
@@ -833,30 +830,10 @@ const ProfitLossReport = () => {
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => quickDateRange(7)}
-                            className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium"
-                        >
-                            Last 7 Days
-                        </button>
-                        <button
-                            onClick={() => quickDateRange(30)}
-                            className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-all duration-200 text-sm font-medium border border-blue-300"
-                        >
-                            Last 30 Days
-                        </button>
-                        <button
-                            onClick={() => quickDateRange(90)}
-                            className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium"
-                        >
-                            Last 90 Days
-                        </button>
-                        <button
-                            onClick={() => quickDateRange(365)}
-                            className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-all duration-200 text-sm font-medium"
-                        >
-                            Last 1 Year
-                        </button>
+                        <button onClick={() => quickDateRange(7)} className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-sm font-medium">Last 7 Days</button>
+                        <button onClick={() => quickDateRange(30)} className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 text-sm font-medium border border-blue-300">Last 30 Days</button>
+                        <button onClick={() => quickDateRange(90)} className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-sm font-medium">Last 90 Days</button>
+                        <button onClick={() => quickDateRange(365)} className="px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-sm font-medium">Last 1 Year</button>
                     </div>
                 </div>
 
@@ -869,7 +846,7 @@ const ProfitLossReport = () => {
                         <input
                             type="date"
                             name="from"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={dateRange.from}
                             onChange={handleDateRangeChange}
                             max={moment().format('YYYY-MM-DD')}
@@ -884,7 +861,7 @@ const ProfitLossReport = () => {
                         <input
                             type="date"
                             name="to"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             value={dateRange.to}
                             onChange={handleDateRangeChange}
                             max={moment().format('YYYY-MM-DD')}
@@ -903,599 +880,485 @@ const ProfitLossReport = () => {
                             placeholder="Select a center..."
                             isClearable
                             styles={selectStyles}
-                            className="react-select-container"
-                            classNamePrefix="react-select"
                         />
                     </div>
                     
                     <div className="flex items-end">
-                        <button
-                            onClick={fetchReportData}
-                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium"
-                        >
+                        <button onClick={fetchReportData} className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
                             Generate Report
                         </button>
                     </div>
                 </div>
-
-                <div className="text-center pt-4 border-t border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                        {moment(dateRange.from).format('DD MMM YYYY')} - {moment(dateRange.to).format('DD MMM YYYY')} | {selectedCenter?.label || 'All Centers'}
-                    </h3>
-                    <p className="text-gray-600 text-sm">
-                        {reportData.summary.totalDays} days • {reportData.summary.profitDays} profit days • {reportData.summary.lossDays} loss days
-                    </p>
-                </div>
             </div>
 
             {/* Export Button */}
-            <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    {_.includes(accessIds, '5') && (
-                    <button
-                        onClick={onDownloadExcel}
-                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200 font-medium shadow-sm flex items-center text-sm"
-                    >
-                        <IconDownload className="mr-2 w-4 h-4" />
-                        Export Excel Report
-                    </button>
-                    )}
-                    
-                    <div className="text-sm text-gray-600">
-                        Showing {reportData.summary.totalDays} days of data
+            {reportData && (
+                <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        {_.includes(accessIds, '5') && (
+                            <button onClick={onDownloadExcel} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium shadow-sm flex items-center text-sm">
+                                <IconDownload className="mr-2 w-4 h-4" />
+                                Export Excel Report
+                            </button>
+                        )}
+                        
+                        <div className="text-center">
+                            <h3 className="text-lg font-semibold text-gray-800">
+                                {moment(dateRange.from).format('DD MMM YYYY')} - {moment(dateRange.to).format('DD MMM YYYY')} | {selectedCenter?.label || 'All Centers'}
+                            </h3>
+                            <div className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium mt-1 ${reportData.summary?.profit_loss_status === 'profit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {reportData.summary?.profit_loss_status === 'profit' ? <IconTrendingUp className="w-4 h-4 mr-1" /> : <IconTrendingDown className="w-4 h-4 mr-1" />}
+                                {reportData.summary?.profit_loss_status === 'profit' ? 'PROFIT' : 'LOSS'}: {formatCurrency(Math.abs(reportData.summary?.total_profit_loss || 0))}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* View Mode Toggle */}
-            <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            {reportData && (
+                <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => setViewMode('summary')}
-                            className={`px-4 py-2 rounded-lg flex items-center ${
-                                viewMode === 'summary' 
-                                    ? 'bg-blue-100 text-blue-700 border border-blue-300' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            <IconChartBar className="w-4 h-4 mr-2" />
+                        <button onClick={() => setViewMode('summary')} className={`px-4 py-2 rounded-lg flex items-center ${viewMode === 'summary' ? 'bg-blue-100 text-blue-700 border border-blue-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                            <IconPieChart className="w-4 h-4 mr-2" />
                             Summary
                         </button>
-                        <button
-                            onClick={() => setViewMode('daily')}
-                            className={`px-4 py-2 rounded-lg flex items-center ${
-                                viewMode === 'daily' 
-                                    ? 'bg-purple-100 text-purple-700 border border-purple-300' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
-                            <IconCalendar className="w-4 h-4 mr-2" />
-                            Daily View
-                        </button>
-                        <button
-                            onClick={() => setViewMode('packages')}
-                            className={`px-4 py-2 rounded-lg flex items-center ${
-                                viewMode === 'packages' 
-                                    ? 'bg-green-100 text-green-700 border border-green-300' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
+                        <button onClick={() => setViewMode('payments')} className={`px-4 py-2 rounded-lg flex items-center ${viewMode === 'payments' ? 'bg-green-100 text-green-700 border border-green-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                             <IconMoney className="w-4 h-4 mr-2" />
-                            Payments ({reportData.filteredPackages.length})
+                            Payments ({reportData.transactions?.payments?.length || 0})
                         </button>
-                        <button
-                            onClick={() => setViewMode('expenses')}
-                            className={`px-4 py-2 rounded-lg flex items-center ${
-                                viewMode === 'expenses' 
-                                    ? 'bg-red-100 text-red-700 border border-red-300' 
-                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                        >
+                        <button onClick={() => setViewMode('expenses')} className={`px-4 py-2 rounded-lg flex items-center ${viewMode === 'expenses' ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                             <IconReceipt className="w-4 h-4 mr-2" />
-                            Expenses ({reportData.filteredExpenses.length})
+                            Expenses ({reportData.transactions?.expenses?.length || 0})
                         </button>
-                    </div>
-                    
-                    <div className="text-sm text-gray-600">
-                        {viewMode === 'summary' && 'Financial Summary'}
-                        {viewMode === 'daily' && 'Daily Profit/Loss Breakdown'}
-                        {viewMode === 'packages' && 'Payment Details'}
-                        {viewMode === 'expenses' && 'Expense Details'}
-                    </div>
-                </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {/* Revenue Card */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Total Revenue</h3>
-                        <div className="p-2 bg-blue-100 rounded-full">
-                            <IconMoney className="w-5 h-5 text-blue-600" />
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-700 mb-2">
-                            {formatCurrency(reportData.summary.totalRevenue)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            Avg: {formatCurrency(reportData.summary.avgDailyRevenue)}/day
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            {formatNumber(reportData.summary.totalPackages)} payments
-                        </div>
-                    </div>
-                </div>
-
-                {/* Expenses Card */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-red-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Total Expenses</h3>
-                        <div className="p-2 bg-red-100 rounded-full">
-                            <IconReceipt className="w-5 h-5 text-red-600" />
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-red-700 mb-2">
-                            {formatCurrency(reportData.summary.totalExpenses)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            Avg: {formatCurrency(reportData.summary.avgDailyExpense)}/day
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            {formatNumber(reportData.summary.totalExpenseItems)} items
-                        </div>
-                    </div>
-                </div>
-
-                {/* Net Profit Card */}
-                <div className={`bg-white rounded-lg shadow-sm p-4 border ${reportData.summary.isOverallProfit ? 'border-green-200' : 'border-red-200'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Net Profit/Loss</h3>
-                        <div className={`p-2 rounded-full ${reportData.summary.isOverallProfit ? 'bg-green-100' : 'bg-red-100'}`}>
-                            {reportData.summary.isOverallProfit ? (
-                                <IconTrendingUp className="w-5 h-5 text-green-600" />
-                            ) : (
-                                <IconTrendingDown className="w-5 h-5 text-red-600" />
-                            )}
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className={`text-2xl font-bold mb-2 ${reportData.summary.isOverallProfit ? 'text-green-700' : 'text-red-700'}`}>
-                            {formatCurrency(reportData.summary.totalProfit)}
-                        </div>
-                        <div className={`text-sm ${reportData.summary.overallProfitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {reportData.summary.overallProfitMargin >= 0 ? '+' : ''}{reportData.summary.overallProfitMargin}% Margin
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                            Avg: {formatCurrency(reportData.summary.avgDailyProfit)}/day
-                        </div>
-                    </div>
-                </div>
-
-                {/* Performance Card */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-purple-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Performance</h3>
-                        <div className="p-2 bg-purple-100 rounded-full">
-                            <IconChartBar className="w-5 h-5 text-purple-600" />
-                        </div>
-                    </div>
-                    <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-700 mb-2">
-                            {reportData.summary.profitDays}/{reportData.summary.totalDays} Days
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {reportData.summary.profitPercentage}% Profit Days
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 text-xs mt-2">
-                            <div className="bg-green-50 p-1 rounded">
-                                <div className="text-green-700 font-bold">{reportData.summary.profitDays}</div>
-                                <div className="text-xs text-gray-600">Profit Days</div>
-                            </div>
-                            <div className="bg-red-50 p-1 rounded">
-                                <div className="text-red-700 font-bold">{reportData.summary.lossDays}</div>
-                                <div className="text-xs text-gray-600">Loss Days</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content based on view mode */}
-            {viewMode === 'summary' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    {/* Financial Summary */}
-                    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Financial Summary</h3>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center pb-3 border-b">
-                                <span className="text-gray-700 font-medium">Total Revenue</span>
-                                <span className="text-green-700 font-bold">{formatCurrency(reportData.summary.totalRevenue)}</span>
-                            </div>
-                            
-                            <div className="space-y-3">
-                                <div className="text-sm font-medium text-gray-600">Expense Breakdown:</div>
-                                
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                                        <span className="text-gray-700">Vehicle Expenses</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-red-700 font-bold">{formatCurrency(reportData.summary.totalVehicleExpense)}</span>
-                                        <span className="text-xs text-gray-500 ml-2">({reportData.summary.vehicleExpensePercentage}%)</span>
-                                    </div>
-                                </div>
-                                
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                        <span className="text-gray-700">Staff Expenses</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-red-700 font-bold">{formatCurrency(reportData.summary.totalStaffExpense)}</span>
-                                        <span className="text-xs text-gray-500 ml-2">({reportData.summary.staffExpensePercentage}%)</span>
-                                    </div>
-                                </div>
-                                
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                                        <span className="text-gray-700">Other Expenses</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-red-700 font-bold">{formatCurrency(reportData.summary.totalOtherExpense)}</span>
-                                        <span className="text-xs text-gray-500 ml-2">({reportData.summary.otherExpensePercentage}%)</span>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div className="flex justify-between items-center pt-3 border-t">
-                                <span className="text-gray-700 font-medium">Total Expenses</span>
-                                <span className="text-red-700 font-bold">{formatCurrency(reportData.summary.totalExpenses)}</span>
-                            </div>
-                            
-                            <div className={`flex justify-between items-center pt-3 border-t ${reportData.summary.isOverallProfit ? 'bg-green-50 p-3 rounded-lg' : 'bg-red-50 p-3 rounded-lg'}`}>
-                                <span className={`font-bold text-lg ${reportData.summary.isOverallProfit ? 'text-green-800' : 'text-red-800'}`}>
-                                    {reportData.summary.isOverallProfit ? 'Net Profit' : 'Net Loss'}
-                                </span>
-                                <span className={`text-2xl font-bold ${reportData.summary.isOverallProfit ? 'text-green-700' : 'text-red-700'}`}>
-                                    {reportData.summary.isOverallProfit ? '+' : ''}{formatCurrency(reportData.summary.totalProfit)}
-                                </span>
-                            </div>
-                            
-                            <div className={`text-center py-2 rounded-lg ${reportData.summary.isOverallProfit ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                <div className="font-semibold">
-                                    {reportData.summary.isOverallProfit ? 'Overall Profit' : 'Overall Loss'} • {reportData.summary.overallProfitMargin >= 0 ? '+' : ''}{reportData.summary.overallProfitMargin}% Margin
-                                </div>
-                                <div className="text-sm">
-                                    {reportData.summary.profitDays} profit days • {reportData.summary.lossDays} loss days
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Expense Distribution */}
-                    <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Expense Distribution</h3>
-                        <div className="space-y-4">
-                            {/* Vehicle Expenses */}
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium text-gray-700">Vehicle Expenses</span>
-                                    <span className="font-bold text-blue-700">{formatCurrency(reportData.summary.totalVehicleExpense)}</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-4">
-                                    <div 
-                                        className="bg-blue-600 h-4 rounded-full" 
-                                        style={{ width: `${reportData.summary.vehicleExpensePercentage}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {reportData.summary.vehicleExpensePercentage}% of total expenses
-                                </div>
-                            </div>
-
-                            {/* Staff Expenses */}
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium text-gray-700">Staff Expenses</span>
-                                    <span className="font-bold text-green-700">{formatCurrency(reportData.summary.totalStaffExpense)}</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-4">
-                                    <div 
-                                        className="bg-green-600 h-4 rounded-full" 
-                                        style={{ width: `${reportData.summary.staffExpensePercentage}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {reportData.summary.staffExpensePercentage}% of total expenses
-                                </div>
-                            </div>
-
-                            {/* Other Expenses */}
-                            <div>
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium text-gray-700">Other Expenses</span>
-                                    <span className="font-bold text-purple-700">{formatCurrency(reportData.summary.totalOtherExpense)}</span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-4">
-                                    <div 
-                                        className="bg-purple-600 h-4 rounded-full" 
-                                        style={{ width: `${reportData.summary.otherExpensePercentage}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {reportData.summary.otherExpensePercentage}% of total expenses
-                                </div>
-                            </div>
-
-                            {/* Payment Status */}
-                            <div className="pt-4 border-t">
-                                <h4 className="font-medium text-gray-700 mb-3">Expense Payment Status</h4>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="bg-green-50 p-2 rounded text-center">
-                                        <div className="text-green-700 font-bold">{reportData.summary.paidExpenses}</div>
-                                        <div className="text-xs text-gray-600">Paid</div>
-                                    </div>
-                                    <div className="bg-yellow-50 p-2 rounded text-center">
-                                        <div className="text-yellow-700 font-bold">{reportData.summary.partialExpenses}</div>
-                                        <div className="text-xs text-gray-600">Partial</div>
-                                    </div>
-                                    <div className="bg-red-50 p-2 rounded text-center">
-                                        <div className="text-red-700 font-bold">{reportData.summary.unpaidExpenses}</div>
-                                        <div className="text-xs text-gray-600">Unpaid</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        {(reportData.transactions?.extra_incomes?.length > 0) && (
+                            <button onClick={() => setViewMode('extraIncome')} className={`px-4 py-2 rounded-lg flex items-center ${viewMode === 'extraIncome' ? 'bg-yellow-100 text-yellow-700 border border-yellow-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                <IconTrendingUp className="w-4 h-4 mr-2" />
+                                Extra Income ({reportData.transactions?.extra_incomes?.length || 0})
+                            </button>
+                        )}
+                        {(reportData.transactions?.investments?.length > 0) && (
+                            <button onClick={() => setViewMode('investments')} className={`px-4 py-2 rounded-lg flex items-center ${viewMode === 'investments' ? 'bg-purple-100 text-purple-700 border border-purple-300' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                                <IconPieChart className="w-4 h-4 mr-2" />
+                                Investments ({reportData.transactions?.investments?.length || 0})
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
 
-            {viewMode === 'daily' && (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
-                                    Daily Profit & Loss Breakdown
-                                </h3>
-                                <p className="text-gray-600 text-sm">
-                                    {reportData.summary.totalDays} days from {moment(dateRange.from).format('DD MMM YYYY')} to {moment(dateRange.to).format('DD MMM YYYY')}
-                                </p>
+            {/* Summary Cards and Sections */}
+            {reportData && viewMode === 'summary' && (
+                <>
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Total Income</h3>
+                                <div className="p-2 bg-blue-100 rounded-full"><IconMoney className="w-5 h-5 text-blue-600" /></div>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Profit Days: </span>
-                                    <span className="font-semibold text-green-600">{reportData.summary.profitDays}</span>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-blue-700 mb-2">{formatCurrency(reportData.summary?.total_income || 0)}</div>
+                                <div className="text-sm text-gray-600">{reportData.summary?.total_payments || 0} payments, {reportData.summary?.total_extra_income_count || 0} extra income</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-red-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Total Expenses</h3>
+                                <div className="p-2 bg-red-100 rounded-full"><IconReceipt className="w-5 h-5 text-red-600" /></div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-2xl font-bold text-red-700 mb-2">{formatCurrency(reportData.summary?.total_expense_amount || 0)}</div>
+                                <div className="text-sm text-gray-600">{reportData.summary?.total_expense_payments || 0} transactions</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-orange-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Operational P/L</h3>
+                                <div className={`p-2 rounded-full ${parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                                    {parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? <IconTrendingUp className="w-5 h-5 text-green-600" /> : <IconTrendingDown className="w-5 h-5 text-red-600" />}
                                 </div>
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Loss Days: </span>
-                                    <span className="font-semibold text-red-600">{reportData.summary.lossDays}</span>
+                            </div>
+                            <div className="text-center">
+                                <div className={`text-2xl font-bold mb-2 ${parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    {formatCurrency(Math.abs(reportData.summary?.operational_profit_loss || 0))}
                                 </div>
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Success Rate: </span>
-                                    <span className="font-semibold text-blue-600">{reportData.summary.profitPercentage}%</span>
+                                <div className="text-sm text-gray-600">Income - Expenses</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm p-4 border border-purple-200">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-bold text-gray-800">Net Profit/Loss</h3>
+                                <div className={`p-2 rounded-full ${reportData.summary?.profit_loss_status === 'profit' ? 'bg-green-100' : 'bg-red-100'}`}>
+                                    {reportData.summary?.profit_loss_status === 'profit' ? <IconTrendingUp className="w-5 h-5 text-green-600" /> : <IconTrendingDown className="w-5 h-5 text-red-600" />}
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div className={`text-2xl font-bold mb-2 ${reportData.summary?.profit_loss_status === 'profit' ? 'text-green-700' : 'text-red-700'}`}>
+                                    {formatCurrency(Math.abs(reportData.summary?.total_profit_loss || 0))}
+                                </div>
+                                <div className="text-sm text-gray-600">After investments & withdrawals</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Breakdown */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
+                                <h3 className="text-lg font-semibold text-blue-800">Payment Breakdown</h3>
+                            </div>
+                            <div className="p-4">
+                                <div className="mb-4">
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">By Payment Type</h4>
+                                    <div className="space-y-2">
+                                        {(reportData.summary?.payment_breakdown_by_type || []).map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-green-600">{formatCurrency(item.total)}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">By Payment Mode</h4>
+                                    <div className="space-y-2">
+                                        {(reportData.summary?.payment_breakdown_by_mode || []).map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-green-600">{formatCurrency(item.total)}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-6 py-4 bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200">
+                                <h3 className="text-lg font-semibold text-red-800">Expense Breakdown</h3>
+                            </div>
+                            <div className="p-4">
+                                <div className="mb-4">
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">By Expense Type</h4>
+                                    <div className="space-y-2">
+                                        {(reportData.summary?.expense_breakdown_by_expense_type || []).map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded cursor-pointer hover:bg-gray-100" onClick={() => handleViewExpenseDetails(item)}>
+                                                <span className="text-sm font-medium text-gray-700">{item.expense_type}</span>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-red-600">{formatCurrency(item.total)}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <h4 className="text-sm font-medium text-gray-700 mb-2">By Payment Type</h4>
+                                    <div className="space-y-2">
+                                        {(reportData.summary?.expense_breakdown_by_payment_type || []).map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-red-600">{formatCurrency(item.total)}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
+                    {/* Extra Income & Investment Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        {(reportData.summary?.extra_income_breakdown_by_type?.length > 0) && (
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="px-6 py-4 bg-gradient-to-r from-yellow-50 to-yellow-100 border-b border-yellow-200">
+                                    <h3 className="text-lg font-semibold text-yellow-800">Extra Income</h3>
+                                </div>
+                                <div className="p-4">
+                                    <div className="space-y-2">
+                                        {(reportData.summary?.extra_income_breakdown_by_type || []).map((item, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-green-600">{formatCurrency(item.total)}</span>
+                                                    <span className="text-xs text-gray-500 ml-2">({item.count})</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(reportData.transactions?.investments?.length > 0) && (
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="px-6 py-4 bg-gradient-to-r from-purple-50 to-purple-100 border-b border-purple-200">
+                                    <h3 className="text-lg font-semibold text-purple-800">Investments & Withdrawals</h3>
+                                </div>
+                                <div className="p-4">
+                                    <div className="space-y-2">
+                                        {reportData.transactions.investments.slice(0, 5).map((inv, idx) => (
+                                            <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                                <div>
+                                                    <span className="text-sm font-medium text-gray-700">{inv.type === 'IN' ? 'Investment' : 'Withdrawal'}</span>
+                                                    {inv.center && <span className="text-xs text-gray-500 ml-2">- {inv.center.name}</span>}
+                                                </div>
+                                                <span className={`text-sm font-bold ${inv.type === 'IN' ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {formatCurrency(inv.amount)}
+                                                </span>
+                                            </div>
+                                        ))}
+                                        {reportData.transactions.investments.length > 5 && (
+                                            <div className="text-center text-sm text-gray-500 pt-2">
+                                                ... and {reportData.transactions.investments.length - 5} more transactions
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Customer Summary Table with Pagination */}
+                    {reportData.breakdown?.by_customer?.length > 0 && (
+                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
+                            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                                <h3 className="text-lg font-semibold text-gray-800">Customer Summary</h3>
+                                <p className="text-sm text-gray-600">{reportData.summary?.unique_customers || 0} unique customers</p>
+                            </div>
+                            <div className="p-4">
+                                <Table
+                                    columns={customerColumns}
+                                    data={paginatedCustomers}
+                                    pageSize={customerPagination.pageSize}
+                                    pageIndex={customerPagination.pageIndex}
+                                    totalCount={reportData.breakdown.by_customer.length}
+                                    totalPages={Math.ceil(reportData.breakdown.by_customer.length / customerPagination.pageSize)}
+                                    onPaginationChange={handleCustomerPagination}
+                                    pagination={true}
+                                    isSearchable={false}
+                                    isSortable={true}
+                                    theadClass="bg-gray-50"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* Payments Table with Pagination */}
+            {reportData && viewMode === 'payments' && (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Payment Details</h3>
+                        <p className="text-gray-600 text-sm">{reportData.transactions?.payments?.length || 0} payments found</p>
+                    </div>
                     <div className="p-2 sm:p-4">
                         <Table
-                            columns={dailyColumns}
-                            data={reportData.dailyData}
-                            Title=""
-                            pageSize={15}
-                            pageIndex={0}
-                            totalCount={reportData.dailyData.length}
-                            totalPages={Math.ceil(reportData.dailyData.length / 15)}
-                            onPaginationChange={(page, size) => {}}
-                            isSortable={true}
+                            columns={paymentColumns}
+                            data={paginatedPayments}
+                            pageSize={paymentsPagination.pageSize}
+                            pageIndex={paymentsPagination.pageIndex}
+                            totalCount={reportData.transactions?.payments?.length || 0}
+                            totalPages={Math.ceil((reportData.transactions?.payments?.length || 0) / paymentsPagination.pageSize)}
+                            onPaginationChange={handlePaymentsPagination}
                             pagination={true}
-                            isSearchable={true}
-                            tableClass="min-w-full rounded-lg overflow-hidden"
+                            isSearchable={false}
+                            isSortable={true}
                             theadClass="bg-gray-50"
-                            responsive={true}
                         />
                     </div>
                 </div>
             )}
 
-            {viewMode === 'packages' && (
+            {/* Expenses Table with Pagination */}
+            {reportData && viewMode === 'expenses' && (
                 <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
                     <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
-                                    Payment Details
-                                </h3>
-                                <p className="text-gray-600 text-sm">
-                                    {reportData.filteredPackages.length} payments showing
-                                </p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Total Revenue: </span>
-                                    <span className="font-semibold text-green-600">
-                                        {formatCurrency(reportData.filteredPackages.reduce((sum, pkg) => sum + pkg.packageValue, 0))}
-                                    </span>
-                                </div>
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Avg per Payment: </span>
-                                    <span className="font-semibold text-blue-600">
-                                        {formatCurrency(reportData.filteredPackages.reduce((sum, pkg) => sum + pkg.packageValue, 0) / reportData.filteredPackages.length)}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Expense Details</h3>
+                        <p className="text-gray-600 text-sm">{reportData.transactions?.expenses?.length || 0} expenses found</p>
                     </div>
-
-                    <div className="p-2 sm:p-4">
-                        <Table
-                            columns={packageColumns}
-                            data={reportData.filteredPackages}
-                            Title=""
-                            pageSize={15}
-                            pageIndex={0}
-                            totalCount={reportData.filteredPackages.length}
-                            totalPages={Math.ceil(reportData.filteredPackages.length / 15)}
-                            onPaginationChange={(page, size) => {}}
-                            isSortable={true}
-                            pagination={true}
-                            isSearchable={true}
-                            tableClass="min-w-full rounded-lg overflow-hidden"
-                            theadClass="bg-gray-50"
-                            responsive={true}
-                        />
-                    </div>
-                </div>
-            )}
-
-            {viewMode === 'expenses' && (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                            <div>
-                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">
-                                    Expense Details
-                                </h3>
-                                <p className="text-gray-600 text-sm">
-                                    {reportData.filteredExpenses.length} expense items showing
-                                </p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-2 text-sm">
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Total Expenses: </span>
-                                    <span className="font-semibold text-red-600">
-                                        {formatCurrency(reportData.filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0))}
-                                    </span>
-                                </div>
-                                <div className="bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
-                                    <span className="text-gray-600">Avg per Item: </span>
-                                    <span className="font-semibold text-orange-600">
-                                        {formatCurrency(reportData.filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0) / reportData.filteredExpenses.length)}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div className="p-2 sm:p-4">
                         <Table
                             columns={expenseColumns}
-                            data={reportData.filteredExpenses}
-                            Title=""
-                            pageSize={15}
-                            pageIndex={0}
-                            totalCount={reportData.filteredExpenses.length}
-                            totalPages={Math.ceil(reportData.filteredExpenses.length / 15)}
-                            onPaginationChange={(page, size) => {}}
-                            isSortable={true}
+                            data={paginatedExpenses}
+                            pageSize={expensesPagination.pageSize}
+                            pageIndex={expensesPagination.pageIndex}
+                            totalCount={reportData.transactions?.expenses?.length || 0}
+                            totalPages={Math.ceil((reportData.transactions?.expenses?.length || 0) / expensesPagination.pageSize)}
+                            onPaginationChange={handleExpensesPagination}
                             pagination={true}
-                            isSearchable={true}
-                            tableClass="min-w-full rounded-lg overflow-hidden"
+                            isSearchable={false}
+                            isSortable={true}
                             theadClass="bg-gray-50"
-                            responsive={true}
                         />
                     </div>
                 </div>
             )}
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                {/* Vehicle Expenses */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-blue-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Vehicle Expenses</h3>
-                        <IconTruck className="w-5 h-5 text-blue-500" />
+            {/* Extra Income Table with Pagination */}
+            {reportData && viewMode === 'extraIncome' && reportData.transactions?.extra_incomes?.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Extra Income Details</h3>
+                        <p className="text-gray-600 text-sm">{reportData.transactions?.extra_incomes?.length || 0} extra income entries found</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-bold text-blue-700">
-                            {formatCurrency(reportData.summary.totalVehicleExpense)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {reportData.summary.vehicleExpensePercentage}% of total expenses
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                            Includes fuel, maintenance, repairs
-                        </div>
+                    <div className="p-2 sm:p-4">
+                        <Table
+                            columns={extraIncomeColumns}
+                            data={paginatedExtraIncome}
+                            pageSize={extraIncomePagination.pageSize}
+                            pageIndex={extraIncomePagination.pageIndex}
+                            totalCount={reportData.transactions?.extra_incomes?.length || 0}
+                            totalPages={Math.ceil((reportData.transactions?.extra_incomes?.length || 0) / extraIncomePagination.pageSize)}
+                            onPaginationChange={handleExtraIncomePagination}
+                            pagination={true}
+                            isSearchable={false}
+                            isSortable={true}
+                            theadClass="bg-gray-50"
+                        />
                     </div>
                 </div>
+            )}
 
-                {/* Staff Expenses */}
-                <div className="bg-white rounded-lg shadow-sm p-4 border border-green-200">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Staff Expenses</h3>
-                        <IconUsers className="w-5 h-5 text-green-500" />
+            {/* Investments Table with Pagination */}
+            {reportData && viewMode === 'investments' && reportData.transactions?.investments?.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-1">Investments & Withdrawals</h3>
+                        <p className="text-gray-600 text-sm">{reportData.transactions?.investments?.length || 0} transactions found</p>
                     </div>
-                    <div className="space-y-2">
-                        <div className="text-2xl font-bold text-green-700">
-                            {formatCurrency(reportData.summary.totalStaffExpense)}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {reportData.summary.staffExpensePercentage}% of total expenses
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                            Salaries and staff-related costs
-                        </div>
+                    <div className="p-2 sm:p-4">
+                        <Table
+                            columns={investmentColumns}
+                            data={paginatedInvestments}
+                            pageSize={investmentsPagination.pageSize}
+                            pageIndex={investmentsPagination.pageIndex}
+                            totalCount={reportData.transactions?.investments?.length || 0}
+                            totalPages={Math.ceil((reportData.transactions?.investments?.length || 0) / investmentsPagination.pageSize)}
+                            onPaginationChange={handleInvestmentsPagination}
+                            pagination={true}
+                            isSearchable={false}
+                            isSortable={true}
+                            theadClass="bg-gray-50"
+                        />
                     </div>
                 </div>
+            )}
 
-                {/* Overall Performance */}
-                <div className={`bg-white rounded-lg shadow-sm p-4 border ${reportData.summary.isOverallProfit ? 'border-green-200' : 'border-red-200'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-gray-800">Overall Performance</h3>
-                        {reportData.summary.isOverallProfit ? (
-                            <IconTrendingUp className="w-5 h-5 text-green-500" />
-                        ) : (
-                            <IconTrendingDown className="w-5 h-5 text-red-500" />
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <div className={`text-2xl font-bold ${reportData.summary.isOverallProfit ? 'text-green-700' : 'text-red-700'}`}>
-                            {reportData.summary.isOverallProfit ? 'Profitable Period' : 'Loss Period'}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                            {reportData.summary.profitPercentage}% profitable days
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2">
-                            Net margin: {reportData.summary.overallProfitMargin >= 0 ? '+' : ''}{reportData.summary.overallProfitMargin}%
-                        </div>
-                    </div>
+            {/* No Data Message */}
+            {!reportData && !loading && !error && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-12 text-center">
+                    <IconCalendar className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-yellow-800 mb-2">No Data Available</h3>
+                    <p className="text-yellow-600 mb-4">Select a date range and center to view the profit & loss report</p>
+                    <button onClick={fetchReportData} className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+                        Load Data
+                    </button>
                 </div>
-            </div>
+            )}
 
-            {/* Report Summary */}
-            <div className="bg-white rounded-lg shadow-sm p-6 mt-6 border border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-4">Report Summary</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Date Range</h4>
-                        <p className="text-gray-600">
-                            {moment(dateRange.from).format('DD MMMM YYYY')} - {moment(dateRange.to).format('DD MMMM YYYY')}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            {reportData.summary.totalDays} days analyzed
-                        </p>
-                    </div>
-                    <div>
-                        <h4 className="font-medium text-gray-700 mb-2">Key Metrics</h4>
-                        <ul className="space-y-1 text-sm text-gray-600">
-                            <li>• Total Payments: {formatNumber(reportData.summary.totalPackages)}</li>
-                            <li>• Total Revenue: {formatCurrency(reportData.summary.totalRevenue)}</li>
-                            <li>• Total Expenses: {formatCurrency(reportData.summary.totalExpenses)}</li>
-                            <li>• Net Profit/Loss: <span className={reportData.summary.isOverallProfit ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                                {formatCurrency(reportData.summary.totalProfit)}
-                            </span></li>
-                        </ul>
+            {/* Customer Payment Modal with Pagination */}
+            {showCustomerModal && selectedCustomer && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4">
+                        <div className="fixed inset-0 bg-gray-500 opacity-75" onClick={closeModal}></div>
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Payment Details - {selectedCustomer.customer_name}</h3>
+                                        <p className="text-sm text-gray-600">Phone: {selectedCustomer.customer_number} | Total: {formatCurrency(selectedCustomer.total_amount)} | Payments: {selectedCustomer.payment_count}</p>
+                                    </div>
+                                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><IconX className="w-6 h-6" /></button>
+                                </div>
+                                <div className="mt-4">
+                                    <Table
+                                        columns={customerPaymentColumns}
+                                        data={getPaginatedCustomerPayments()}
+                                        pageSize={customerPaymentsPagination.pageSize}
+                                        pageIndex={customerPaymentsPagination.pageIndex}
+                                        totalCount={selectedCustomer.payments?.length || 0}
+                                        totalPages={Math.ceil((selectedCustomer.payments?.length || 0) / customerPaymentsPagination.pageSize)}
+                                        onPaginationChange={handleCustomerPaymentsPagination}
+                                        pagination={true}
+                                        isSearchable={false}
+                                        isSortable={true}
+                                        theadClass="bg-gray-50"
+                                    />
+                                </div>
+                            </div>
+                            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <button onClick={closeModal} className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
+
+            {/* Expense Details Modal */}
+            {showExpenseModal && selectedExpenseType && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen px-4">
+                        <div className="fixed inset-0 bg-gray-500 opacity-75" onClick={closeModal}></div>
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900">Expense Details - {selectedExpenseType.name}</h3>
+                                        <p className="text-sm text-gray-600">Total: {formatCurrency(selectedExpenseType.total)} | Transactions: {selectedExpenseType.count}</p>
+                                    </div>
+                                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><IconX className="w-6 h-6" /></button>
+                                </div>
+                                <div className="overflow-x-auto max-h-96">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50 sticky top-0">
+                                            <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Date</th>
+                                                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Amount</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Payment Type</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Center</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {selectedExpenseType.expenses.map((expense, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-50">
+                                                    <td className="px-4 py-2 text-sm">{moment(expense.date).format('DD/MM/YYYY')}</td>
+                                                    <td className="px-4 py-2 text-sm text-right font-bold text-red-700">{formatCurrency(expense.amount)}</td>
+                                                    <td className="px-4 py-2 text-sm">{expense.payment_type_label}</td>
+                                                    <td className="px-4 py-2 text-sm">{expense.center?.name || '-'}</td>
+                                                    <td className="px-4 py-2 text-sm text-gray-500">{expense.description || expense.notes || '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                                <button onClick={closeModal} className="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

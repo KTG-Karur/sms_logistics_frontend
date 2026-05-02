@@ -34,6 +34,7 @@ import CustomerPaymentSlice from '../customerPaymentSlice';
 import DeliverySlice from '../deliverySlice';
 import SalarySlice from '../salarySlice'
 import LoadmanSalarySlice from '../loadmanSalarySlice'
+import ExtraIncomeSlice from '../extraIncomeSlice'
 
 const rootReducer = combineReducers({
     themeConfig: themeConfigSlice,
@@ -70,7 +71,8 @@ const rootReducer = combineReducers({
     CustomerPaymentSlice,
     DeliverySlice,
     SalarySlice,
-    LoadmanSalarySlice
+    LoadmanSalarySlice,
+    ExtraIncomeSlice,
 });
 
 const store = configureStore({
