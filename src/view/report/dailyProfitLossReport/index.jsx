@@ -12,6 +12,8 @@ import IconReceipt from '../../../components/Icon/IconReceipt';
 import IconBuilding from '../../../components/Icon/IconBuilding';
 import IconX from '../../../components/Icon/IconX';
 import IconPieChart from '../../../components/Icon/IconPieChart';
+import IconCash from '../../../components/Icon/IconCash';
+import IconCreditCard from '../../../components/Icon/IconCreditCard';
 import * as XLSX from 'xlsx';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
@@ -161,6 +163,158 @@ const ProfitLossReport = () => {
         setSelectedExpenseType(null);
     };
 
+    // Calculate payment totals by mode (cash vs digital)
+    const getPaymentTotalsByMode = () => {
+        if (!reportData || !reportData.transactions?.payments) {
+            return { cash: 0, digital: 0, total: 0, cashCount: 0, digitalCount: 0 };
+        }
+
+        let cashTotal = 0;
+        let digitalTotal = 0;
+        let cashCount = 0;
+        let digitalCount = 0;
+
+        reportData.transactions.payments.forEach(payment => {
+            const amount = parseFloat(payment.amount) || 0;
+            const mode = (payment.payment_mode || '').toLowerCase();
+            
+            if (mode === 'cash') {
+                cashTotal += amount;
+                cashCount++;
+            } 
+            else if (['upi', 'card', 'gpay', 'bank_transfer', 'wallet', 'googlepay', 'phonepay'].includes(mode)) {
+                digitalTotal += amount;
+                digitalCount++;
+            }
+            else {
+                cashTotal += amount;
+                cashCount++;
+            }
+        });
+
+        return {
+            cash: cashTotal,
+            digital: digitalTotal,
+            total: cashTotal + digitalTotal,
+            cashCount: cashCount,
+            digitalCount: digitalCount
+        };
+    };
+
+    // Calculate extra income totals by mode (cash vs digital)
+    const getExtraIncomeTotalsByMode = () => {
+        if (!reportData || !reportData.transactions?.extra_incomes) {
+            return { cash: 0, digital: 0, total: 0, cashCount: 0, digitalCount: 0 };
+        }
+
+        let cashTotal = 0;
+        let digitalTotal = 0;
+        let cashCount = 0;
+        let digitalCount = 0;
+
+        reportData.transactions.extra_incomes.forEach(income => {
+            const amount = parseFloat(income.amount) || 0;
+            const incomeType = (income.income_type || '').toLowerCase();
+            
+            if (incomeType === 'cash') {
+                cashTotal += amount;
+                cashCount++;
+            }
+            else if (['upi', 'gpay', 'bank_transfer', 'card'].includes(incomeType)) {
+                digitalTotal += amount;
+                digitalCount++;
+            }
+            else {
+                cashTotal += amount;
+                cashCount++;
+            }
+        });
+
+        return {
+            cash: cashTotal,
+            digital: digitalTotal,
+            total: cashTotal + digitalTotal,
+            cashCount: cashCount,
+            digitalCount: digitalCount
+        };
+    };
+
+    // Calculate expense totals by payment mode (cash vs digital)
+    const getExpenseTotalsByMode = () => {
+        if (!reportData || !reportData.transactions?.expenses) {
+            return { cash: 0, digital: 0, total: 0, cashCount: 0, digitalCount: 0 };
+        }
+
+        let cashTotal = 0;
+        let digitalTotal = 0;
+        let cashCount = 0;
+        let digitalCount = 0;
+
+        reportData.transactions.expenses.forEach(expense => {
+            const amount = parseFloat(expense.amount) || 0;
+            const paymentType = (expense.payment_type || '').toLowerCase();
+            
+            if (paymentType === 'cash') {
+                cashTotal += amount;
+                cashCount++;
+            }
+            else if (['gpay', 'upi', 'bank_transfer', 'card', 'netbanking'].includes(paymentType)) {
+                digitalTotal += amount;
+                digitalCount++;
+            }
+            else {
+                cashTotal += amount;
+                cashCount++;
+            }
+        });
+
+        return {
+            cash: cashTotal,
+            digital: digitalTotal,
+            total: cashTotal + digitalTotal,
+            cashCount: cashCount,
+            digitalCount: digitalCount
+        };
+    };
+
+    // Calculate cash/digital breakdown for Operational Profit/Loss
+    const getOperationalProfitLossByMode = () => {
+        const paymentTotals = getPaymentTotalsByMode();
+        const expenseTotals = getExpenseTotalsByMode();
+        const extraIncomeTotals = getExtraIncomeTotalsByMode();
+
+        const operationalProfitCash = (paymentTotals.cash + extraIncomeTotals.cash) - expenseTotals.cash;
+        const operationalProfitDigital = (paymentTotals.digital + extraIncomeTotals.digital) - expenseTotals.digital;
+        const operationalProfitTotal = operationalProfitCash + operationalProfitDigital;
+
+        return {
+            cash: operationalProfitCash,
+            digital: operationalProfitDigital,
+            total: operationalProfitTotal,
+            isProfit: operationalProfitTotal >= 0
+        };
+    };
+
+    // Calculate cash/digital breakdown for Net Profit/Loss
+    const getNetProfitLossByMode = () => {
+        const operationalProfit = getOperationalProfitLossByMode();
+        const totalInvestments = parseFloat(reportData?.summary?.total_investments || 0);
+        const totalWithdrawals = parseFloat(reportData?.summary?.total_withdrawals || 0);
+        const netInvestmentChange = totalInvestments - totalWithdrawals;
+
+        // For net profit/loss, investment change is considered as cash by default
+        const netProfitCash = operationalProfit.cash + netInvestmentChange;
+        const netProfitDigital = operationalProfit.digital;
+        const netProfitTotal = netProfitCash + netProfitDigital;
+
+        return {
+            cash: netProfitCash,
+            digital: netProfitDigital,
+            total: netProfitTotal,
+            isProfit: netProfitTotal >= 0
+        };
+    };
+
     // Prepare ledger entries for the report
     const prepareLedgerEntries = () => {
         if (!reportData) return [];
@@ -238,13 +392,18 @@ const ProfitLossReport = () => {
         return entries;
     };
 
-    // Get summary data for footer
+    // Get summary data for footer with cash/digital breakdown
     const getSummaryData = () => {
         if (!reportData) return [];
         
         const summary = [];
+        const paymentTotals = getPaymentTotalsByMode();
+        const expenseTotals = getExpenseTotalsByMode();
+        const extraIncomeTotals = getExtraIncomeTotalsByMode();
+        const operationalProfitByMode = getOperationalProfitLossByMode();
+        const netProfitByMode = getNetProfitLossByMode();
         
-        // Total Payments (Including Extra Income)
+        // Total Payments - Overall
         const totalPayments = parseFloat(reportData.summary?.total_payment_amount || 0);
         const totalExtraIncome = parseFloat(reportData.summary?.total_extra_income_amount || 0);
         const totalIncome = totalPayments + totalExtraIncome;
@@ -257,7 +416,51 @@ const ProfitLossReport = () => {
             isBold: true,
         });
         
-        // Total Expenses
+        // Payment Breakdown by Mode
+        if (paymentTotals.cash > 0 || paymentTotals.digital > 0) {
+            if (paymentTotals.cash > 0) {
+                summary.push({
+                    name: '  └ Cash Payments',
+                    credit: paymentTotals.cash,
+                    debit: 0,
+                    remarks: `${paymentTotals.cashCount} transactions`,
+                    isSubItem: true,
+                });
+            }
+            if (paymentTotals.digital > 0) {
+                summary.push({
+                    name: '  └ Digital Payments (UPI/Card/GPay/Bank Transfer)',
+                    credit: paymentTotals.digital,
+                    debit: 0,
+                    remarks: `${paymentTotals.digitalCount} transactions`,
+                    isSubItem: true,
+                });
+            }
+        }
+        
+        // Extra Income Breakdown by Mode
+        if (extraIncomeTotals.cash > 0 || extraIncomeTotals.digital > 0) {
+            if (extraIncomeTotals.cash > 0) {
+                summary.push({
+                    name: '  └ Cash Extra Income',
+                    credit: extraIncomeTotals.cash,
+                    debit: 0,
+                    remarks: `${extraIncomeTotals.cashCount} transactions`,
+                    isSubItem: true,
+                });
+            }
+            if (extraIncomeTotals.digital > 0) {
+                summary.push({
+                    name: '  └ Digital Extra Income (UPI/GPay)',
+                    credit: extraIncomeTotals.digital,
+                    debit: 0,
+                    remarks: `${extraIncomeTotals.digitalCount} transactions`,
+                    isSubItem: true,
+                });
+            }
+        }
+        
+        // Total Expenses - Overall
         const totalExpenses = parseFloat(reportData.summary?.total_expense_amount || 0);
         summary.push({
             name: 'TOTAL EXPENSES',
@@ -267,7 +470,29 @@ const ProfitLossReport = () => {
             isBold: true,
         });
         
-        // Operational Profit/Loss
+        // Expense Breakdown by Mode
+        if (expenseTotals.cash > 0 || expenseTotals.digital > 0) {
+            if (expenseTotals.cash > 0) {
+                summary.push({
+                    name: '  └ Cash Expenses',
+                    credit: 0,
+                    debit: expenseTotals.cash,
+                    remarks: `${expenseTotals.cashCount} transactions`,
+                    isSubItem: true,
+                });
+            }
+            if (expenseTotals.digital > 0) {
+                summary.push({
+                    name: '  └ Digital Expenses (UPI/GPay/Bank Transfer)',
+                    credit: 0,
+                    debit: expenseTotals.digital,
+                    remarks: `${expenseTotals.digitalCount} transactions`,
+                    isSubItem: true,
+                });
+            }
+        }
+        
+        // Operational Profit/Loss - Overall
         const operationalProfitLoss = Math.abs(parseFloat(reportData.summary?.operational_profit_loss || 0));
         const isOperationalProfit = parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0;
         summary.push({
@@ -277,6 +502,28 @@ const ProfitLossReport = () => {
             remarks: 'Income - Expenses',
             isBold: true,
         });
+        
+        // Operational Profit/Loss Breakdown by Mode
+        if (operationalProfitByMode.cash !== 0 || operationalProfitByMode.digital !== 0) {
+            if (operationalProfitByMode.cash !== 0) {
+                summary.push({
+                    name: '  └ Cash Operational P/L',
+                    credit: operationalProfitByMode.cash > 0 ? Math.abs(operationalProfitByMode.cash) : 0,
+                    debit: operationalProfitByMode.cash < 0 ? Math.abs(operationalProfitByMode.cash) : 0,
+                    remarks: 'Cash Income - Cash Expenses',
+                    isSubItem: true,
+                });
+            }
+            if (operationalProfitByMode.digital !== 0) {
+                summary.push({
+                    name: '  └ Digital Operational P/L',
+                    credit: operationalProfitByMode.digital > 0 ? Math.abs(operationalProfitByMode.digital) : 0,
+                    debit: operationalProfitByMode.digital < 0 ? Math.abs(operationalProfitByMode.digital) : 0,
+                    remarks: 'Digital Income - Digital Expenses',
+                    isSubItem: true,
+                });
+            }
+        }
         
         // Net Investment Change
         const totalInvestments = parseFloat(reportData.summary?.total_investments || 0);
@@ -304,6 +551,28 @@ const ProfitLossReport = () => {
             isHighlight: true,
         });
         
+        // Net Profit/Loss Breakdown by Mode
+        if (netProfitByMode.cash !== 0 || netProfitByMode.digital !== 0) {
+            if (netProfitByMode.cash !== 0) {
+                summary.push({
+                    name: '  └ Cash Net P/L (incl. Investments)',
+                    credit: netProfitByMode.cash > 0 ? Math.abs(netProfitByMode.cash) : 0,
+                    debit: netProfitByMode.cash < 0 ? Math.abs(netProfitByMode.cash) : 0,
+                    remarks: 'Cash Operational P/L + Investment Change',
+                    isSubItem: true,
+                });
+            }
+            if (netProfitByMode.digital !== 0) {
+                summary.push({
+                    name: '  └ Digital Net P/L',
+                    credit: netProfitByMode.digital > 0 ? Math.abs(netProfitByMode.digital) : 0,
+                    debit: netProfitByMode.digital < 0 ? Math.abs(netProfitByMode.digital) : 0,
+                    remarks: 'Digital Operational P/L',
+                    isSubItem: true,
+                });
+            }
+        }
+        
         return summary;
     };
 
@@ -315,6 +584,11 @@ const ProfitLossReport = () => {
         const summaryData = getSummaryData();
         const openingBalance = parseFloat(reportData.opening_balance?.total || 0);
         const closingBalance = parseFloat(reportData.summary?.closing_balance || 0);
+        const paymentTotals = getPaymentTotalsByMode();
+        const expenseTotals = getExpenseTotalsByMode();
+        const extraIncomeTotals = getExtraIncomeTotalsByMode();
+        const operationalProfitByMode = getOperationalProfitLossByMode();
+        const netProfitByMode = getNetProfitLossByMode();
 
         // Ledger Sheet
         const ledgerHeader = [
@@ -323,6 +597,17 @@ const ProfitLossReport = () => {
             [`Center: ${reportData.center?.name || 'All Centers'}`],
             [`Generated: ${moment().format('DD/MM/YYYY HH:mm')}`],
             [],
+            ['CASH/DIGITAL BREAKDOWN SUMMARY'],
+            [`Cash Payments: ${formatCurrency(paymentTotals.cash)} (${paymentTotals.cashCount} transactions)`],
+            [`Digital Payments: ${formatCurrency(paymentTotals.digital)} (${paymentTotals.digitalCount} transactions)`],
+            [`Cash Extra Income: ${formatCurrency(extraIncomeTotals.cash)} (${extraIncomeTotals.cashCount} transactions)`],
+            [`Digital Extra Income: ${formatCurrency(extraIncomeTotals.digital)} (${extraIncomeTotals.digitalCount} transactions)`],
+            [`Cash Expenses: ${formatCurrency(expenseTotals.cash)} (${expenseTotals.cashCount} transactions)`],
+            [`Digital Expenses: ${formatCurrency(expenseTotals.digital)} (${expenseTotals.digitalCount} transactions)`],
+            [`Cash Operational P/L: ${formatCurrency(operationalProfitByMode.cash)}`],
+            [`Digital Operational P/L: ${formatCurrency(operationalProfitByMode.digital)}`],
+            [`Cash Net P/L: ${formatCurrency(netProfitByMode.cash)}`],
+            [`Digital Net P/L: ${formatCurrency(netProfitByMode.digital)}`],
             [],
             ['Particulars', 'Credit (₹)', 'Debit (₹)', 'Remarks'],
             [],
@@ -342,18 +627,11 @@ const ProfitLossReport = () => {
             summary.remarks || '',
         ]);
 
-        const closingRow = [
-            'Closing Balance',
-            closingBalance.toFixed(2),
-            '',
-            `As of ${reportData.summary?.closing_balance_as_of || selectedDate}`,
-        ];
-
-        const allRows = [...ledgerHeader, ...ledgerRows, [], ...summaryRows, [], closingRow];
+        const allRows = [...ledgerHeader, ...ledgerRows, [], ...summaryRows];
         const ledgerWs = XLSX.utils.aoa_to_sheet(allRows);
 
         // Set column widths
-        ledgerWs['!cols'] = [{ wch: 35 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
+        ledgerWs['!cols'] = [{ wch: 45 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
 
         XLSX.utils.book_append_sheet(wb, ledgerWs, 'Profit & Loss Ledger');
 
@@ -369,6 +647,32 @@ const ProfitLossReport = () => {
             ['Mode', 'Amount (₹)', 'Count'],
             ...(reportData.summary?.payment_breakdown_by_mode || []).map(item => [item.label, item.amount, item.count]),
             [],
+            ['CASH VS DIGITAL PAYMENTS'],
+            ['Type', 'Amount (₹)', 'Transactions'],
+            ['Cash Payments', paymentTotals.cash.toFixed(2), paymentTotals.cashCount],
+            ['Digital Payments (UPI/Card/GPay)', paymentTotals.digital.toFixed(2), paymentTotals.digitalCount],
+            ['Total Payments', paymentTotals.total.toFixed(2), paymentTotals.cashCount + paymentTotals.digitalCount],
+            [],
+            ['CASH VS DIGITAL EXTRA INCOME'],
+            ['Type', 'Amount (₹)', 'Transactions'],
+            ['Cash Extra Income', extraIncomeTotals.cash.toFixed(2), extraIncomeTotals.cashCount],
+            ['Digital Extra Income', extraIncomeTotals.digital.toFixed(2), extraIncomeTotals.digitalCount],
+            ['Total Extra Income', extraIncomeTotals.total.toFixed(2), extraIncomeTotals.cashCount + extraIncomeTotals.digitalCount],
+            [],
+            ['CASH VS DIGITAL EXPENSES'],
+            ['Type', 'Amount (₹)', 'Transactions'],
+            ['Cash Expenses', expenseTotals.cash.toFixed(2), expenseTotals.cashCount],
+            ['Digital Expenses (UPI/GPay/Bank Transfer)', expenseTotals.digital.toFixed(2), expenseTotals.digitalCount],
+            ['Total Expenses', expenseTotals.total.toFixed(2), expenseTotals.cashCount + expenseTotals.digitalCount],
+            [],
+            ['CASH VS DIGITAL PROFIT/LOSS'],
+            ['Type', 'Amount (₹)'],
+            ['Cash Operational P/L', operationalProfitByMode.cash.toFixed(2)],
+            ['Digital Operational P/L', operationalProfitByMode.digital.toFixed(2)],
+            ['Cash Net P/L (incl. Investments)', netProfitByMode.cash.toFixed(2)],
+            ['Digital Net P/L', netProfitByMode.digital.toFixed(2)],
+            ['Total Net P/L', netProfitByMode.total.toFixed(2)],
+            [],
             ['EXTRA INCOME BREAKDOWN'],
             ['Type', 'Amount (₹)', 'Count'],
             ...(reportData.summary?.extra_income_breakdown_by_type || []).map(item => [item.label, item.amount, item.count]),
@@ -383,7 +687,7 @@ const ProfitLossReport = () => {
         ];
 
         const summaryWs = XLSX.utils.aoa_to_sheet(summarySheetData);
-        summaryWs['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 10 }];
+        summaryWs['!cols'] = [{ wch: 35 }, { wch: 20 }, { wch: 12 }];
         XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary Breakdown');
 
         const fileName = `Profit-Loss-${moment(selectedDate).format('DD-MM-YYYY')}-${(reportData.center?.name || 'All-Centers').replace(/\s+/g, '-')}.xlsx`;
@@ -397,6 +701,9 @@ const ProfitLossReport = () => {
         const summaryData = getSummaryData();
         const openingBalance = parseFloat(reportData.opening_balance?.total || 0);
         const closingBalance = parseFloat(reportData.summary?.closing_balance || 0);
+        const paymentTotals = getPaymentTotalsByMode();
+        const expenseTotals = getExpenseTotalsByMode();
+        const extraIncomeTotals = getExtraIncomeTotalsByMode();
 
         const pdfData = {
             reportData: reportData,
@@ -407,6 +714,9 @@ const ProfitLossReport = () => {
             generatedDate: moment().format('DD/MM/YYYY HH:mm'),
             date: moment(selectedDate).format('DD/MM/YYYY'),
             centerName: reportData.center?.name || 'All Centers',
+            paymentTotals: paymentTotals,
+            expenseTotals: expenseTotals,
+            extraIncomeTotals: extraIncomeTotals
         };
 
         navigate('/documents/profit-loss-pdf', { state: pdfData });
@@ -492,8 +802,13 @@ const ProfitLossReport = () => {
 
     const entries = reportData ? prepareLedgerEntries() : [];
     const summaryData = reportData ? getSummaryData() : [];
-    const openingBalance = reportData ? parseFloat(reportData.opening_balance?.total || 0) : 0;
-    const closingBalance = reportData ? parseFloat(reportData.summary?.closing_balance || 0) : 0;
+    const paymentTotals = reportData ? getPaymentTotalsByMode() : { cash: 0, digital: 0, total: 0, cashCount: 0, digitalCount: 0 };
+    const expenseTotals = reportData ? getExpenseTotalsByMode() : { cash: 0, digital: 0, total: 0, cashCount: 0, digitalCount: 0 };
+    const extraIncomeTotals = reportData ? getExtraIncomeTotalsByMode() : { cash: 0, digital: 0, total: 0, cashCount: 0, digitalCount: 0 };
+    const operationalProfitByMode = reportData ? getOperationalProfitLossByMode() : { cash: 0, digital: 0, total: 0, isProfit: true };
+    const netProfitByMode = reportData ? getNetProfitLossByMode() : { cash: 0, digital: 0, total: 0, isProfit: true };
+    const extraIncomeTotal = reportData?.summary?.total_extra_income_amount || 0;
+    const extraIncomeCount = reportData?.summary?.total_extra_income_count || 0;
 
     return (
         <div className="p-4 sm:p-6">
@@ -598,67 +913,139 @@ const ProfitLossReport = () => {
                 )}
             </div>
 
-            {/* Summary Cards */}
+            {/* Summary Cards - 4 Cards Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {/* Payments Card */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-3 py-2 bg-gradient-to-r from-green-50 to-green-100 border-b border-green-200">
+                        <h3 className="text-sm font-semibold text-green-800 flex items-center">
+                            <IconMoney className="w-4 h-4 mr-1" />
+                            Payments
+                        </h3>
+                    </div>
+                    <div className="p-3">
+                        <div className="text-xl font-bold text-green-700">{formatCurrency(paymentTotals.total)}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            Cash: {formatCurrency(paymentTotals.cash)} | Digital: {formatCurrency(paymentTotals.digital)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Expenses Card */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-3 py-2 bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200">
+                        <h3 className="text-sm font-semibold text-red-800 flex items-center">
+                            <IconReceipt className="w-4 h-4 mr-1" />
+                            Expenses
+                        </h3>
+                    </div>
+                    <div className="p-3">
+                        <div className="text-xl font-bold text-red-700">{formatCurrency(expenseTotals.total)}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            Cash: {formatCurrency(expenseTotals.cash)} | Digital: {formatCurrency(expenseTotals.digital)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Extra Income Card */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-3 py-2 bg-gradient-to-r from-yellow-50 to-yellow-100 border-b border-yellow-200">
+                        <h3 className="text-sm font-semibold text-yellow-800 flex items-center">
+                            <IconTrendingUp className="w-4 h-4 mr-1" />
+                            Extra Income
+                        </h3>
+                    </div>
+                    <div className="p-3">
+                        <div className="text-xl font-bold text-yellow-700">{formatCurrency(extraIncomeTotal)}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            Cash: {formatCurrency(extraIncomeTotals.cash)} | Digital: {formatCurrency(extraIncomeTotals.digital)}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">{extraIncomeCount} transactions</div>
+                    </div>
+                </div>
+
+                {/* Net P/L Card */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="px-3 py-2 bg-gradient-to-r from-purple-50 to-purple-100 border-b border-purple-200">
+                        <h3 className="text-sm font-semibold text-purple-800 flex items-center">
+                            <IconTrendingUp className="w-4 h-4 mr-1" />
+                            Net Profit/Loss
+                        </h3>
+                    </div>
+                    <div className="p-3">
+                        <div className={`text-xl font-bold ${netProfitByMode.isProfit ? 'text-green-700' : 'text-red-700'}`}>
+                            {formatCurrency(Math.abs(netProfitByMode.total))}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                            Cash: {formatCurrency(netProfitByMode.cash)} | Digital: {formatCurrency(netProfitByMode.digital)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Ledger Report Table */}
             {reportData && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-green-700 text-sm font-medium">Total Income</p>
-                                <p className="text-2xl font-bold text-green-800">{formatCurrency(reportData.summary?.total_income || 0)}</p>
-                            </div>
-                            <IconMoney className="w-10 h-10 text-green-600 opacity-50" />
-                        </div>
-                        <div className="mt-2 text-xs text-green-600">
-                            {reportData.summary?.total_payments || 0} Payments | {reportData.summary?.total_extra_income_count || 0} Extra Income
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800 mb-1">Ledger Statement</h2>
+                            <p className="text-gray-600 text-sm">Transaction details for {moment(selectedDate).format('DD MMM YYYY')}</p>
                         </div>
                     </div>
 
-                    <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-red-700 text-sm font-medium">Total Expenses</p>
-                                <p className="text-2xl font-bold text-red-800">{formatCurrency(reportData.summary?.total_expense_amount || 0)}</p>
-                            </div>
-                            <IconReceipt className="w-10 h-10 text-red-600 opacity-50" />
-                        </div>
-                        <div className="mt-2 text-xs text-red-600">
-                            {reportData.summary?.total_expense_payments || 0} Transactions
-                        </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-blue-700 text-sm font-medium">Operational P/L</p>
-                                <p className={`text-2xl font-bold ${parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                                    {formatCurrency(Math.abs(reportData.summary?.operational_profit_loss || 0))}
-                                </p>
-                            </div>
-                            {parseFloat(reportData.summary?.operational_profit_loss || 0) >= 0 ? (
-                                <IconTrendingUp className="w-10 h-10 text-green-600 opacity-50" />
-                            ) : (
-                                <IconTrendingDown className="w-10 h-10 text-red-600 opacity-50" />
-                            )}
-                        </div>
-                        <div className="mt-2 text-xs text-blue-600">
-                            Income - Expenses
-                        </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-purple-700 text-sm font-medium">Net Investment</p>
-                                <p className={`text-2xl font-bold ${parseFloat(reportData.summary?.net_investment_change || 0) >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                                    {formatCurrency(Math.abs(reportData.summary?.net_investment_change || 0))}
-                                </p>
-                            </div>
-                            <IconPieChart className="w-10 h-10 text-purple-600 opacity-50" />
-                        </div>
-                        <div className="mt-2 text-xs text-purple-600">
-                            Investments: {formatCurrency(reportData.summary?.total_investments || 0)} | Withdrawals: {formatCurrency(reportData.summary?.total_withdrawals || 0)}
-                        </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Particulars</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit (₹)</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit (₹)</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {entries.map((entry, index) => (
+                                    <tr key={index} className="hover:bg-gray-50">
+                                        <td className="px-6 py-3 text-sm font-medium text-gray-900">
+                                            {entry.name}
+                                            {entry.payment_number && (
+                                                <div className="text-xs text-gray-500">#{entry.payment_number}</div>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-right text-green-700">
+                                            {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-right text-red-700">
+                                            {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-gray-500">
+                                            {entry.remarks || '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                                {summaryData.map((summary, index) => (
+                                    <tr 
+                                        key={index} 
+                                        className={`${summary.isHighlight ? 'bg-yellow-50' : ''} ${summary.isSubItem ? 'bg-gray-100' : ''}`}
+                                    >
+                                        <td className={`px-6 py-3 text-sm ${summary.isBold ? 'font-bold' : summary.isSubItem ? 'font-normal pl-8' : 'font-medium'} text-gray-900`}>
+                                            {summary.name}
+                                        </td>
+                                        <td className={`px-6 py-3 text-sm text-right ${summary.isBold ? 'font-bold' : 'font-medium'} text-green-700`}>
+                                            {summary.credit > 0 ? formatCurrency(summary.credit) : '-'}
+                                        </td>
+                                        <td className={`px-6 py-3 text-sm text-right ${summary.isBold ? 'font-bold' : 'font-medium'} text-red-700`}>
+                                            {summary.debit > 0 ? formatCurrency(summary.debit) : '-'}
+                                        </td>
+                                        <td className="px-6 py-3 text-sm text-gray-500">
+                                            {summary.remarks || '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tfoot>
+                        </table>
                     </div>
                 </div>
             )}
@@ -822,97 +1209,6 @@ const ProfitLossReport = () => {
                             </div>
                         </div>
                     )}
-                </div>
-            )}
-
-            {/* Ledger Report Table */}
-            {reportData && (
-                <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200 mb-6">
-                    <div className="p-4 sm:p-6 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                        <div>
-                            <h2 className="text-xl font-bold text-gray-800 mb-1">Ledger Statement</h2>
-                            <p className="text-gray-600 text-sm">Transaction details for {moment(selectedDate).format('DD MMM YYYY')}</p>
-                        </div>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Particulars</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Credit (₹)</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debit (₹)</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {entries.map((entry, index) => (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                        <td className="px-6 py-3 text-sm font-medium text-gray-900">
-                                            {entry.name}
-                                            {entry.payment_number && (
-                                                <div className="text-xs text-gray-500">#{entry.payment_number}</div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-3 text-sm text-right text-green-700">
-                                            {entry.credit > 0 ? formatCurrency(entry.credit) : '-'}
-                                        </td>
-                                        <td className="px-6 py-3 text-sm text-right text-red-700">
-                                            {entry.debit > 0 ? formatCurrency(entry.debit) : '-'}
-                                        </td>
-                                        <td className="px-6 py-3 text-sm text-gray-500">
-                                            {entry.remarks || '-'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                            <tfoot className="bg-gray-50 border-t-2 border-gray-200">
-                                {/* Opening Balance Row */}
-                                {/* <tr className="bg-blue-50">
-                                    <td className="px-6 py-3 text-sm font-bold text-gray-900">Opening Balance</td>
-                                    <td className="px-6 py-3 text-sm text-right font-bold text-green-700">
-                                        {formatCurrency(openingBalance)}
-                                    </td>
-                                    <td className="px-6 py-3 text-sm text-right font-bold text-red-700">-</td>
-                                    <td className="px-6 py-3 text-sm text-gray-500">
-                                        As of {reportData.opening_balance?.as_of_date || 'previous day'}
-                                    </td>
-                                </tr> */}
-                                
-                                {summaryData.map((summary, index) => (
-                                    <tr 
-                                        key={index} 
-                                        className={`${summary.isHighlight ? 'bg-yellow-50' : ''}`}
-                                    >
-                                        <td className={`px-6 py-3 text-sm ${summary.isBold ? 'font-bold' : 'font-medium'} text-gray-900`}>
-                                            {summary.name}
-                                        </td>
-                                        <td className={`px-6 py-3 text-sm text-right ${summary.isBold ? 'font-bold' : 'font-medium'} text-green-700`}>
-                                            {summary.credit > 0 ? formatCurrency(summary.credit) : '-'}
-                                        </td>
-                                        <td className={`px-6 py-3 text-sm text-right ${summary.isBold ? 'font-bold' : 'font-medium'} text-red-700`}>
-                                            {summary.debit > 0 ? formatCurrency(summary.debit) : '-'}
-                                        </td>
-                                        <td className="px-6 py-3 text-sm text-gray-500">
-                                            {summary.remarks || '-'}
-                                        </td>
-                                    </tr>
-                                ))}
-                                
-                                {/* Closing Balance Row */}
-                                {/* <tr className="bg-gray-100 font-bold">
-                                    <td className="px-6 py-3 text-sm font-bold text-gray-900">Closing Balance</td>
-                                    <td className="px-6 py-3 text-sm text-right font-bold text-green-700">
-                                        {formatCurrency(closingBalance)}
-                                    </td>
-                                    <td className="px-6 py-3 text-sm text-right font-bold text-red-700">-</td>
-                                    <td className="px-6 py-3 text-sm text-gray-500">
-                                        As of {reportData.summary?.closing_balance_as_of || selectedDate}
-                                    </td>
-                                </tr> */}
-                            </tfoot>
-                        </table>
-                    </div>
                 </div>
             )}
 
