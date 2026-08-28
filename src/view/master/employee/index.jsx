@@ -477,11 +477,7 @@ const Employees = () => {
             'warning',
             'Are you sure you want to delete this Staff?',
             () => {
-                dispatch(
-                    deleteEmployee({
-                        employeeId: employee.employeeId,
-                    }),
-                );
+                dispatch(deleteEmployee(employee.employeeId));
             },
             'Yes, delete it',
         );
